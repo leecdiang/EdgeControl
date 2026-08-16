@@ -73,17 +73,22 @@ final class EdgeControlAppModel: ObservableObject {
         }
     }
 
+    func setExternalDDCEnabled(_ enabled: Bool) {
+        brightnessController.setExternalDDCEnabled(enabled)
+    }
+
     func openSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
-                styleMask: [.titled, .closable, .miniaturizable],
+                contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
             window.title = "EdgeControl Settings"
             window.contentView = NSHostingView(rootView: SettingsView(model: self, settings: settings))
             window.isReleasedWhenClosed = false
+            window.setContentSize(NSSize(width: 520, height: 420))
             window.center()
             settingsWindow = window
         }

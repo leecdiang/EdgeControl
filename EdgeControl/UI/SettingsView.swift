@@ -43,6 +43,13 @@ struct SettingsView: View {
                 Toggle("Haptic feedback", isOn: $settings.hapticFeedback)
                 Toggle("Show HUD", isOn: $settings.showHUD)
                 Toggle(
+                    "External display DDC (experimental)",
+                    isOn: Binding(
+                        get: { settings.externalDDCEnabled },
+                        set: { model.setExternalDDCEnabled($0) }
+                    )
+                )
+                Toggle(
                     "Launch at login",
                     isOn: Binding(
                         get: { settings.launchAtLogin },
@@ -79,7 +86,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 520, height: 360)
+        .padding(.top, 8)
     }
 
     @ViewBuilder

@@ -22,6 +22,11 @@ final class DisplayBrightnessController {
         external.refresh()
     }
 
+    func setExternalDDCEnabled(_ enabled: Bool) {
+        external.enabled = enabled
+        external.refresh()
+    }
+
     func getBrightness() throws -> Double {
         if builtIn.isAvailable {
             return try builtIn.getBrightness()

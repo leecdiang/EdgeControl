@@ -13,6 +13,7 @@ final class AppSettings: ObservableObject {
         static let showHUD = "showHUD"
         static let sensitivity = "sensitivity"
         static let launchAtLogin = "launchAtLogin"
+        static let externalDDCEnabled = "externalDDCEnabled"
     }
 
     private let defaults: UserDefaults
@@ -26,6 +27,7 @@ final class AppSettings: ObservableObject {
     @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Key.showHUD) } }
     @Published var sensitivity: Double { didSet { defaults.set(sensitivity, forKey: Key.sensitivity) } }
     @Published var launchAtLogin: Bool { didSet { defaults.set(launchAtLogin, forKey: Key.launchAtLogin) } }
+    @Published var externalDDCEnabled: Bool { didSet { defaults.set(externalDDCEnabled, forKey: Key.externalDDCEnabled) } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -38,7 +40,8 @@ final class AppSettings: ObservableObject {
             Key.hapticFeedback: true,
             Key.showHUD: true,
             Key.sensitivity: 1.0,
-            Key.launchAtLogin: false
+            Key.launchAtLogin: false,
+            Key.externalDDCEnabled: false
         ])
 
         masterEnabled = defaults.bool(forKey: Key.masterEnabled)
@@ -50,6 +53,7 @@ final class AppSettings: ObservableObject {
         showHUD = defaults.bool(forKey: Key.showHUD)
         sensitivity = min(2.0, max(0.35, defaults.double(forKey: Key.sensitivity)))
         launchAtLogin = defaults.bool(forKey: Key.launchAtLogin)
+        externalDDCEnabled = defaults.bool(forKey: Key.externalDDCEnabled)
     }
 }
 

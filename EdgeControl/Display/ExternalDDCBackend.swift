@@ -20,6 +20,10 @@ final class ExternalDDCBackend: BrightnessBackend {
 
     private var connections: [Connection] = []
 
+    /// V1 experimental gate: DDC/CI over I2C is unvalidated on other hardware,
+    /// so it is disabled unless explicitly enabled (default false).
+    var enabled = false
+
     var isAvailable: Bool { !connections.isEmpty }
 
     init() {
@@ -28,9 +32,20 @@ final class ExternalDDCBackend: BrightnessBackend {
 
     func refresh() {
         connections.removeAll()
-        for displayID in Self.onlineDisplayIDs() where CGDisplayIsBuiltin(displayID) == 0 {
-            if let handle = ec_ddc_open(displayID) {
-                connections.append(Connection(displayID: displayID, handle: handle))
+        guard enabled else { return }
+
+        var count: UInt32 = 0
+        guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else {
+            return
+        }
+        var displays = Array(repeating: CGDirectDisplayID(), count: Int(count))
+        guard CGGetActiveDisplayList(count, &displays, &count) == .success else {
+            return
+        }
+
+        for display in displays where CGDisplayIsBuiltin(display) == 0 {
+            if let handle = ec_ddc_open(display) {
+                connections.append(Connection(displayID: display, handle: handle))
             }
         }
     }
@@ -69,17 +84,4 @@ final class ExternalDDCBackend: BrightnessBackend {
             throw ControlError.writeFailed("The external display rejected DDC/CI VCP 0x10.")
         }
     }
-
-    private static func onlineDisplayIDs() -> [CGDirectDisplayID] {
-        var count: UInt32 = 0
-        guard CGGetOnlineDisplayList(0, nil, &count) == .success, count > 0 else {
-            return []
-        }
-        var displays = Array(repeating: CGDirectDisplayID(), count: Int(count))
-        guard CGGetOnlineDisplayList(count, &displays, &count) == .success else {
-            return []
-        }
-        return Array(displays.prefix(Int(count)))
-    }
 }
-

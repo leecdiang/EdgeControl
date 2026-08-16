@@ -40,7 +40,16 @@ hdiutil create \
   -format UDRW \
   "$rw_dmg"
 
-hdiutil attach "$rw_dmg" -mountpoint "$mount_dir" -nobrowse -quiet
+hdiutil attach "$rw_dmg" -quiet
+
+# Wait until Finder can address the volume (race on attach). Finder only
+# registers volumes mounted under /Volumes, so no custom -mountpoint is used.
+for _ in $(seq 1 20); do
+  if osascript -e 'tell application "Finder" to exists disk "EdgeControl"' 2>/dev/null | grep -qi true; then
+    break
+  fi
+  sleep 0.5
+done
 
 osascript <<APPLESCRIPT
 tell application "Finder"
@@ -63,7 +72,7 @@ end tell
 APPLESCRIPT
 
 sync
-hdiutil detach "$mount_dir" -quiet
+hdiutil detach "/Volumes/$volume_name" -quiet
 hdiutil convert "$rw_dmg" -format UDZO -imagekey zlib-level=9 -ov -o "$output_path"
 
 if [[ -n "${CODESIGN_IDENTITY:-}" ]]; then
