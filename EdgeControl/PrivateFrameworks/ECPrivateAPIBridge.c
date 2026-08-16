@@ -4,6 +4,7 @@
 #include <CoreGraphics/CoreGraphics.h>
 #include <dlfcn.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -27,8 +28,10 @@ typedef struct {
     float y;
 } ECMTPoint;
 
-/// Commonly observed MultitouchSupport contact layout.
-/// LOCAL_VALIDATION_REQUIRED on every supported macOS/architecture combination.
+/// Observed on macOS 26.5 (arm64): stride is 96 bytes. The first 80 bytes match
+/// the commonly observed layout; the final 16 bytes were verified as zero-padding
+/// on this machine (ECProbe raw dump, 2026-08-16). LOCAL_VALIDATION_REQUIRED on
+/// every supported macOS/architecture combination.
 typedef struct {
     int32_t frame;
     double timestamp;
@@ -45,6 +48,7 @@ typedef struct {
     ECMTPoint absolute;
     int32_t unknown3[2];
     float density;
+    int32_t unknown4[4];
 } ECMTFingerABI;
 
 typedef void *(*ECMTDeviceCreateDefaultFn)(void);
@@ -101,6 +105,27 @@ static int32_t ec_mt_system_callback(
     pthread_mutex_unlock(&g_mt_lock);
 
     size_t count = contact_count > 0 ? (size_t)contact_count : 0;
+
+    // Temporary ABI probe: dump raw bytes of the callback buffer.
+    // Gated by EDGE_RAW_DUMP=1; removed once the ABI is confirmed.
+    const char *dump_enabled = getenv("EDGE_RAW_DUMP");
+    if (dump_enabled != NULL && strcmp(dump_enabled, "1") == 0 && count > 0) {
+        fprintf(stderr, "[ECProbe] count=%d timestamp=%.3f frame=%d\n",
+                contact_count, timestamp, frame);
+        size_t dump_bytes = (size_t)contact_count * 96;
+        if (dump_bytes > 384) {
+            dump_bytes = 384;
+        }
+        const uint8_t *raw = (const uint8_t *)(const void *)contacts;
+        for (size_t offset = 0; offset < dump_bytes; offset += 16) {
+            fprintf(stderr, "[ECProbe] %04zx: ", offset);
+            for (size_t column = 0; column < 16 && offset + column < dump_bytes; column += 1) {
+                fprintf(stderr, "%02x ", raw[offset + column]);
+            }
+            fprintf(stderr, "\n");
+        }
+    }
+
     ECTouchContactRaw *translated = NULL;
     if (count > 0) {
         translated = calloc(count, sizeof(ECTouchContactRaw));
