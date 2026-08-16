@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import SwiftUI
 
 @MainActor
 final class EdgeControlAppModel: ObservableObject {
@@ -25,6 +26,7 @@ final class EdgeControlAppModel: ObservableObject {
     private let volumeController = VolumeController()
     private let brightnessController = DisplayBrightnessController()
     private let hapticEngine = HapticEngine()
+    private var settingsWindow: NSWindow?
     private let cursorController = CursorController()
     private let hudController = HUDController()
     private let launchAtLoginController = LaunchAtLoginController()
@@ -72,7 +74,20 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     func openSettings() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        if settingsWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 460, height: 420),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "EdgeControl Settings"
+            window.contentView = NSHostingView(rootView: SettingsView(model: self, settings: settings))
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+        }
+        settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 

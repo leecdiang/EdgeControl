@@ -23,9 +23,5 @@ struct EdgeControlApp: App {
             Label("EdgeControl", systemImage: "slider.vertical.3")
         }
         .menuBarExtraStyle(.menu)
-
-        Settings {
-            SettingsView(model: model, settings: model.settings)
-        }
     }
 }
