@@ -1,2 +1,0 @@
-3592bf7b072be3abf01e020cec4365d9686db742e8379aa14144a03a126ac9dd  EdgeControl-1.0.0-macOS.dmg
-539b1761ee5cd97284e863a8cfcefe4163a621362c528eeed0f77ccec1d43f55  EdgeControl.app.zip
