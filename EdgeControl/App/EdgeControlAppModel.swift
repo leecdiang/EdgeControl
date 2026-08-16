@@ -104,10 +104,28 @@ final class EdgeControlAppModel: ObservableObject {
             }
             touchStatus = .running
             lastError = nil
+            runActuatorProbeIfRequested()
         } catch {
             touchStatus = .unavailable(error.localizedDescription)
             lastError = error.localizedDescription
         }
+    }
+
+    /// Debug-only: EDGE_HAPTIC_PATTERN_TEST=1 pulses the given actuator pattern
+    /// a few times once the MT device is open, to audition patterns locally.
+    /// Requires EDGE_ENABLE_UNVALIDATED_PRIVATE_HAPTIC=1.
+    private func runActuatorProbeIfRequested() {
+        #if EDGE_DEBUG_LOGGING
+        let env = ProcessInfo.processInfo.environment
+        guard let raw = env["EDGE_HAPTIC_PATTERN_TEST"], let pattern = Int32(raw) else { return }
+        Task { @MainActor in
+            for _ in 0..<3 {
+                let ok = ec_mt_private_haptic_pulse(pattern)
+                print("[EdgeControl][ActuatorProbe] pattern=\(pattern) ok=\(ok)")
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+        }
+        #endif
     }
 
     /// Debug-only probe: EDGE_VOLUME_PROBE=0.25 exercises the real

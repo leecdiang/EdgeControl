@@ -46,22 +46,32 @@ final class HapticEngine {
     private var detents = DetentTracker()
     var preference: BackendPreference = .publicAPI
 
+    /// Minimum interval between detent pulses. 50ms lets a full-range swipe at
+    /// normal speed render all twenty 5% steps as discrete ticks (~20Hz cap,
+    /// enough to read as individual detents), while still clipping the >30Hz
+    /// buzz of very fast flicks. The activation tick always fires.
+    var pulseCooldown: TimeInterval = 0.05
+    private var lastPulseTime: TimeInterval = -.infinity
+    private let now: () -> TimeInterval
+
     init(
         publicBackend: HapticBackend = PublicHapticBackend(),
-        privateBackend: HapticBackend = TrackpadActuatorBackend()
+        privateBackend: HapticBackend = TrackpadActuatorBackend(),
+        now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     ) {
         self.publicBackend = publicBackend
         self.privateBackend = privateBackend
+        self.now = now
     }
 
     func activationTick(initialValue: Double) {
         detents.begin(at: initialValue)
-        selectedBackend()?.pulse()
+        pulse(force: true)
     }
 
     func valueChanged(to value: Double) {
         if detents.shouldEmit(for: value) {
-            selectedBackend()?.pulse()
+            pulse(force: false)
         }
     }
 
@@ -73,6 +83,16 @@ final class HapticEngine {
         publicBackend.reset()
         privateBackend.reset()
         detents.reset()
+        lastPulseTime = -.infinity
+    }
+
+    private func pulse(force: Bool) {
+        let nowValue = now()
+        if !force && nowValue - lastPulseTime < pulseCooldown {
+            return
+        }
+        lastPulseTime = nowValue
+        selectedBackend()?.pulse()
     }
 
     private func selectedBackend() -> HapticBackend? {

@@ -41,6 +41,7 @@
 		200000000000000000000103 /* DetentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000103 /* DetentTests.swift */; };
 		200000000000000000000104 /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000104 /* SettingsTests.swift */; };
 		200000000000000000000105 /* SyntheticTouchTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000105 /* SyntheticTouchTrace.swift */; };
+		200000000000000000000107 /* HapticEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000106 /* HapticEngineTests.swift */; };
 		200000000000000000000106 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* XCTest.framework */; };
 /* End PBXBuildFile section */
 
@@ -97,6 +98,7 @@
 		100000000000000000000103 /* DetentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetentTests.swift; sourceTree = "<group>"; };
 		100000000000000000000104 /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
 		100000000000000000000105 /* SyntheticTouchTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers/SyntheticTouchTrace.swift; sourceTree = "<group>"; };
+		100000000000000000000106 /* HapticEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticEngineTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -176,6 +178,7 @@
 				100000000000000000000102 /* MappingTests.swift */,
 				100000000000000000000103 /* DetentTests.swift */,
 				100000000000000000000104 /* SettingsTests.swift */,
+				100000000000000000000106 /* HapticEngineTests.swift */,
 				100000000000000000000105 /* SyntheticTouchTrace.swift */,
 			);
 			path = EdgeControlTests;
@@ -324,6 +327,7 @@
 				200000000000000000000103,
 				200000000000000000000104,
 				200000000000000000000105,
+				200000000000000000000107,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
