@@ -1,0 +1,478 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		200000000000000000000001 /* EdgeControlApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000001 /* EdgeControlApp.swift */; };
+		200000000000000000000002 /* EdgeControlAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000002 /* EdgeControlAppModel.swift */; };
+		200000000000000000000003 /* TouchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000003 /* TouchModels.swift */; };
+		200000000000000000000004 /* TrackpadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000004 /* TrackpadManager.swift */; };
+		200000000000000000000005 /* EdgeGestureTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000005 /* EdgeGestureTypes.swift */; };
+		200000000000000000000006 /* GestureEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000006 /* GestureEngine.swift */; };
+		200000000000000000000007 /* ContinuousValueMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000007 /* ContinuousValueMapper.swift */; };
+		200000000000000000000008 /* ControlErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000008 /* ControlErrors.swift */; };
+		200000000000000000000009 /* VolumeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000009 /* VolumeController.swift */; };
+		20000000000000000000000A /* BrightnessBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000A /* BrightnessBackend.swift */; };
+		20000000000000000000000B /* BuiltInDisplayBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000B /* BuiltInDisplayBackend.swift */; };
+		20000000000000000000000C /* ExternalDDCBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000C /* ExternalDDCBackend.swift */; };
+		20000000000000000000000D /* DisplayBrightnessController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000D /* DisplayBrightnessController.swift */; };
+		20000000000000000000000E /* DetentTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000E /* DetentTracker.swift */; };
+		20000000000000000000000F /* HapticEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000000F /* HapticEngine.swift */; };
+		200000000000000000000010 /* HUDController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000010 /* HUDController.swift */; };
+		200000000000000000000011 /* MenuBarMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000011 /* MenuBarMenuView.swift */; };
+		200000000000000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000012 /* SettingsView.swift */; };
+		200000000000000000000013 /* EdgeAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000013 /* EdgeAction.swift */; };
+		200000000000000000000014 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000014 /* AppSettings.swift */; };
+		200000000000000000000015 /* CursorController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000015 /* CursorController.swift */; };
+		200000000000000000000016 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000016 /* LaunchAtLoginController.swift */; };
+		200000000000000000000017 /* SystemEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* SystemEventMonitor.swift */; };
+		200000000000000000000018 /* ECPrivateAPIBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000018 /* ECPrivateAPIBridge.c */; };
+		200000000000000000000019 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001C /* Assets.xcassets */; };
+		200000000000000000000020 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* AppKit.framework */; };
+		200000000000000000000021 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000021 /* CoreAudio.framework */; };
+		200000000000000000000022 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000022 /* CoreGraphics.framework */; };
+		200000000000000000000023 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000023 /* IOKit.framework */; };
+		200000000000000000000024 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000024 /* ServiceManagement.framework */; };
+		200000000000000000000101 /* GestureEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000101 /* GestureEngineTests.swift */; };
+		200000000000000000000102 /* MappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000102 /* MappingTests.swift */; };
+		200000000000000000000103 /* DetentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000103 /* DetentTests.swift */; };
+		200000000000000000000104 /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000104 /* SettingsTests.swift */; };
+		200000000000000000000105 /* SyntheticTouchTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000105 /* SyntheticTouchTrace.swift */; };
+		200000000000000000000106 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000025 /* XCTest.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		700000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 800000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 500000000000000000000001;
+			remoteInfo = EdgeControl;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		100000000000000000000001 /* EdgeControlApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/EdgeControlApp.swift; sourceTree = "<group>"; };
+		100000000000000000000002 /* EdgeControlAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/EdgeControlAppModel.swift; sourceTree = "<group>"; };
+		100000000000000000000003 /* TouchModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Input/TouchModels.swift; sourceTree = "<group>"; };
+		100000000000000000000004 /* TrackpadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Input/TrackpadManager.swift; sourceTree = "<group>"; };
+		100000000000000000000005 /* EdgeGestureTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gesture/EdgeGestureTypes.swift; sourceTree = "<group>"; };
+		100000000000000000000006 /* GestureEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gesture/GestureEngine.swift; sourceTree = "<group>"; };
+		100000000000000000000007 /* ContinuousValueMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Actions/ContinuousValueMapper.swift; sourceTree = "<group>"; };
+		100000000000000000000008 /* ControlErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Actions/ControlErrors.swift; sourceTree = "<group>"; };
+		100000000000000000000009 /* VolumeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Actions/VolumeController.swift; sourceTree = "<group>"; };
+		10000000000000000000000A /* BrightnessBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Display/BrightnessBackend.swift; sourceTree = "<group>"; };
+		10000000000000000000000B /* BuiltInDisplayBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Display/BuiltInDisplayBackend.swift; sourceTree = "<group>"; };
+		10000000000000000000000C /* ExternalDDCBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Display/ExternalDDCBackend.swift; sourceTree = "<group>"; };
+		10000000000000000000000D /* DisplayBrightnessController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Display/DisplayBrightnessController.swift; sourceTree = "<group>"; };
+		10000000000000000000000E /* DetentTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feedback/DetentTracker.swift; sourceTree = "<group>"; };
+		10000000000000000000000F /* HapticEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Feedback/HapticEngine.swift; sourceTree = "<group>"; };
+		100000000000000000000010 /* HUDController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/HUDController.swift; sourceTree = "<group>"; };
+		100000000000000000000011 /* MenuBarMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/MenuBarMenuView.swift; sourceTree = "<group>"; };
+		100000000000000000000012 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/SettingsView.swift; sourceTree = "<group>"; };
+		100000000000000000000013 /* EdgeAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings/EdgeAction.swift; sourceTree = "<group>"; };
+		100000000000000000000014 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings/AppSettings.swift; sourceTree = "<group>"; };
+		100000000000000000000015 /* CursorController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System/CursorController.swift; sourceTree = "<group>"; };
+		100000000000000000000016 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System/LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		100000000000000000000017 /* SystemEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System/SystemEventMonitor.swift; sourceTree = "<group>"; };
+		100000000000000000000018 /* ECPrivateAPIBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = PrivateFrameworks/ECPrivateAPIBridge.c; sourceTree = "<group>"; };
+		100000000000000000000019 /* ECPrivateAPIBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PrivateFrameworks/ECPrivateAPIBridge.h; sourceTree = "<group>"; };
+		10000000000000000000001A /* EdgeControl-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "EdgeControl-Bridging-Header.h"; sourceTree = "<group>"; };
+		10000000000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		10000000000000000000001C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		10000000000000000000001D /* EdgeControl.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EdgeControl.entitlements; sourceTree = "<group>"; };
+		100000000000000000000020 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		100000000000000000000021 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
+		100000000000000000000022 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		100000000000000000000023 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		100000000000000000000024 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
+		100000000000000000000025 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
+		100000000000000000000030 /* EdgeControl.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EdgeControl.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		100000000000000000000031 /* EdgeControlTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EdgeControlTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		100000000000000000000101 /* GestureEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureEngineTests.swift; sourceTree = "<group>"; };
+		100000000000000000000102 /* MappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MappingTests.swift; sourceTree = "<group>"; };
+		100000000000000000000103 /* DetentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetentTests.swift; sourceTree = "<group>"; };
+		100000000000000000000104 /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
+		100000000000000000000105 /* SyntheticTouchTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Helpers/SyntheticTouchTrace.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		400000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				200000000000000000000020 /* AppKit.framework in Frameworks */,
+				200000000000000000000021 /* CoreAudio.framework in Frameworks */,
+				200000000000000000000022 /* CoreGraphics.framework in Frameworks */,
+				200000000000000000000023 /* IOKit.framework in Frameworks */,
+				200000000000000000000024 /* ServiceManagement.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		400000000000000000000102 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				200000000000000000000106 /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		300000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				300000000000000000000002 /* EdgeControl */,
+				300000000000000000000003 /* EdgeControlTests */,
+				300000000000000000000004 /* Frameworks */,
+				300000000000000000000005 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		300000000000000000000002 /* EdgeControl */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000001 /* EdgeControlApp.swift */,
+				100000000000000000000002 /* EdgeControlAppModel.swift */,
+				100000000000000000000003 /* TouchModels.swift */,
+				100000000000000000000004 /* TrackpadManager.swift */,
+				100000000000000000000005 /* EdgeGestureTypes.swift */,
+				100000000000000000000006 /* GestureEngine.swift */,
+				100000000000000000000007 /* ContinuousValueMapper.swift */,
+				100000000000000000000008 /* ControlErrors.swift */,
+				100000000000000000000009 /* VolumeController.swift */,
+				10000000000000000000000A /* BrightnessBackend.swift */,
+				10000000000000000000000B /* BuiltInDisplayBackend.swift */,
+				10000000000000000000000C /* ExternalDDCBackend.swift */,
+				10000000000000000000000D /* DisplayBrightnessController.swift */,
+				10000000000000000000000E /* DetentTracker.swift */,
+				10000000000000000000000F /* HapticEngine.swift */,
+				100000000000000000000010 /* HUDController.swift */,
+				100000000000000000000011 /* MenuBarMenuView.swift */,
+				100000000000000000000012 /* SettingsView.swift */,
+				100000000000000000000013 /* EdgeAction.swift */,
+				100000000000000000000014 /* AppSettings.swift */,
+				100000000000000000000015 /* CursorController.swift */,
+				100000000000000000000016 /* LaunchAtLoginController.swift */,
+				100000000000000000000017 /* SystemEventMonitor.swift */,
+				100000000000000000000018 /* ECPrivateAPIBridge.c */,
+				100000000000000000000019 /* ECPrivateAPIBridge.h */,
+				10000000000000000000001A /* EdgeControl-Bridging-Header.h */,
+				10000000000000000000001B /* Info.plist */,
+				10000000000000000000001C /* Assets.xcassets */,
+				10000000000000000000001D /* EdgeControl.entitlements */,
+			);
+			path = EdgeControl;
+			sourceTree = "<group>";
+		};
+		300000000000000000000003 /* EdgeControlTests */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000101 /* GestureEngineTests.swift */,
+				100000000000000000000102 /* MappingTests.swift */,
+				100000000000000000000103 /* DetentTests.swift */,
+				100000000000000000000104 /* SettingsTests.swift */,
+				100000000000000000000105 /* SyntheticTouchTrace.swift */,
+			);
+			path = EdgeControlTests;
+			sourceTree = "<group>";
+		};
+		300000000000000000000004 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000020 /* AppKit.framework */,
+				100000000000000000000021 /* CoreAudio.framework */,
+				100000000000000000000022 /* CoreGraphics.framework */,
+				100000000000000000000023 /* IOKit.framework */,
+				100000000000000000000024 /* ServiceManagement.framework */,
+				100000000000000000000025 /* XCTest.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		300000000000000000000005 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000030 /* EdgeControl.app */,
+				100000000000000000000031 /* EdgeControlTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		500000000000000000000001 /* EdgeControl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 600000000000000000000002 /* Build configuration list for PBXNativeTarget "EdgeControl" */;
+			buildPhases = (
+				400000000000000000000001 /* Sources */,
+				400000000000000000000002 /* Frameworks */,
+				400000000000000000000003 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = EdgeControl;
+			productName = EdgeControl;
+			productReference = 100000000000000000000030 /* EdgeControl.app */;
+			productType = "com.apple.product-type.application";
+		};
+		500000000000000000000002 /* EdgeControlTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 600000000000000000000003 /* Build configuration list for PBXNativeTarget "EdgeControlTests" */;
+			buildPhases = (
+				400000000000000000000101 /* Sources */,
+				400000000000000000000102 /* Frameworks */,
+				400000000000000000000103 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (
+				700000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = EdgeControlTests;
+			productName = EdgeControlTests;
+			productReference = 100000000000000000000031 /* EdgeControlTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		800000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					500000000000000000000001 = { CreatedOnToolsVersion = 16.0; };
+					500000000000000000000002 = { CreatedOnToolsVersion = 16.0; TestTargetID = 500000000000000000000001; };
+				};
+			};
+			buildConfigurationList = 600000000000000000000001 /* Build configuration list for PBXProject "EdgeControl" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = 300000000000000000000001;
+			productRefGroup = 300000000000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				500000000000000000000001 /* EdgeControl */,
+				500000000000000000000002 /* EdgeControlTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		400000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (200000000000000000000019 /* Assets.xcassets in Resources */);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		400000000000000000000103 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		400000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				200000000000000000000001,
+				200000000000000000000002,
+				200000000000000000000003,
+				200000000000000000000004,
+				200000000000000000000005,
+				200000000000000000000006,
+				200000000000000000000007,
+				200000000000000000000008,
+				200000000000000000000009,
+				20000000000000000000000A,
+				20000000000000000000000B,
+				20000000000000000000000C,
+				20000000000000000000000D,
+				20000000000000000000000E,
+				20000000000000000000000F,
+				200000000000000000000010,
+				200000000000000000000011,
+				200000000000000000000012,
+				200000000000000000000013,
+				200000000000000000000014,
+				200000000000000000000015,
+				200000000000000000000016,
+				200000000000000000000017,
+				200000000000000000000018,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		400000000000000000000101 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				200000000000000000000101,
+				200000000000000000000102,
+				200000000000000000000103,
+				200000000000000000000104,
+				200000000000000000000105,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		700000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 500000000000000000000001 /* EdgeControl */;
+			targetProxy = 700000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		610000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_C_LANGUAGE_STANDARD = gnu11;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		610000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_C_LANGUAGE_STANDARD = gnu11;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		610000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = EdgeControl/EdgeControl.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EdgeControl/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControl;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EDGE_DEBUG_LOGGING";
+				SWIFT_OBJC_BRIDGING_HEADER = "EdgeControl/EdgeControl-Bridging-Header.h";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		610000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = EdgeControl/EdgeControl.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EdgeControl/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControl;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "EdgeControl/EdgeControl-Bridging-Header.h";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		610000000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControlTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EdgeControl.app/Contents/MacOS/EdgeControl";
+			};
+			name = Debug;
+		};
+		610000000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControlTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EdgeControl.app/Contents/MacOS/EdgeControl";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		600000000000000000000001 /* Build configuration list for PBXProject "EdgeControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (610000000000000000000001 /* Debug */, 610000000000000000000002 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		600000000000000000000002 /* Build configuration list for PBXNativeTarget "EdgeControl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (610000000000000000000011 /* Debug */, 610000000000000000000012 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		600000000000000000000003 /* Build configuration list for PBXNativeTarget "EdgeControlTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (610000000000000000000021 /* Debug */, 610000000000000000000022 /* Release */);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 800000000000000000000001 /* Project object */;
+}
+
