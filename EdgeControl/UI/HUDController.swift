@@ -19,7 +19,7 @@ final class HUDController {
 
     init() {
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 230, height: 116),
+            contentRect: NSRect(x: 0, y: 0, width: 190, height: 64),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -75,44 +75,39 @@ private struct EdgeHUDView: View {
     let presentation: HUDPresentation
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 10) {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
                 Image(systemName: symbolName)
-                    .font(.system(size: 24, weight: .semibold))
-                    .frame(width: 30)
-                Text(title)
                     .font(.system(size: 15, weight: .semibold))
-                Spacer()
+                    .frame(width: 22)
                 if let value = presentation.value {
                     Text("\(Int((value * 100).rounded()))%")
                         .monospacedDigit()
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
+                } else {
+                    Text(presentation.message ?? "Unavailable")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
+                Spacer(minLength: 0)
             }
 
             if let value = presentation.value {
                 ProgressView(value: value)
                     .progressViewStyle(.linear)
-            } else {
-                Text(presentation.message ?? "Unavailable")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(2)
+                    .controlSize(.small)
             }
         }
-        .padding(18)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
         .foregroundStyle(.primary)
-        .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(.white.opacity(0.14), lineWidth: 1)
         )
-        .frame(width: 230, height: 116)
-    }
-
-    private var title: String {
-        presentation.kind == .volume ? "Volume" : "Brightness"
+        .frame(width: 190, height: 64)
     }
 
     private var symbolName: String {

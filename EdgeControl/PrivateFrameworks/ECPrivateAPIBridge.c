@@ -137,6 +137,7 @@ static int32_t ec_mt_system_callback(
             translated[index].x = contacts[index].normalized.x;
             translated[index].y = contacts[index].normalized.y;
             translated[index].raw_state = contacts[index].state;
+            translated[index].size = contacts[index].size;
         }
         callback(context, translated, count, timestamp);
     }

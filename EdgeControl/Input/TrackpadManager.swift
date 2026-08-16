@@ -19,6 +19,7 @@ private struct RawTouchContact: Sendable {
     let x: Double
     let y: Double
     let rawState: Int32
+    let size: Float
 }
 
 private struct RawTouchFrame: Sendable {
@@ -100,7 +101,8 @@ final class TrackpadManager: @unchecked Sendable {
                         id: Int(contact.identifier),
                         x: min(1.0, max(0.0, contact.x)),
                         y: min(1.0, max(0.0, contact.y)),
-                        rawState: contact.raw_state
+                        rawState: contact.raw_state,
+                        size: contact.size
                     )
                 )
             }
@@ -128,10 +130,9 @@ final class TrackpadManager: @unchecked Sendable {
 
         #if EDGE_DEBUG_LOGGING
         for raw in rawFrame.contacts {
-            print("[EdgeControl][RawTouch] id=\(raw.id) x=\(raw.x) y=\(raw.y) rawState=\(raw.rawState) fingers=\(rawFrame.contacts.count)")
+            print("[EdgeControl][RawTouch] id=\(raw.id) x=\(raw.x) y=\(raw.y) size=\(String(format: "%.3f", raw.size)) rawState=\(raw.rawState) fingers=\(rawFrame.contacts.count)")
         }
         #endif
-
         frameHandler?(TouchFrame(contacts: contacts, timestamp: rawFrame.timestamp))
     }
 

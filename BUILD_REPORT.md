@@ -1,6 +1,6 @@
-# BUILD_REPORT — EdgeControl 1.0.0
+# BUILD_REPORT — EdgeControl 1.1.0
 
-Date: 2026-08-16/17
+Date: 2026-08-17
 Status: **RELEASE READY (ad-hoc signed)**
 
 ## Environment
@@ -21,7 +21,7 @@ Status: **RELEASE READY (ad-hoc signed)**
 |---|---|
 | Debug build | PASS |
 | Release build | PASS |
-| Unit tests | PASS — 23/23 (GestureEngine 12, Mapping 3, Detent 2, Settings 3, HapticEngine 2, +1 timeout regression) |
+| Unit tests | PASS — 26/26 (GestureEngine 13, Mapping 3, Detent 2, Settings 3, HapticEngine 2, timeout regression, zero-cross reversal) |
 | Release verbose touch logging | OFF (EDGE_DEBUG_LOGGING is Debug-only; verified via binary inspection) |
 | No network/telemetry | PASS (otool/nm: no network frameworks, no analytics symbols) |
 
@@ -43,6 +43,7 @@ Status: **RELEASE READY (ad-hoc signed)**
 | Two-finger scroll (J) | PASS | Never activates |
 | Two-finger → lift one (K) | PASS | Latched until all fingers lift |
 | Real-use false triggers | PASS | 1–2 min typing/scrolling: 0 activations |
+| Palm-while-typing defense | PASS | Tuned: left strip 0.8%, directionality ratio 0.75, zero-cross reversal cancel (Diang-verified usable) |
 | CoreAudio volume 25/50/75% | PASS | Exact round-trip (osascript ground truth) |
 | Volume continuous mapping | PASS | Slow/fast/reverse; 0% and 100% clamps, no out-of-bounds |
 | Built-in brightness 25/50/75% | PASS | Exact round-trip via DisplayServices |

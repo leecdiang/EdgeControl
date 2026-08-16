@@ -2,6 +2,8 @@
 
 > Two edges. Two controls. Nothing else.
 
+<img src="assets/icon-512.png" alt="EdgeControl icon" width="128" height="128" align="left" style="margin-right: 16px;">
+
 EdgeControl is an open-source, offline macOS menu-bar utility that maps a deliberate physical-edge ingress on a MacBook trackpad to continuous volume or brightness control.
 
 The intended gesture is not “start near an edge.” A contact must first appear in a very narrow edge-entry strip and establish vertical intent within a short deadline. A contact first observed in the trackpad interior is permanently rejected until that finger lifts. Any multi-touch frame rejects the entire current lifecycle until every finger lifts.
@@ -30,7 +32,7 @@ The gesture recognizer, value mapping, detent, and settings layers are covered b
 
 ## Requirements
 
-- Validated on macOS 26.5 (Apple Silicon). Other macOS versions and Intel are untested — treat as experimental.
+- Validated on macOS 26.5 (Apple Silicon, MacBook Air). Other macOS versions and Intel are untested — treat as experimental.
 - Xcode 26.x used for validation; the project also builds with Xcode 15+ (deployment target macOS 13).
 - A built-in Force Touch trackpad for the intended UX.
 
@@ -50,7 +52,7 @@ The script disables code signing for local compilation when no `DEVELOPMENT_TEAM
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.0.0-macOS.dmg
+  ./dist/EdgeControl-1.1.0-macOS.dmg
 ```
 
 The script uses only macOS-provided tools (`hdiutil`, Finder/AppleScript, `codesign`, `xcrun`). It stages `EdgeControl.app` on the left and an `Applications` symlink on the right, then converts to a compressed read-only DMG. Verified layout: App at (145,175), Applications at (410,175), icon size 104.

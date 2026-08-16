@@ -14,6 +14,8 @@ final class GestureEngine {
         let birthTimestamp: TimeInterval
         var lastX: Double
         var lastY: Double
+        var totalUp: Double
+        var totalDown: Double
     }
 
     struct ActiveContact: Sendable, Equatable {
@@ -22,6 +24,8 @@ final class GestureEngine {
         let activationY: Double
         var lastX: Double
         var lastY: Double
+        var maxNetDeltaY: Double
+        var lastNetDeltaY: Double?
     }
 
     enum State: Sendable, Equatable {
@@ -105,9 +109,9 @@ final class GestureEngine {
 
     private func beginLifecycle(with contact: TouchContact) -> [EdgeGestureEvent] {
         let edge: Edge?
-        if contact.x <= configuration.entryStripWidth {
+        if contact.x <= configuration.leftEntryStripWidth {
             edge = .left
-        } else if contact.x >= 1.0 - configuration.entryStripWidth {
+        } else if contact.x >= 1.0 - configuration.rightEntryStripWidth {
             edge = .right
         } else {
             edge = nil
@@ -126,7 +130,9 @@ final class GestureEngine {
                 birthY: contact.y,
                 birthTimestamp: contact.timestamp,
                 lastX: contact.x,
-                lastY: contact.y
+                lastY: contact.y,
+                totalUp: 0,
+                totalDown: 0
             )
         )
         return []
@@ -162,6 +168,15 @@ final class GestureEngine {
             return []
         }
 
+        // Accumulate the vertical path before updating lastY so the delta is
+        // measured against the previous frame (used for the directionality ratio).
+        let verticalDelta = contact.y - candidate.lastY
+        if verticalDelta > 0 {
+            candidate.totalUp += verticalDelta
+        } else {
+            candidate.totalDown += -verticalDelta
+        }
+
         candidate.lastX = contact.x
         candidate.lastY = contact.y
         let hasInwardMotion = inwardConfirmed || inwardTravel >= configuration.minimumInwardTravel
@@ -176,13 +191,26 @@ final class GestureEngine {
             return []
         }
 
+        // Directionality ratio: a deliberate swipe is monotonic (ratio ~1); a
+        // resting palm jiggles up/down while typing (ratio ~0.5-0.6). Requiring
+        // most of the path to be one-directional rejects palm false triggers
+        // without a usable contact-size signal on this OS (see GestureTuning).
+        let pathTotal = candidate.totalUp + candidate.totalDown
+        let directionality = pathTotal > 0 ? max(candidate.totalUp, candidate.totalDown) / pathTotal : 0
+        guard directionality >= configuration.directionalityRatio else {
+            state = .entryConfirmed(candidate)
+            return []
+        }
+
         state = .active(
             ActiveContact(
                 contactID: contact.id,
                 edge: candidate.edge,
                 activationY: contact.y,
                 lastX: contact.x,
-                lastY: contact.y
+                lastY: contact.y,
+                maxNetDeltaY: 0,
+                lastNetDeltaY: nil
             )
         )
         return [.began(edge: candidate.edge)]
@@ -203,6 +231,22 @@ final class GestureEngine {
         }
 
         let deltaY = contact.y - active.activationY
+        let net = abs(deltaY)
+        active.maxNetDeltaY = max(active.maxNetDeltaY, net)
+
+        // Zero-cross cancellation: a session that drifts back past its starting
+        // value (net changes sign) is an oscillation, not a control gesture —
+        // cancel it at the baseline (net effect ~0). Round-trip gestures and
+        // fine-tuning that stay on one side of the start are unaffected.
+        if active.maxNetDeltaY > 0,
+           let lastNet = active.lastNetDeltaY,
+           lastNet * deltaY < 0,
+           net > 0.005 {
+            state = .rejected(.verticalReversal)
+            return [.cancelled(edge: active.edge)]
+        }
+        active.lastNetDeltaY = deltaY
+
         let moved = contact.x != active.lastX || contact.y != active.lastY
         active.lastX = contact.x
         active.lastY = contact.y

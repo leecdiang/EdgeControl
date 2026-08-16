@@ -16,6 +16,7 @@ typedef struct {
     double x;
     double y;
     int32_t raw_state;
+    float size;
 } ECTouchContactRaw;
 
 typedef void (*ECTouchFrameCallback)(
