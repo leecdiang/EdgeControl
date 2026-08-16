@@ -48,6 +48,7 @@ final class EdgeControlAppModel: ObservableObject {
         hasStarted = true
         _ = systemEventMonitor
         settings.launchAtLogin = launchAtLoginController.isEnabled
+        runVolumeProbeIfRequested()
         startTouchInput()
     }
 
@@ -87,6 +88,24 @@ final class EdgeControlAppModel: ObservableObject {
             touchStatus = .unavailable(error.localizedDescription)
             lastError = error.localizedDescription
         }
+    }
+
+    /// Debug-only probe: EDGE_VOLUME_PROBE=0.25 exercises the real
+    /// VolumeController read/write path on launch and logs the results.
+    private func runVolumeProbeIfRequested() {
+        #if EDGE_DEBUG_LOGGING
+        guard let raw = ProcessInfo.processInfo.environment["EDGE_VOLUME_PROBE"],
+              let target = Double(raw) else { return }
+        do {
+            let before = try volumeController.getVolume()
+            try volumeController.setVolume(target)
+            let after = try volumeController.getVolume()
+            print("[EdgeControl][VolumeProbe] before=\(String(format: "%.3f", before)) "
+                + "set=\(String(format: "%.3f", target)) after=\(String(format: "%.3f", after))")
+        } catch {
+            print("[EdgeControl][VolumeProbe] FAILED: \(error.localizedDescription)")
+        }
+        #endif
     }
 
     private func handleWake() {
@@ -154,6 +173,10 @@ final class EdgeControlAppModel: ObservableObject {
             return
         }
 
+        // Polarity: on this Mac (macOS 26.5) MT normalized y grows with physical
+        // upward motion (y=0 bottom, y=1 top), so an upward swipe yields a
+        // positive deltaY and increases the value — matching volume/brightness
+        // key convention. Verified by live trace 2026-08-16.
         let target = mapper.targetValue(
             initialValue: session.initialValue,
             deltaY: deltaY,
@@ -162,6 +185,9 @@ final class EdgeControlAppModel: ObservableObject {
         do {
             switch session.action {
             case .volume:
+                #if EDGE_DEBUG_LOGGING
+                print("[EdgeControl][Volume] set target=\(String(format: "%.3f", target)) deltaY=\(String(format: "%.4f", deltaY))")
+                #endif
                 try volumeController.setVolume(target)
             case .brightness:
                 try brightnessController.setBrightness(target)
