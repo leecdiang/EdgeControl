@@ -6,3 +6,4 @@ xcuserdata/
 *.dmg
 *.xcarchive
 
+dist/
