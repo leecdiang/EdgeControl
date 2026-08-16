@@ -49,6 +49,7 @@ final class EdgeControlAppModel: ObservableObject {
         _ = systemEventMonitor
         settings.launchAtLogin = launchAtLoginController.isEnabled
         runVolumeProbeIfRequested()
+        runBrightnessProbeIfRequested()
         startTouchInput()
     }
 
@@ -73,6 +74,25 @@ final class EdgeControlAppModel: ObservableObject {
     func openSettings() {
         NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Debug-only probe: EDGE_BRIGHTNESS_PROBE=0.25 exercises the real
+    /// DisplayBrightnessController read/write path on launch and logs results.
+    private func runBrightnessProbeIfRequested() {
+        #if EDGE_DEBUG_LOGGING
+        guard let raw = ProcessInfo.processInfo.environment["EDGE_BRIGHTNESS_PROBE"],
+              let target = Double(raw) else { return }
+        setvbuf(stdout, nil, _IONBF, 0)
+        do {
+            let before = try brightnessController.getBrightness()
+            try brightnessController.setBrightness(target)
+            let after = try brightnessController.getBrightness()
+            print("[EdgeControl][BrightnessProbe] before=\(String(format: "%.3f", before)) "
+                + "set=\(String(format: "%.3f", target)) after=\(String(format: "%.3f", after))")
+        } catch {
+            print("[EdgeControl][BrightnessProbe] FAILED: \(error.localizedDescription)")
+        }
+        #endif
     }
 
     private func startTouchInput() {
@@ -190,6 +210,9 @@ final class EdgeControlAppModel: ObservableObject {
                 #endif
                 try volumeController.setVolume(target)
             case .brightness:
+                #if EDGE_DEBUG_LOGGING
+                print("[EdgeControl][Brightness] set target=\(String(format: "%.3f", target)) deltaY=\(String(format: "%.4f", deltaY))")
+                #endif
                 try brightnessController.setBrightness(target)
             case .disabled:
                 return
