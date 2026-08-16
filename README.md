@@ -2,17 +2,28 @@
 
 > Two edges. Two controls. Nothing else.
 
+[![Downloads](https://img.shields.io/github/downloads/leecdiang/EdgeControl/total?style=flat-square&label=Downloads&color=2ea44f)](https://github.com/leecdiang/EdgeControl/releases) · [**中文**](README_zh.md)
+
 <img src="assets/icon-512.png" alt="EdgeControl icon" width="128" height="128" align="left" style="margin-right: 16px;">
 
 EdgeControl is an open-source, offline macOS menu-bar utility that maps a deliberate physical-edge ingress on a MacBook trackpad to continuous volume or brightness control.
 
-The intended gesture is not “start near an edge.” A contact must first appear in a very narrow edge-entry strip and establish vertical intent within a short deadline. A contact first observed in the trackpad interior is permanently rejected until that finger lifts. Any multi-touch frame rejects the entire current lifecycle until every finger lifts.
+## Usage
+
+**The gesture starts from the machine's body, not on the trackpad.**
+
+1. Slide a finger **from the laptop body onto the trackpad's left or right edge** (the finger enters the trackpad from outside).
+2. Immediately after entering, slide **up or down** along the edge.
+3. The left edge and right edge are independently assignable: Off / Volume / Brightness.
+4. A finger that first touches the trackpad **interior** never triggers — even if it later slides to an edge.
+
+This is not a plain "touch the edge, then move" gesture: the contact must be **born at the extreme edge** (the entry strip) and establish clear vertical intent within a short deadline. Interior-born contacts are permanently rejected for the whole contact lifetime, and any multi-touch frame rejects the entire current lifecycle until every finger lifts.
 
 ## Status
 
 Hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item PASS/FAIL matrix and [Docs/GestureTuning.md](Docs/GestureTuning.md) for the tuned recognizer values.
 
-The gesture recognizer, value mapping, detent, and settings layers are covered by 23 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, value mapping, detent, and settings layers are covered by 26 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
