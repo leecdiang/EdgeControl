@@ -34,7 +34,10 @@ struct GestureConfiguration: Sendable, Equatable {
     var minimumInwardTravel: Double = 0.0
     var minimumVerticalMove: Double = 0.015
     var outwardRejectionTravel: Double = 0.004
-    var entryTimeout: TimeInterval = 0.250
+    /// 350ms tuned from live traces (macOS 26.5, MacBook Air): hesitant slide-ins
+    /// reached 1.5% vertical travel at 288-331ms; 250ms rejected them. A 488ms
+    /// deliberate pause (spec H) stays rejected. See Docs/GestureTuning.md.
+    var entryTimeout: TimeInterval = 0.350
 
     static let `default` = GestureConfiguration()
 }

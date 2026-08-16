@@ -55,10 +55,23 @@ final class GestureEngineTests: XCTestCase {
         var trace = SyntheticTouchTrace()
         trace.contact(x: 0.005, y: 0.50)
         trace.contact(x: 0.018, y: 0.503, after: 0.05)
-        trace.contact(x: 0.020, y: 0.54, after: 0.26)
+        // t = 0.01 + 0.05 + 0.32 = 0.38s > entryTimeout 0.35s
+        trace.contact(x: 0.020, y: 0.54, after: 0.32)
 
         XCTAssertTrue(trace.events(using: engine).isEmpty)
         XCTAssertEqual(engine.state, .rejected(.entryTimedOut))
+    }
+
+    func testVerticalIntentWithinTunedEntryTimeoutActivates() {
+        // Regression for the 350ms tuned entryTimeout (see Docs/GestureTuning.md):
+        // a hesitant slide-in that establishes 1.5% vertical travel at ~0.31s
+        // must still activate, while a >350ms pause must not.
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.005, y: 0.50)
+        trace.contact(x: 0.018, y: 0.503, after: 0.05)
+        trace.contact(x: 0.020, y: 0.54, after: 0.25) // t = 0.31s < 0.35s
+
+        XCTAssertEqual(trace.events(using: GestureEngine()), [.began(edge: .left)])
     }
 
     func testDiagonalInwardUpMotionActivates() {
