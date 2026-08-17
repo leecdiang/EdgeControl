@@ -4,11 +4,11 @@
 
 [![Downloads](https://img.shields.io/github/downloads/leecdiang/EdgeControl/total?style=flat-square&label=Downloads&color=2ea44f)](https://github.com/leecdiang/EdgeControl/releases) · [**English**](README.md)
 
-<p align="center">
-  <img src="assets/icon-512.png" alt="EdgeControl 图标" width="128" height="128">
-</p>
+<img src="assets/icon-512.png" alt="EdgeControl 图标" width="128" height="128" align="left">
 
 EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置触控板或选定的 Apple 外接触控板上**从外侧滑入边缘**的刻意手势，映射为连续的音量 / 亮度调节。
+
+<br clear="left" />
 
 ## 用法
 

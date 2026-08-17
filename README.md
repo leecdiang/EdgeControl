@@ -4,11 +4,11 @@
 
 [![Downloads](https://img.shields.io/github/downloads/leecdiang/EdgeControl/total?style=flat-square&label=Downloads&color=2ea44f)](https://github.com/leecdiang/EdgeControl/releases) · [**中文**](README_zh.md)
 
-<p align="center">
-  <img src="assets/icon-512.png" alt="EdgeControl icon" width="128" height="128">
-</p>
+<img src="assets/icon-512.png" alt="EdgeControl icon" width="128" height="128" align="left">
 
 EdgeControl is an open-source, offline macOS menu-bar utility that maps a deliberate physical-edge ingress on a built-in or selected external Apple trackpad to continuous volume or brightness control.
+
+<br clear="left" />
 
 ## Usage
 
