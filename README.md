@@ -23,7 +23,7 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 Hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item PASS/FAIL matrix and [Docs/GestureTuning.md](Docs/GestureTuning.md) for the tuned recognizer values.
 
-The gesture recognizer, value mapping, detent, haptic, and settings layers are covered by 29 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, value mapping, detent, haptic, and settings layers are covered by 31 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
@@ -34,12 +34,17 @@ The gesture recognizer, value mapping, detent, haptic, and settings layers are c
 - CoreAudio volume control with default-output re-resolution and unsupported-device handling
 - Built-in display brightness through runtime-loaded DisplayServices
 - Optional, isolated DDC/CI VCP `0x10` external-display backend (experimental, off by default)
-- Activation haptic plus 5% value detents with hysteresis and rate limiting
+- Activation haptic plus 2% value detents with hysteresis and rate limiting
+- Optional lower-half-only mode: edge control responds only below the trackpad midline (midline = 100%, bottom = 0%); contacts born above the midline are rejected
 - Pointer freeze only after the gesture reaches `Active`; the system restores the cursor if the app dies
 - Compact 148×42 single-row HUD: native Liquid Glass on macOS 26, ultra-thin material fallback on macOS 13–15
 - `LSUIElement` menu-bar app with no Dock icon
 - Synthetic gesture tests; no physical trackpad required for recognizer tests
 - No account, network, analytics, telemetry, or backend
+
+## Lower half only
+
+By default, the full trackpad height maps to the full 0-100% range. With the "Lower half only" setting enabled (Settings > System), edge control responds only to the lower half of the trackpad: the midline maps to 100%, the very bottom to 0%. Contacts that first touch above the midline are rejected, which helps when the upper half of the trackpad tends to catch resting palms or stray touches. Positions are normalized per trackpad, so the midline adapts to every Mac model automatically.
 
 ## Requirements
 
