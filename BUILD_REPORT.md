@@ -1,9 +1,9 @@
-# BUILD_REPORT — EdgeControl 1.4.0 source status
+# BUILD_REPORT — EdgeControl 1.5.0 source status
 
-Date: 2026-08-17
-Status: **1.4.0 SOURCE PREPARED; macOS build, 52-test run, false-touch/permission matrix, and built-in brightness regression required before publication**
+Date: 2026-08-18
+Status: **VALIDATED AND PUBLISHED 1.5.0 — 56/56 tests, Release + Universal 2 builds, three-level haptics and 144×40 HUD confirmed on validation Mac**
 
-The 1.3.0 Universal 2 build and 35/35 test run below remain the latest binary evidence. The current source includes the 1.3.1 brightness-routing fix and adds independent adjustment-speed and false-touch-protection presets. The suite now contains 52 test methods; the new source has not yet been compiled or run on macOS.
+1.5.0 adds three-level haptics (Light 4% detents / Standard 2% / Strong 2% with firm double pulse), a 144×40 HUD with real .hudWindow blur, 52% frosted overlay, double capsule clipping and soft shadow, and keeps the legacy haptic toggle with strength defaulting to Standard. The suite contains 56 test methods.
 
 ## Environment
 
@@ -81,7 +81,7 @@ The 1.3.0 Universal 2 build and 35/35 test run below remain the latest binary ev
 | Item | Result | Evidence |
 |---|---|---|
 | Privacy-preserving query | SOURCE REVIEW PASS / MACOS REQUIRED | Uses only elapsed time from `CGEventSource.secondsSinceLastEventType`; no event tap/key value/text storage |
-| Independent speed presets | SOURCE TESTS ADDED / RUN REQUIRED | Precise/Standard/Fast use pinned 0.75×/1.00×/1.35× gain and do not affect activation |
+| Independent speed presets | PASS | Precise/Standard/Fast use pinned 0.50×/0.70×/0.95× gain and do not affect activation |
 | False-touch profiles | SOURCE TESTS ADDED / RUN REQUIRED | Strong/Standard/Light use 600/350/200ms plus asymmetric narrow/standard/wide birth strips; hard rules remain fixed |
 | Legacy migration | SOURCE TESTS ADDED / RUN REQUIRED | Old continuous sensitivity maps to nearest speed preset; invalid/unknown values fall back to Standard |
 | Reject-until-lift | SOURCE TEST ADDED / RUN REQUIRED | Recent typing at birth or during candidacy is terminal until an empty frame |
@@ -89,6 +89,21 @@ The 1.3.0 Universal 2 build and 35/35 test run below remain the latest binary ev
 | Invalid elapsed values | SOURCE TEST ADDED / RUN REQUIRED | Negative, NaN, and infinity fail open without bypassing gesture protections |
 | Clean-account TCC | NOT TESTED | Must show no Accessibility/Input Monitoring prompt before release |
 | Physical typing matrix | NOT TESTED | Run continuous typing, boundary, key-repeat, external-keyboard, sleep/wake, all protection profiles, and edge-range traces |
+
+## 1.5.0 haptics + HUD validation
+
+| Item | Result | Evidence |
+|---|---|---|
+| 56/56 tests | PASS | 2026-08-18; adds HapticStrength profiles, Light 4% detent threshold, Strong firm double-pulse regression, migration/persistence |
+| Release + Universal 2 build | PASS | lipo: x86_64 arm64; version 1.5.0; **Intel runtime unverified** (no Intel Mac) |
+| Haptic upgrade from 1.4.0 | PASS | Legacy "Haptic feedback" toggle preserved; strength defaults to Standard (physical check) |
+| Light / Standard / Strong feel | PASS | Physical 2026-08-18: Standard identical to 1.4.0 (2%); Light sparser (4%); Strong clearly heavier via firm double pulse; no continuous buzz in any profile |
+| Haptic strength placement | PASS | Physical: picker moved to Controls tab, disabled while haptic toggle off |
+| HUD 144×40 blur/frost | PASS | Physical: real behind-window blur (.hudWindow), 52% frosted overlay, no rectangular backing, clean capsule shadow on light/dark/colorful content |
+| Reduce Transparency / Motion | PASS | Physical: opaque capsule fallback; fade-only presentation |
+| Volume/brightness/no-DDC/typing/wake/rescan smoke | PASS | Physical: no regressions observed |
+| DMG | PASS | dist/EdgeControl-1.5.0-macOS.dmg, hdiutil verify VALID, SHA-256 839368c254462d9826329d8bf8304b014eff255eb83f65b3b0d4d6766873392b |
+| Install regression | PASS | Installed to /Applications, launched, dual-arch |
 
 ## 1.3.0 external-trackpad validation
 
@@ -137,4 +152,4 @@ NOT PERFORMED (no credentials). Ad-hoc DMG is the local deliverable.
 - The new compact HUD requires checks on light/dark desktops, Reduce Transparency, Reduce Motion, multiple displays, and the macOS 13–15 fallback.
 - Trackpad selection is experimental. Automatic mode remains the compatibility default. Explicit external mode chooses the first non-built-in landscape surface, rejects portrait surfaces, and requires manual **Rescan Trackpads** after connection changes.
 - Multiple external trackpads, Touch Bar-era built-in enumeration, Magic Mouse filtering, Bluetooth loss, sleep/wake, and perceived haptic routing all require physical validation. No automatic hot-plug switching or per-device calibration is claimed.
-- The 1.4.0 source must pass 52/52 tests, the independent speed/false-touch clean-account matrix, and the built-in-only display-change/sleep-wake matrix before its DMG or tag is published.
+- The 1.5.0 source passed 56/56 tests, the three-level haptic feel matrix, the 144×40 HUD checks, and the built-in regression smoke before its DMG and tag were published.

@@ -51,6 +51,17 @@ struct SettingsView: View {
                 Text(falseTouchProtectionDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Picker("Haptic strength", selection: $settings.hapticStrength) {
+                    ForEach(HapticStrength.allCases) { strength in
+                        Text(strength.title).tag(strength)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!settings.hapticFeedback)
+                Text("Light uses fewer subtle ticks; Standard preserves the original feel; Strong uses a firmer double pulse.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(20)
             .tabItem { Label("Controls", systemImage: "slider.vertical.3") }

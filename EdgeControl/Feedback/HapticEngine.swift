@@ -4,16 +4,28 @@ import Foundation
 @MainActor
 protocol HapticBackend: AnyObject {
     var isAvailable: Bool { get }
-    func pulse()
+    func pulse(_ pattern: HapticPulsePattern)
     func reset()
+}
+
+enum HapticPulsePattern: Sendable, Equatable {
+    case alignment
+    case firm
 }
 
 @MainActor
 final class PublicHapticBackend: HapticBackend {
     var isAvailable: Bool { true }
 
-    func pulse() {
-        NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+    func pulse(_ pattern: HapticPulsePattern) {
+        let systemPattern: NSHapticFeedbackManager.FeedbackPattern
+        switch pattern {
+        case .alignment:
+            systemPattern = .alignment
+        case .firm:
+            systemPattern = .generic
+        }
+        NSHapticFeedbackManager.defaultPerformer.perform(systemPattern, performanceTime: .now)
     }
 
     func reset() {}
@@ -23,9 +35,12 @@ final class PublicHapticBackend: HapticBackend {
 final class TrackpadActuatorBackend: HapticBackend {
     var isAvailable: Bool { ec_mt_private_haptic_is_available() }
 
-    func pulse() {
+    func pulse(_ pattern: HapticPulsePattern) {
         // Pattern 1 is only a placeholder behind an explicit local opt-in.
         // LOCAL_VALIDATION_REQUIRED before this backend is enabled in release.
+        // The unvalidated private backend intentionally ignores strength; do
+        // not guess undocumented pattern numbers.
+        _ = pattern
         _ = ec_mt_private_haptic_pulse(1)
     }
 
@@ -44,6 +59,7 @@ final class HapticEngine {
     private let publicBackend: HapticBackend
     private let privateBackend: HapticBackend
     private var detents = DetentTracker(interval: 0.02)
+    private var activeStrength: HapticStrength = .standard
     var preference: BackendPreference = .publicAPI
 
     /// Minimum interval between detent pulses. 30ms lets a full-range swipe at
@@ -64,14 +80,16 @@ final class HapticEngine {
         self.now = now
     }
 
-    func activationTick(initialValue: Double) {
+    func activationTick(initialValue: Double, strength: HapticStrength = .standard) {
+        configureDetents(for: strength)
         detents.begin(at: initialValue)
-        pulse(force: true)
+        pulse(force: true, strength: strength)
     }
 
-    func valueChanged(to value: Double) {
+    func valueChanged(to value: Double, strength: HapticStrength = .standard) {
+        configureDetents(for: strength)
         if detents.shouldEmit(for: value) {
-            pulse(force: false)
+            pulse(force: false, strength: strength)
         }
     }
 
@@ -83,16 +101,37 @@ final class HapticEngine {
         publicBackend.reset()
         privateBackend.reset()
         detents.reset()
+        activeStrength = .standard
         lastPulseTime = -.infinity
     }
 
-    private func pulse(force: Bool) {
+    private func configureDetents(for strength: HapticStrength) {
+        guard strength != activeStrength || detents.interval != strength.detentInterval else {
+            return
+        }
+        activeStrength = strength
+        detents = DetentTracker(interval: strength.detentInterval)
+    }
+
+    private func pulse(force: Bool, strength: HapticStrength) {
         let nowValue = now()
         if !force && nowValue - lastPulseTime < pulseCooldown {
             return
         }
         lastPulseTime = nowValue
-        selectedBackend()?.pulse()
+        let pattern: HapticPulsePattern = strength == .strong ? .firm : .alignment
+        guard let backend = selectedBackend() else { return }
+        backend.pulse(pattern)
+        if strength == .strong {
+            // The public AppKit API has no amplitude knob and .generic feels
+            // close to .alignment, so Strong doubles up: a second firm pulse a
+            // few milliseconds later reads as a heavier tick, not a buzz.
+            let secondBackend = backend
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 12_000_000)
+                secondBackend.pulse(pattern)
+            }
+        }
     }
 
     private func selectedBackend() -> HapticBackend? {
@@ -104,4 +143,3 @@ final class HapticEngine {
         }
     }
 }
-

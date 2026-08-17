@@ -21,10 +21,11 @@ required=(
   "LICENSE"
   "THIRD_PARTY_NOTICES.md"
   "HANDOFF_TO_OPENCLAW.md"
-  "OPENCLAW_VALIDATE_1.4.0.md"
-  "RELEASE_NOTES_1.4.0.md"
+  "OPENCLAW_VALIDATE_1.5.0.md"
+  "RELEASE_NOTES_1.5.0.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
-  "Docs/RELEASE_NOTES_1.4.0.md"
+  "Docs/RELEASE_NOTES_1.5.0.md"
+  "Docs/RELEASE_NOTES_1.5.0.zh.md"
   "Docs/STATIC_BUG_AUDIT_1.3.1.md"
   "Docs/STATIC_BUG_AUDIT_1.4.0.md"
 )
@@ -37,9 +38,9 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.4.0;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.5.0;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.4.0, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.5.0, found $version_count." >&2
   exit 1
 fi
 
@@ -74,8 +75,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 52 ]]; then
-  echo "Expected at least 52 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 55 ]]; then
+  echo "Expected at least 55 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
@@ -104,6 +105,9 @@ required_independent_profile_markers=(
   "case .strong: return 0.006"
   "case .light: return 0.019"
   "migrated(fromLegacySensitivity"
+  "enum HapticStrength"
+  "case .light: return 0.04"
+  "case .standard, .strong: return 0.02"
 )
 
 for expected_marker in "${required_independent_profile_markers[@]}"; do
@@ -189,11 +193,12 @@ fi
 
 hud_controller="$project_root/EdgeControl/UI/HUDController.swift"
 required_hud_markers=(
-  "static let compactWidth: CGFloat = 148"
-  "static let errorWidth: CGFloat = 220"
-  "static let height: CGFloat = 42"
-  "opaqueBackground"
-  ".compositingGroup()"
+  "static let compactWidth: CGFloat = 144"
+  "static let errorWidth: CGFloat = 212"
+  "static let height: CGFloat = 40"
+  "CapsuleVisualEffect"
+  "view.material = .hudWindow"
+  "Color(nsColor: .windowBackgroundColor).opacity(0.52)"
   ".clipShape(Capsule())"
 )
 

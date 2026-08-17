@@ -6,7 +6,7 @@ Checked items have recorded evidence on the macOS 26.5 arm64 reference machine. 
 
 - [x] Open and build the 1.1.0 baseline with Xcode 26.6.
 - [x] Run clean Debug and Release builds for Apple Silicon (1.1.0 baseline).
-- [ ] Rebuild and run all 52 tests after the 1.4.0 false-touch/speed split and 1.3.1 brightness-routing changes.
+- [ ] Rebuild and run all 55 tests for the 1.5.0 source.
 - [ ] Run a clean Debug build for Intel or an Intel CI runner.
 - [x] Resolve baseline Swift strict-concurrency diagnostics without weakening isolation globally.
 - [x] Confirm the bridging callback converts cleanly to the imported C function-pointer type on Xcode 26.6.
@@ -50,7 +50,7 @@ File: `EdgeControl/PrivateFrameworks/ECPrivateAPIBridge.c`
 
 ## Adjustment speed and false-touch protection
 
-- [ ] Confirm Precise / Standard / Fast change only adjustment gain (`0.75×` / `1.00×` / `1.35×`) and do not change activation eligibility.
+- [ ] Confirm Precise / Standard / Fast change only adjustment gain (`0.50×` / `0.70×` / `0.95×`) and do not change activation eligibility.
 - [ ] Confirm Strong / Standard / Light typing boundaries are exactly 600ms / 350ms / 200ms: before rejects, after admits a new deliberate lifecycle.
 - [ ] Verify left birth widths 0.6% / 0.8% / 1.0% and right widths 1.2% / 1.5% / 1.9% with captured raw traces.
 - [ ] For every profile, confirm 450ms deadline, 3% candidate corridor, 8% Active corridor, 0.80 directionality and multi-touch behavior remain unchanged.
@@ -89,7 +89,8 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 - [x] Test `NSHapticFeedbackManager` from the reference `LSUIElement` app.
 - [x] Confirm activation ticks happen only after `Active`.
 - [x] Confirm detents do not buzz at a boundary on the reference machine (baseline spacing differed).
-- [ ] Confirm current 2% detent spacing remains usable on both the built-in and external Magic Trackpad and does not double-trigger from Bluetooth frame jitter.
+- [ ] Confirm Light / Standard / Strong are perceptibly ordered on both built-in and external Magic Trackpad: Light 4% alignment ticks, Standard 2% alignment ticks, Strong 2% generic ticks.
+- [ ] Confirm 2% Standard/Strong detents do not double-trigger from Bluetooth frame jitter and 4% Light detents do not feel too sparse.
 - [ ] Do not enable private haptics until the following symbols and signatures are validated: `MTActuatorCreateFromDevice`, `MTActuatorOpen`, `MTActuatorActuate`, `MTActuatorClose`.
 - [ ] Replace placeholder private pattern `1` only with independently measured values; do not copy Verge constants or patterns.
 - [ ] Confirm actuator open/close and sleep/wake lifetime.
@@ -110,8 +111,9 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 - [ ] Verify cursor restoration after active external-trackpad Bluetooth loss and after manual rescan.
 - [ ] Confirm no Accessibility permission is requested by pointer control.
 - [ ] Verify the HUD does not activate the app, accept clicks, steal focus, or appear on the wrong display.
-- [ ] Inspect the 148×42 Liquid Glass HUD on macOS 26 over light, dark, colorful, and full-screen content.
-- [ ] Inspect the ultra-thin material fallback on macOS 13–15.
+- [ ] Inspect the 144×40 clipped `.hudWindow` blur over light, dark, colorful, and full-screen content; confirm no rectangular material plate leaks outside the capsule.
+- [ ] Confirm the 52% semantic veil is opaque enough for text contrast while retaining visible frosted blur.
+- [ ] Inspect the same clipped `.hudWindow` implementation on macOS 13–15.
 - [ ] Verify 650 ms normal dismissal, 1.5 s error dismissal, continuous value updates, and normal/error width transitions.
 - [ ] Verify Reduce Motion and Reduce Transparency accessibility behavior.
 
@@ -127,7 +129,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 ## Release engineering
 
 - [x] Populate every app-icon slot with original artwork.
-- [x] Populate the bundle identifier and 1.4.0 source version.
+- [x] Populate the bundle identifier and 1.5.0 source version.
 - [x] Validate the ad-hoc 1.1.0 baseline with Hardened Runtime and private runtime loading.
 - [ ] Sign with Developer ID Application.
 - [ ] Notarize and staple the app/DMG.

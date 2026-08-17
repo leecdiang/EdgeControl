@@ -1,6 +1,6 @@
 # HANDOFF TO OPENCLAW
 
-This is the operational handoff for EdgeControl 1.4.0. The 1.3.0 Universal 2 build and 35-test run are the latest recorded binary baseline. The current source includes the 1.3.1 brightness-routing fix and adds independent adjustment-speed and false-touch-protection presets with twelve v1.4.0 regressions. Run `OPENCLAW_VALIDATE_1.4.0.md` before publishing; external trackpad hardware, external DDC, Intel runtime, Developer ID signing, and notarization remain explicitly unverified.
+This is the operational handoff for EdgeControl 1.5.0. It starts from the GitHub 1.4.0 source and adds three haptic-strength profiles plus a denser, truly frosted compact HUD. The source suite contains 55 test methods. Run `OPENCLAW_VALIDATE_1.5.0.md` before publishing; the new Strong pattern and HUD material require physical validation, and external trackpad hardware, external DDC, Intel runtime, Developer ID signing, and notarization remain explicitly unverified.
 
 ## A. What is already implemented
 
@@ -72,10 +72,10 @@ This is the operational handoff for EdgeControl 1.4.0. The 1.3.0 Universal 2 bui
 - Public AppKit haptic backend.
 - Private actuator backend scaffold, dynamically resolved and disabled by default behind `EDGE_ENABLE_UNVALIDATED_PRIVATE_HAPTIC=1`.
 - One activation tick only after active control session creation.
-- 2% value detents with 0.8% hysteresis; pure `DetentTracker` tests cover boundary bounce.
+- Three haptic profiles: Light uses 4% alignment ticks, Standard preserves 2% alignment ticks, and Strong uses 2% generic ticks; all retain 0.8% hysteresis and rate limiting.
 - Cursor association freezes only after Active; restore occurs on end, cancel, action failure, wake, and stop.
 - One persistent borderless, non-activating, click-through `NSPanel` with an observable SwiftUI model (no per-frame `NSHostingView` rebuild).
-- Compact 148×42 single-row normal HUD, 220×42 error state, native macOS 26 Liquid Glass, macOS 13–15 ultra-thin fallback, custom progress capsule, and Reduce Motion-aware presentation.
+- Compact 144×40 single-row normal HUD and 212×40 error state, capsule-clipped active `.hudWindow` blur, denser semantic veil, custom progress capsule, and Reduce Motion/Transparency-aware presentation.
 - Public `SMAppService.mainApp` launch-at-login controller with rollback to actual service status after errors.
 - Wake monitor ends the session, resets recognition/haptic state, refreshes displays, and reopens the trackpad bridge.
 - A 750 ms live-contact callback-silence watchdog resets recognition and, when active, ends the session and restores cursor movement if Bluetooth loss prevents a final touch frame. Resumed frames are discarded until an empty frame or bridge restart, preventing the stranded touch from becoming a fresh edge birth. This does not claim automatic device discovery; connect/disconnect changes require manual rescan or restart.
@@ -93,15 +93,15 @@ This is the operational handoff for EdgeControl 1.4.0. The 1.3.0 Universal 2 bui
 
 The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-The current source adds the 1.3.1 brightness-routing fix and 1.4.0 recent-typing protection on top of the 1.3.0 baseline. Before another binary is published, rerun:
+The current source adds the 1.5.0 haptic and HUD work on top of the 1.4.0 source. Before another binary is published, rerun:
 
 1. `./Scripts/validate_repository.sh`
-2. `./Scripts/build_release.sh test` (expect 52 tests)
+2. `./Scripts/build_release.sh test` (expect 55 tests)
 3. `./Scripts/build_release.sh build`
 4. Physical edge-entry regression for 450ms / 3% / 0.80
-5. HUD visual/accessibility regression on macOS 26 and at least one pre-26 system
+5. Three-level haptic and HUD visual/accessibility regression on macOS 26 and at least one earlier supported system
 6. Lower-half regression at low and high initial values: activation must preserve the current value, and subsequent up/down motion must remain continuous
-7. Complete `OPENCLAW_VALIDATE_1.4.0.md`, including all independent speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
+7. Complete `OPENCLAW_VALIDATE_1.5.0.md`, including all haptic profiles, HUD backgrounds, speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
 8. Release binary inspection, DMG packaging, install and launch
 
 Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
@@ -350,4 +350,4 @@ Use [Docs/LOCAL_VALIDATION_REQUIRED.md](Docs/LOCAL_VALIDATION_REQUIRED.md) as th
 
 ## Local work remaining, in one paragraph
 
-The immediate remaining work is a macOS run of the current 52-test source plus the speed/protection clean-account and built-in-only brightness matrices in `OPENCLAW_VALIDATE_1.4.0.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and physical regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.
+The immediate remaining work is a macOS run of the current 55-test source plus the haptic/HUD, speed/protection, clean-account, and built-in-only brightness matrices in `OPENCLAW_VALIDATE_1.5.0.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and physical regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.

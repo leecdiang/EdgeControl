@@ -23,9 +23,9 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 ## Status
 
-The 1.3.0 baseline was hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. Version 1.4.0 contains the 1.3.1 brightness-routing fix plus independent adjustment-speed and false-touch-protection presets; run the macOS matrix in `OPENCLAW_VALIDATE_1.4.0.md` before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item matrix.
+The 1.3.0 baseline was hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. Version 1.5.0 builds on 1.4.0 with three haptic-strength profiles and a denser, truly frosted compact HUD; run the macOS matrix in `OPENCLAW_VALIDATE_1.5.0.md` before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the earlier per-item matrix.
 
-The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 52 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 55 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
@@ -39,11 +39,11 @@ The gesture recognizer, typing protection, value mapping, brightness routing, tr
 - Built-in display brightness through runtime-loaded DisplayServices
 - Optional, isolated DDC/CI VCP `0x10` external-display backend (experimental, off by default)
 - Per-gesture brightness-backend pinning: External DDC is considered only when explicitly enabled and available; transient built-in enumeration failures are retried without false DDC errors
-- Activation haptic plus 2% value detents with hysteresis and rate limiting
+- Three-level haptic strength: Light uses sparser subtle ticks, Standard preserves the original 2% feel, and Strong uses a firmer public AppKit pattern
 - Optional lower-half start filter: contacts born above the trackpad midline are rejected, while accepted gestures continue to adjust relative to the current value
 - Trackpad source selection: Automatic / Built-in trackpad / External Magic Trackpad, with persistent preference, visible active-device status, and manual rescan
 - Pointer freeze only after the gesture reaches `Active`; the system restores the cursor if the app dies
-- Compact 148×42 single-row HUD: native Liquid Glass on macOS 26, ultra-thin material fallback on macOS 13–15
+- Compact 144×40 single-row HUD with a capsule-clipped system blur, denser frosted veil, subtle highlight border, and opaque accessibility fallback
 - `LSUIElement` menu-bar app with no Dock icon
 - Synthetic gesture tests; no physical trackpad required for recognizer tests
 - No account, network, analytics, telemetry, or backend
@@ -88,7 +88,7 @@ The script disables code signing for local compilation when no `DEVELOPMENT_TEAM
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.4.0-macOS.dmg
+  ./dist/EdgeControl-1.5.0-macOS.dmg
 ```
 
 The script uses only macOS-provided tools (`hdiutil`, Finder/AppleScript, `codesign`, `xcrun`). It stages `EdgeControl.app` on the left and an `Applications` symlink on the right, then converts to a compressed read-only DMG. Verified layout: App at (145,175), Applications at (410,175), icon size 104.

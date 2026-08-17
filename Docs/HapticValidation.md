@@ -3,22 +3,24 @@
 Date: 2026-08-16
 Machine: MacBook Air (Apple Silicon arm64), macOS 26.5.2, Xcode 26.6
 
-## Public backend (NSHapticFeedbackManager) — VALIDATED
+## Public backend (NSHapticFeedbackManager) — BASELINE VALIDATED
 
 - `NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)`
 - Works while the app is a background LSUIElement menu-bar app with no key window (validated during normal use; no TCC prompt).
 - Activation tick: one pulse when a gesture reaches Active state. Diang confirms the tap is clearly perceptible.
-- Detent ticks: one pulse per crossed 5% bucket, hysteresis 0.008 prevents boundary jitter.
+- Standard detent ticks: one alignment pulse per crossed 2% bucket; hysteresis 0.008 prevents boundary jitter and the 30ms cooldown limits very fast swipes.
 
-### Tuning (Diang-verified feel)
+### Three-level strength profiles
 
-| Setting | Value | Rationale |
-|---|---|---|
-| Detent interval | 5% (0.05) | 20 steps across the full range; Diang requested "从顶端到低端二十下" (20 ticks per full-range swipe) |
-| Hysteresis | 0.008 | Suppresses repeated crossing of the same boundary from micro-jitter |
-| Pulse cooldown | 0.05s | 120ms felt too sparse (max ~8 pulses/s). 50ms renders all 20 five-percent steps as discrete ticks at normal swipe speed (~20Hz cap) while clipping the >30Hz buzz of very fast flicks |
+AppKit exposes feedback patterns, not an amplitude parameter. EdgeControl therefore implements three perceived-strength profiles without guessing private actuator constants:
 
-Verified live: slow full-range swipe = ~20 distinct ticks; fast flick = discrete ticks, no continuous buzz. Diang: "合适" (appropriate).
+| Profile | Public pattern | Detents | Status |
+|---|---|---|---|
+| Light | `.alignment` | 4% | LOCAL_VALIDATION_REQUIRED |
+| Standard | `.alignment` | 2% | Preserves the existing implementation |
+| Strong | `.generic` | 2% | LOCAL_VALIDATION_REQUIRED |
+
+All profiles keep hysteresis `0.008` and the 30ms rate limit. The selected profile is pinned for the gesture. Physical intensity is hardware- and macOS-dependent, so the Light/Strong feel must be checked on both built-in and external Force Touch trackpads before release.
 
 ## Private trackpad actuator backend — NOT SUPPORTED on this OS
 

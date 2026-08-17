@@ -3,9 +3,10 @@ import XCTest
 
 @MainActor
 final class RecordingHapticBackend: HapticBackend {
-    var pulses = 0
+    var patterns: [HapticPulsePattern] = []
+    var pulses: Int { patterns.count }
     var isAvailable: Bool { true }
-    func pulse() { pulses += 1 }
+    func pulse(_ pattern: HapticPulsePattern) { patterns.append(pattern) }
     func reset() {}
 }
 
@@ -64,5 +65,51 @@ final class HapticEngineTests: XCTestCase {
         time += 0.03 // still inside the 120ms cooldown
         engine.activationTick(initialValue: 0.2) // force: true ignores cooldown
         XCTAssertEqual(backend.pulses, 2)
+    }
+
+    func testStandardPreservesOriginalAlignmentPatternAndTwoPercentDetents() {
+        let backend = RecordingHapticBackend()
+        var time: TimeInterval = 0
+        let engine = makeEngine(backend, now: { time })
+
+        engine.activationTick(initialValue: 0.0, strength: .standard)
+        time += 0.05
+        engine.valueChanged(to: 0.03, strength: .standard)
+
+        XCTAssertEqual(backend.patterns, [.alignment, .alignment])
+    }
+
+    func testLightUsesFourPercentDetentsAndStrongUsesFirmPattern() {
+        let lightBackend = RecordingHapticBackend()
+        var time: TimeInterval = 0
+        let lightEngine = makeEngine(lightBackend, now: { time })
+
+        lightEngine.activationTick(initialValue: 0.0, strength: .light)
+        time += 0.05
+        lightEngine.valueChanged(to: 0.03, strength: .light)
+        XCTAssertEqual(lightBackend.patterns, [.alignment], "3% must remain below the Light detent threshold")
+        time += 0.05
+        lightEngine.valueChanged(to: 0.05, strength: .light)
+        XCTAssertEqual(lightBackend.patterns, [.alignment, .alignment])
+
+        let strongBackend = RecordingHapticBackend()
+        let strongEngine = makeEngine(strongBackend, now: { time })
+        strongEngine.activationTick(initialValue: 0.0, strength: .strong)
+        XCTAssertEqual(strongBackend.patterns, [.firm])
+    }
+
+    func testStrongProfileEmitsSecondaryFirmPulse() {
+        let backend = RecordingHapticBackend()
+        let engine = makeEngine(backend, now: { 0 })
+        engine.activationTick(initialValue: 0.0, strength: .strong)
+
+        // The first pulse is synchronous; the second firm pulse arrives a few
+        // milliseconds later to make Strong clearly heavier than Standard.
+        let expectation = expectation(description: "secondary firm pulse")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            XCTAssertEqual(backend.patterns, [.firm, .firm])
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2)
     }
 }

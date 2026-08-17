@@ -44,10 +44,10 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 ### Feedback boundary
 
 - `HapticEngine` chooses between a public AppKit performer and an opt-in private actuator backend.
-- `DetentTracker` is pure logic with 2% spacing and hysteresis.
+- `DetentTracker` is pure logic with hysteresis. Standard/Strong use 2% spacing; Light uses 4% spacing. Standard preserves the prior `.alignment` pattern, while Strong uses the public `.generic` pattern because AppKit exposes no amplitude control.
 - `CursorController` uses CoreGraphics cursor/mouse association only after activation.
 - `HUDController` owns one persistent non-activating, click-through floating `NSPanel` and one observable SwiftUI model; touch updates mutate the model rather than rebuilding `NSHostingView`.
-- The normal HUD is a 148×42 single-row capsule. macOS 26 uses native `glassEffect`; older deployment targets use an ultra-thin material capsule. Error content expands to 220×42. Reduce Transparency switches to an opaque system background and Reduce Motion removes the scale transition.
+- The normal HUD is a 144×40 single-row capsule and error content expands to 212×40. A capsule-clipped `NSVisualEffectView` supplies active `.hudWindow` blur on macOS 13+, with a 52% semantic veil and tint above it. Both AppKit and SwiftUI clip the backdrop to prevent a rectangular ambient plate. Reduce Transparency switches to an opaque system background and Reduce Motion removes the scale transition.
 
 ## Lifecycle
 

@@ -16,6 +16,7 @@ final class EdgeControlAppModel: ObservableObject {
         let action: EdgeAction
         let initialValue: Double
         let speedMultiplier: Double
+        let hapticStrength: HapticStrength
         let brightnessSession: BrightnessControlSession?
     }
 
@@ -359,10 +360,15 @@ final class EdgeControlAppModel: ObservableObject {
                 // Pin speed for the whole gesture so a settings change cannot
                 // alter gain halfway through an adjustment and cause a jump.
                 speedMultiplier: settings.adjustmentSpeed.gainMultiplier,
+                // Keep the tactile character stable for the whole gesture.
+                hapticStrength: settings.hapticStrength,
                 brightnessSession: brightnessSession
             )
             if settings.hapticFeedback {
-                hapticEngine.activationTick(initialValue: initialValue)
+                hapticEngine.activationTick(
+                    initialValue: initialValue,
+                    strength: settings.hapticStrength
+                )
             }
             _ = cursorController.freeze()
             showHUD(action: action, value: initialValue, message: nil)
@@ -408,7 +414,10 @@ final class EdgeControlAppModel: ObservableObject {
                 return
             }
             if settings.hapticFeedback {
-                hapticEngine.valueChanged(to: target)
+                hapticEngine.valueChanged(
+                    to: target,
+                    strength: session.hapticStrength
+                )
             }
             showHUD(action: session.action, value: target, message: nil)
             lastError = nil

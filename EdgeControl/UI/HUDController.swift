@@ -14,18 +14,24 @@ struct HUDPresentation: Sendable, Equatable {
 }
 
 private enum HUDLayout {
-    static let compactWidth: CGFloat = 148
-    static let errorWidth: CGFloat = 220
-    static let height: CGFloat = 42
-    static let progressWidth: CGFloat = 60
-    static let progressHeight: CGFloat = 4
+    static let compactWidth: CGFloat = 144
+    static let errorWidth: CGFloat = 212
+    static let height: CGFloat = 40
+    static let progressWidth: CGFloat = 58
+    static let progressHeight: CGFloat = 5
+    static let shadowPadding: CGFloat = 16
 
     static func size(for presentation: HUDPresentation) -> NSSize {
         NSSize(
-            width: presentation.value == nil ? errorWidth : compactWidth,
-            height: height
+            width: (presentation.value == nil ? errorWidth : compactWidth) + shadowPadding * 2,
+            height: height + shadowPadding * 2
         )
     }
+
+    static let initialPanelSize = NSSize(
+        width: compactWidth + shadowPadding * 2,
+        height: height + shadowPadding * 2
+    )
 }
 
 @MainActor
@@ -52,8 +58,8 @@ final class HUDController {
             contentRect: NSRect(
                 x: 0,
                 y: 0,
-                width: HUDLayout.compactWidth,
-                height: HUDLayout.height
+                width: HUDLayout.initialPanelSize.width,
+                height: HUDLayout.initialPanelSize.height
             ),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
@@ -152,42 +158,43 @@ private struct EdgeHUDView: View {
                     reduceTransparency: reduceTransparency
                 )
             )
-            // Force the composited alpha mask to the capsule before shadowing.
-            // This prevents a rectangular material backing from leaking into
-            // the shadow shape on light backgrounds.
-            .compositingGroup()
-            .clipShape(Capsule())
             .scaleEffect(model.isPresented || reduceMotion ? 1 : 0.96)
             .opacity(model.isPresented ? 1 : 0)
             .animation(
                 reduceMotion ? .linear(duration: 0.10) : .easeOut(duration: 0.12),
                 value: model.isPresented
             )
+            // Keep the visible capsule compact while reserving transparent
+            // window space for its soft shadow; NSPanel clips outside bounds.
+            .frame(
+                width: width + HUDLayout.shadowPadding * 2,
+                height: HUDLayout.height + HUDLayout.shadowPadding * 2
+            )
     }
 
     @ViewBuilder
     private var content: some View {
         if let value = model.presentation.value {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 Image(systemName: symbolName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .frame(width: 16)
+                    .frame(width: 15)
 
                 EdgeHUDProgress(value: value, tint: accentColor)
 
                 Text("\(Int((clamped(value) * 100).rounded()))%")
                     .monospacedDigit()
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 32, alignment: .trailing)
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 31, alignment: .trailing)
             }
-            .padding(.horizontal, 11)
+            .padding(.horizontal, 10)
         } else {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(model.colorfulHUD ? .orange : .primary)
-                    .frame(width: 16)
+                    .frame(width: 15)
 
                 Text(model.presentation.message ?? "Unavailable")
                     .font(.system(size: 11, weight: .medium))
@@ -197,7 +204,7 @@ private struct EdgeHUDView: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 11)
+            .padding(.horizontal, 10)
         }
     }
 
@@ -216,9 +223,9 @@ private struct EdgeHUDView: View {
     private var glassTint: Color {
         guard model.colorfulHUD else { return .primary.opacity(0.06) }
         if model.presentation.value == nil {
-            return .orange.opacity(0.10)
+            return .orange.opacity(0.12)
         }
-        return accentColor.opacity(0.08)
+        return accentColor.opacity(0.10)
     }
 
     private var symbolName: String {
@@ -271,35 +278,84 @@ private struct EdgeHUDGlassModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        // Avoid material backdrops in HUD windows: on some light backgrounds
-        // they can leak a rectangular ambient plate behind rounded content.
-        // Use a deterministic capsule fill in both accessibility modes.
-        opaqueBackground(content)
-    }
-
-    private func opaqueBackground(_ content: Content) -> some View {
         content
             .background {
-                ZStack {
-                    Capsule()
-                        .fill(Color(nsColor: .windowBackgroundColor).opacity(reduceTransparency ? 1.0 : 0.84))
-                    Capsule()
-                        .fill(tint.opacity(reduceTransparency ? 0 : 0.16))
+                Group {
+                    if reduceTransparency {
+                        Capsule()
+                            .fill(Color(nsColor: .windowBackgroundColor))
+                    } else {
+                        ZStack {
+                            CapsuleVisualEffect()
+                            Capsule()
+                                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.52))
+                            Capsule()
+                                .fill(tint)
+                        }
+                        // Clip the AppKit backdrop itself. A plain SwiftUI
+                        // Material in a transparent panel can leak a faint
+                        // rectangular plate outside the capsule.
+                        .clipShape(Capsule())
+                    }
                 }
-                .shadow(
-                    color: .black.opacity(reduceTransparency ? 0.10 : 0.16),
-                    radius: 10,
-                    y: 4
-                )
-                .shadow(
-                    color: .black.opacity(reduceTransparency ? 0.04 : 0.08),
-                    radius: 2,
-                    y: 1
-                )
             }
-            .overlay(
+            .clipShape(Capsule())
+            .overlay {
                 Capsule()
-                    .strokeBorder(.primary.opacity(0.16), lineWidth: 0.5)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(reduceTransparency ? 0.10 : 0.24),
+                                .primary.opacity(0.12)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.65
+                    )
+            }
+            .shadow(
+                color: .black.opacity(reduceTransparency ? 0.10 : 0.18),
+                radius: 11,
+                y: 4
             )
+            .shadow(
+                color: .black.opacity(reduceTransparency ? 0.04 : 0.08),
+                radius: 2,
+                y: 1
+            )
+    }
+}
+
+/// NSVisualEffectView produces a real behind-window blur on macOS 13+.
+/// Layer clipping is repeated here and in SwiftUI so the window server never
+/// composites the rectangular backdrop that the previous Material attempt
+/// exposed on light wallpapers.
+private final class CapsuleVisualEffectView: NSVisualEffectView {
+    override func layout() {
+        super.layout()
+        wantsLayer = true
+        layer?.cornerCurve = .continuous
+        layer?.cornerRadius = bounds.height / 2
+        layer?.masksToBounds = true
+    }
+}
+
+private struct CapsuleVisualEffect: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = CapsuleVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.masksToBounds = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = .hudWindow
+        nsView.blendingMode = .behindWindow
+        nsView.state = .active
+        nsView.needsLayout = true
     }
 }

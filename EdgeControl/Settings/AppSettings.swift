@@ -80,6 +80,32 @@ enum FalseTouchProtection: String, CaseIterable, Codable, Sendable, Identifiable
     }
 }
 
+enum HapticStrength: String, CaseIterable, Codable, Sendable, Identifiable, Hashable {
+    case light
+    case standard
+    case strong
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .light: return "Light"
+        case .standard: return "Standard"
+        case .strong: return "Strong"
+        }
+    }
+
+    /// AppKit does not expose trackpad amplitude. Keep Standard identical to
+    /// the existing 2% alignment ticks, make Light less dense, and use the
+    /// firmer public system pattern for Strong.
+    var detentInterval: Double {
+        switch self {
+        case .light: return 0.04
+        case .standard, .strong: return 0.02
+        }
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     enum Key {
@@ -89,6 +115,7 @@ final class AppSettings: ObservableObject {
         static let leftEdgeAction = "leftEdgeAction"
         static let rightEdgeAction = "rightEdgeAction"
         static let hapticFeedback = "hapticFeedback"
+        static let hapticStrength = "hapticStrength"
         static let showHUD = "showHUD"
         static let colorfulHUD = "colorfulHUD"
         static let lowerHalfOnly = "lowerHalfOnly"
@@ -109,6 +136,7 @@ final class AppSettings: ObservableObject {
     @Published var leftEdgeAction: EdgeAction { didSet { defaults.set(leftEdgeAction.rawValue, forKey: Key.leftEdgeAction) } }
     @Published var rightEdgeAction: EdgeAction { didSet { defaults.set(rightEdgeAction.rawValue, forKey: Key.rightEdgeAction) } }
     @Published var hapticFeedback: Bool { didSet { defaults.set(hapticFeedback, forKey: Key.hapticFeedback) } }
+    @Published var hapticStrength: HapticStrength { didSet { defaults.set(hapticStrength.rawValue, forKey: Key.hapticStrength) } }
     @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Key.showHUD) } }
     @Published var colorfulHUD: Bool { didSet { defaults.set(colorfulHUD, forKey: Key.colorfulHUD) } }
     @Published var lowerHalfOnly: Bool { didSet { defaults.set(lowerHalfOnly, forKey: Key.lowerHalfOnly) } }
@@ -149,6 +177,7 @@ final class AppSettings: ObservableObject {
             Key.leftEdgeAction: EdgeAction.volume.rawValue,
             Key.rightEdgeAction: EdgeAction.brightness.rawValue,
             Key.hapticFeedback: true,
+            Key.hapticStrength: HapticStrength.standard.rawValue,
             Key.showHUD: true,
             Key.colorfulHUD: false,
             Key.lowerHalfOnly: false,
@@ -165,6 +194,9 @@ final class AppSettings: ObservableObject {
         leftEdgeAction = EdgeAction(rawValue: defaults.string(forKey: Key.leftEdgeAction) ?? "") ?? .volume
         rightEdgeAction = EdgeAction(rawValue: defaults.string(forKey: Key.rightEdgeAction) ?? "") ?? .brightness
         hapticFeedback = defaults.bool(forKey: Key.hapticFeedback)
+        hapticStrength = HapticStrength(
+            rawValue: defaults.string(forKey: Key.hapticStrength) ?? ""
+        ) ?? .standard
         showHUD = defaults.bool(forKey: Key.showHUD)
         colorfulHUD = defaults.bool(forKey: Key.colorfulHUD)
         lowerHalfOnly = defaults.bool(forKey: Key.lowerHalfOnly)

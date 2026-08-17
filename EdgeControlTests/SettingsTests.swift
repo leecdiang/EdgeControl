@@ -13,6 +13,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.rightEdgeAction, .brightness)
         XCTAssertEqual(settings.adjustmentSpeed, .standard)
         XCTAssertEqual(settings.falseTouchProtection, .standard)
+        XCTAssertEqual(settings.hapticStrength, .standard)
     }
 
     func testBothEdgesCanUseSameAction() {
@@ -34,6 +35,7 @@ final class SettingsTests: XCTestCase {
         var settings: AppSettings? = AppSettings(defaults: defaults)
         settings?.masterEnabled = false
         settings?.hapticFeedback = false
+        settings?.hapticStrength = .strong
         settings?.adjustmentSpeed = .fast
         settings?.falseTouchProtection = .strong
         settings?.leftEdgeAction = .disabled
@@ -44,6 +46,7 @@ final class SettingsTests: XCTestCase {
         let restored = AppSettings(defaults: defaults)
         XCTAssertFalse(restored.masterEnabled)
         XCTAssertFalse(restored.hapticFeedback)
+        XCTAssertEqual(restored.hapticStrength, .strong)
         XCTAssertEqual(restored.adjustmentSpeed, .fast)
         XCTAssertEqual(restored.falseTouchProtection, .strong)
         XCTAssertEqual(restored.leftEdgeAction, .disabled)
@@ -175,6 +178,14 @@ final class SettingsTests: XCTestCase {
         defaults.set("future-value", forKey: "trackpadPreference")
 
         XCTAssertEqual(AppSettings(defaults: defaults).trackpadPreference, .automatic)
+    }
+
+    func testUnknownHapticStrengthFallsBackToStandard() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("future-strength", forKey: "hapticStrength")
+
+        XCTAssertEqual(AppSettings(defaults: defaults).hapticStrength, .standard)
     }
 
     func testExternalTrackpadShapeGuardRejectsPortraitAndInvalidSurfaces() {
