@@ -394,7 +394,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited) EDGE_DEBUG_LOGGING=1";
 				INFOPLIST_FILE = EdgeControl/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControl;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EDGE_DEBUG_LOGGING";
@@ -416,7 +416,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EdgeControl/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControl;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "EdgeControl/EdgeControl-Bridging-Header.h";

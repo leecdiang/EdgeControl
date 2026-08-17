@@ -23,28 +23,28 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 Hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item PASS/FAIL matrix and [Docs/GestureTuning.md](Docs/GestureTuning.md) for the tuned recognizer values.
 
-The gesture recognizer, value mapping, detent, haptic, and settings layers are covered by 31 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, value mapping, detent, haptic, and settings layers are covered by 32 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
 - Physical left-edge and right-edge ingress recognition
 - Independent edge assignment: Off, Volume, or Brightness
 - Master, volume, brightness, haptic, HUD, sensitivity, launch-at-login, and external-DDC settings
-- Continuous value mapping from the gesture’s activation value (full trackpad height maps to the full 0–100% range)
+- Continuous relative mapping anchored to the volume/brightness captured at gesture activation, so entering at a high or low position never causes an immediate value jump
 - CoreAudio volume control with default-output re-resolution and unsupported-device handling
 - Built-in display brightness through runtime-loaded DisplayServices
 - Optional, isolated DDC/CI VCP `0x10` external-display backend (experimental, off by default)
 - Activation haptic plus 2% value detents with hysteresis and rate limiting
-- Optional lower-half-only mode: edge control responds only below the trackpad midline (midline = 100%, bottom = 0%); contacts born above the midline are rejected
+- Optional lower-half start filter: contacts born above the trackpad midline are rejected, while accepted gestures continue to adjust relative to the current value
 - Pointer freeze only after the gesture reaches `Active`; the system restores the cursor if the app dies
 - Compact 148×42 single-row HUD: native Liquid Glass on macOS 26, ultra-thin material fallback on macOS 13–15
 - `LSUIElement` menu-bar app with no Dock icon
 - Synthetic gesture tests; no physical trackpad required for recognizer tests
 - No account, network, analytics, telemetry, or backend
 
-## Lower half only
+## Start in lower half only
 
-By default, the full trackpad height maps to the full 0-100% range. With the "Lower half only" setting enabled (Settings > System), edge control responds only to the lower half of the trackpad: the midline maps to 100%, the very bottom to 0%. Contacts that first touch above the midline are rejected, which helps when the upper half of the trackpad tends to catch resting palms or stray touches. Positions are normalized per trackpad, so the midline adapts to every Mac model automatically.
+With "Start in lower half only" enabled (Settings > System), only contacts born at or below the normalized trackpad midline can become gestures. Contacts born above it are rejected for their entire lifetime, which helps when the upper half tends to catch a resting palm or stray touch. Once accepted, adjustment is still relative to the volume or brightness captured at activation; the finger's entry height is never written directly as a value. At the default gain, 50% of normalized vertical travel is enough to span the full adjustment range.
 
 ## Requirements
 
@@ -68,7 +68,7 @@ The script disables code signing for local compilation when no `DEVELOPMENT_TEAM
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.2.0-macOS.dmg
+  ./dist/EdgeControl-1.2.1-macOS.dmg
 ```
 
 The script uses only macOS-provided tools (`hdiutil`, Finder/AppleScript, `codesign`, `xcrun`). It stages `EdgeControl.app` on the left and an `Applications` symlink on the right, then converts to a compressed read-only DMG. Verified layout: App at (145,175), Applications at (410,175), icon size 104.

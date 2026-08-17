@@ -1,6 +1,6 @@
 # HANDOFF TO OPENCLAW
 
-This is the operational handoff for continued macOS validation and release work. The 1.1.0 baseline was compiled and hardware-tested on the reference Apple Silicon MacBook Air; exact evidence is recorded in `BUILD_REPORT.md`. External DDC, Intel/other macOS versions, Developer ID signing, notarization, and the post-1.1 gesture hardening remain explicitly unverified.
+This is the operational handoff for continued macOS validation and release work. The 1.2.1 source removes the lower-half absolute-position jump while preserving the stricter gesture admission added in 1.2.0. The last evidence-backed binary baseline in `BUILD_REPORT.md` remains 1.1.0; rerun the macOS checks below before publishing 1.2.1. External DDC, Intel/other macOS versions, Developer ID signing, and notarization remain explicitly unverified.
 
 ## A. What is already implemented
 
@@ -34,13 +34,14 @@ This is the operational handoff for continued macOS validation and release work.
 - At least 80% of the pre-activation vertical path must stay in one direction. Candidate/active corridor exit rejects or cancels and latches until lift.
 - Any frame with two or more live contacts cancels an active gesture and latches multi-touch rejection until an empty frame. A two-to-one transition stays rejected.
 - Events are decoupled: began, cumulative-delta changed, ended, cancelled.
-- Eighteen gesture tests cover the required matrix, timeout boundary, candidate/active corridor split, directionality, and zero-cross cancellation.
+- Twenty gesture tests cover the required matrix, timeout boundary, candidate/active corridor split, directionality, lower-half admission, and zero-cross cancellation.
 
 ### Action mapping
 
 - Independent `EdgeAction` settings for left and right: disabled, volume, brightness. Both edges may use the same action.
 - Master, volume, brightness, haptic, HUD, sensitivity, launch-at-login, and external-DDC settings are backed by `UserDefaults`.
 - Continuous mapping uses `initialValue + cumulativeDeltaY × baseGain × sensitivity`, clamped to `[0,1]`.
+- Lower-half-only is strictly an admission filter. It never maps absolute finger height to volume or brightness, so activation cannot cause a value jump.
 - The input callback never executes an action. `EdgeControlAppModel` opens an action session only after `.began` and a successful initial-value read.
 
 ### Volume
@@ -64,7 +65,7 @@ This is the operational handoff for continued macOS validation and release work.
 - Public AppKit haptic backend.
 - Private actuator backend scaffold, dynamically resolved and disabled by default behind `EDGE_ENABLE_UNVALIDATED_PRIVATE_HAPTIC=1`.
 - One activation tick only after active control session creation.
-- 5% value detents with 0.8% hysteresis; pure `DetentTracker` tests cover boundary bounce.
+- 2% value detents with 0.8% hysteresis; pure `DetentTracker` tests cover boundary bounce.
 - Cursor association freezes only after Active; restore occurs on end, cancel, action failure, wake, and stop.
 - One persistent borderless, non-activating, click-through `NSPanel` with an observable SwiftUI model (no per-frame `NSHostingView` rebuild).
 - Compact 148×42 single-row normal HUD, 220×42 error state, native macOS 26 Liquid Glass, macOS 13–15 ultra-thin fallback, custom progress capsule, and Reduce Motion-aware presentation.
@@ -73,7 +74,7 @@ This is the operational handoff for continued macOS validation and release work.
 
 ### Tests, documentation, and release shell
 
-- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `HapticEngineTests`, and synthetic trace helper (29 test methods in current source).
+- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `HapticEngineTests`, and synthetic trace helper (32 test methods in current source).
 - MIT license and no third-party source.
 - Runtime privacy/no-network statement and static repository guard.
 - Native-tools-only release build and DMG scripts.
@@ -84,14 +85,15 @@ This is the operational handoff for continued macOS validation and release work.
 
 The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-The current source adds three test methods and changes `GestureConfiguration`, `GestureEngine`, `EdgeControlAppModel`, `HUDController`, the C debug guard, and `package_dmg.sh`. Before another binary is published, rerun:
+The current source includes the 1.2.0 hardening plus the 1.2.1 no-jump mapping fix. Before another binary is published, rerun:
 
 1. `./Scripts/validate_repository.sh`
-2. `./Scripts/build_release.sh test` (expect 29 tests)
+2. `./Scripts/build_release.sh test` (expect 32 tests)
 3. `./Scripts/build_release.sh build`
 4. Physical edge-entry regression for 450ms / 3% / 0.80
 5. HUD visual/accessibility regression on macOS 26 and at least one pre-26 system
-6. Release binary inspection, DMG packaging, install and launch
+6. Lower-half regression at low and high initial values: activation must preserve the current value, and subsequent up/down motion must remain continuous
+7. Release binary inspection, DMG packaging, install and launch
 
 Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
 

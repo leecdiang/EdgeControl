@@ -7,7 +7,7 @@ enum Edge: String, CaseIterable, Sendable, Equatable {
 
 enum EdgeGestureEvent: Sendable, Equatable {
     case began(edge: Edge)
-    case changed(edge: Edge, deltaY: Double, y: Double)
+    case changed(edge: Edge, deltaY: Double)
     case ended(edge: Edge)
     case cancelled(edge: Edge)
 }

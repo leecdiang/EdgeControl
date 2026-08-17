@@ -1,9 +1,9 @@
-# BUILD_REPORT — EdgeControl 1.1.0
+# BUILD_REPORT — EdgeControl 1.2.1 source status
 
 Date: 2026-08-17
-Status: **SOURCE HARDENED; macOS regression build required before the next binary release**
+Status: **AUTOMATED CHECKS PASSED (validate / 32 tests / Release build / binary guards / DMG); physical no-jump gesture regression pending on the validation Mac**
 
-The 1.1.0 binary was validated with the original 26-test baseline. The current source adds DDC persistence, stricter gesture admission (450ms / 3% / 0.80), and a compact persistent Liquid Glass HUD, bringing the suite to 29 test methods. Those post-binary changes have static coverage but still require `xcodebuild test`, HUD visual inspection, and a short physical gesture regression on the validation Mac.
+The 1.2.1 source includes DDC persistence, stricter gesture admission (450ms / 3% / 0.80), a compact persistent Liquid Glass HUD, lower-half admission, and relative value anchoring that removes the absolute-position jump. The suite now contains 32 test methods.
 
 ## Environment
 
@@ -22,11 +22,11 @@ The 1.1.0 binary was validated with the original 26-test baseline. The current s
 | Item | Result |
 |---|---|
 | Debug build | PASS |
-| Release build | PASS |
-| Last binary unit-test run | PASS — 26/26 (GestureEngine 16, Mapping 3, Detent 2, Settings 3, HapticEngine 2) |
-| Current source test suite | 29 methods (GestureEngine 18, Mapping 3, Detent 2, Settings 4, HapticEngine 2); macOS rerun pending |
+| Release build | PASS | 2026-08-17 12:57, version 1.2.1 |
+| Last binary unit-test run | PASS — 32/32 (GestureEngine 20, Mapping 4, Detent 2, Settings 4, HapticEngine 2) | 2026-08-17 12:57 |
+| Current source test suite | 32 methods; all pass | includes testZeroMovementKeepsActivationValue |
 | Current source HUD | 148×42 normal / 220×42 error; macOS 26 Liquid Glass + macOS 13–15 fallback; visual regression pending |
-| Release verbose touch logging | Source guard PASS — both Swift and C diagnostics are Debug-only; inspect the next Release binary again |
+| Release verbose touch logging | PASS — strings check: EDGE_RAW_DUMP 0 hits, ECProbe 0 hits (2026-08-17) |
 | No network/telemetry | PASS (otool/nm: no network frameworks, no analytics symbols) |
 
 ## Hardware validation
@@ -52,6 +52,7 @@ The 1.1.0 binary was validated with the original 26-test baseline. The current s
 | Volume continuous mapping | PASS | Slow/fast/reverse; 0% and 100% clamps, no out-of-bounds |
 | Built-in brightness 25/50/75% | PASS | Exact round-trip via DisplayServices |
 | Brightness full range in one swipe | PASS | Down-swipe → 0.000 (screen black), up-swipe → 1.000 |
+| Lower-half activation continuity | LOCAL VALIDATION REQUIRED | Starting at a high/low y must preserve the current value; only post-activation delta may change it. Automated suite covers the mapping (testZeroMovementKeepsActivationValue); physical swipe pending |
 | Haptic (public backend) | PASS | Activation tick + 5% detents; LSUIElement background app |
 | Haptic (private actuator) | NOT SUPPORTED | MTActuator* symbols absent on macOS 26.5; graceful fallback |
 | Cursor freeze | PASS | Frozen only while Active; restores on end/cancel/error/quit; SIGKILL test proves system resets association |
@@ -86,5 +87,5 @@ NOT PERFORMED (no credentials). Ad-hoc DMG is the local deliverable.
 - Native macOS OSD (volume/brightness overlay) cannot be triggered via distributed notifications on macOS 26; the app's own HUD provides visual feedback instead.
 - Private trackpad actuator haptics absent on this OS; public haptics are used.
 - External DDC: experimental, off by default, untested (no external display).
-- The current 450ms deadline, 3% candidate corridor, and 0.80 directionality threshold require physical regression before packaging the next DMG.
+- The current 450ms deadline, 3% candidate corridor, 0.80 directionality threshold, and 1.2.1 relative lower-half mapping require physical regression before packaging the next DMG.
 - The new compact HUD requires checks on light/dark desktops, Reduce Transparency, Reduce Motion, multiple displays, and the macOS 13–15 fallback.

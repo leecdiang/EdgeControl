@@ -2,6 +2,15 @@ import XCTest
 @testable import EdgeControl
 
 final class MappingTests: XCTestCase {
+    func testZeroMovementKeepsActivationValue() {
+        let mapper = ContinuousValueMapper(baseGain: 2.0)
+        XCTAssertEqual(
+            mapper.targetValue(initialValue: 0.23, deltaY: 0.0, sensitivity: 1.0),
+            0.23,
+            accuracy: 0.000_001
+        )
+    }
+
     func testContinuousMappingUsesInitialValueAndCumulativeDelta() {
         let mapper = ContinuousValueMapper(baseGain: 1.0)
         XCTAssertEqual(
@@ -25,4 +34,3 @@ final class MappingTests: XCTestCase {
         XCTAssertEqual(high, 0.70, accuracy: 0.000_001)
     }
 }
-

@@ -264,7 +264,7 @@ final class GestureEngine {
         active.lastX = contact.x
         active.lastY = contact.y
         state = .active(active)
-        return moved ? [.changed(edge: active.edge, deltaY: deltaY, y: contact.y)] : []
+        return moved ? [.changed(edge: active.edge, deltaY: deltaY)] : []
     }
 
     private func isInsideCorridor(x: Double, edge: Edge, width: Double) -> Bool {

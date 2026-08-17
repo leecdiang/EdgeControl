@@ -210,8 +210,8 @@ final class EdgeControlAppModel: ObservableObject {
             switch event {
             case let .began(edge):
                 beginSession(edge: edge)
-            case let .changed(edge, deltaY, y):
-                changeSession(edge: edge, deltaY: deltaY, y: y)
+            case let .changed(edge, deltaY):
+                changeSession(edge: edge, deltaY: deltaY)
             case .ended, .cancelled:
                 finishSession()
             }
@@ -247,30 +247,22 @@ final class EdgeControlAppModel: ObservableObject {
         }
     }
 
-    private func changeSession(edge: Edge, deltaY: Double, y: Double) {
+    private func changeSession(edge: Edge, deltaY: Double) {
         guard settings.masterEnabled, let session, session.edge == edge, isEnabled(session.action) else {
             finishSession()
             return
         }
 
-        let target: Double
-        if settings.lowerHalfOnly {
-            // Lower-half mode: the finger's absolute position within the lower
-            // half sets the value directly — midline (y = 0.5) = 100%, bottom
-            // (y = 0) = 0%. y is normalized per-device, so the midline adapts
-            // to every Mac trackpad automatically.
-            target = min(1.0, max(0.0, y / 0.5))
-        } else {
-            // Polarity: on this Mac (macOS 26.5) MT normalized y grows with physical
-            // upward motion (y=0 bottom, y=1 top), so an upward swipe yields a
-            // positive deltaY and increases the value — matching volume/brightness
-            // key convention. Verified by live trace 2026-08-16.
-            target = mapper.targetValue(
-                initialValue: session.initialValue,
-                deltaY: deltaY,
-                sensitivity: settings.sensitivity
-            )
-        }
+        // Always anchor control to the value captured when the session begins.
+        // Lower-half-only is an admission filter, not an absolute position
+        // mapping: entering near the midline must not force the value toward
+        // 100%. On the reference Mac, normalized y grows with upward motion, so
+        // a positive cumulative delta increases the value.
+        let target = mapper.targetValue(
+            initialValue: session.initialValue,
+            deltaY: deltaY,
+            sensitivity: settings.sensitivity
+        )
         do {
             switch session.action {
             case .volume:

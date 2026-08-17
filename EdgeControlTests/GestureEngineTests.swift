@@ -159,7 +159,7 @@ final class GestureEngineTests: XCTestCase {
         guard case .began(edge: .left) = events[0] else {
             return XCTFail("expected began(left), got \(events[0])")
         }
-        guard case let .changed(edge: .left, deltaY, _) = events[1] else {
+        guard case let .changed(edge: .left, deltaY) = events[1] else {
             return XCTFail("expected changed(left), got \(events[1])")
         }
         XCTAssertEqual(deltaY, 0.02, accuracy: 0.0001)
@@ -213,7 +213,7 @@ final class GestureEngineTests: XCTestCase {
         guard case .began(edge: .left) = events[0] else {
             return XCTFail("expected began(left), got \(events[0])")
         }
-        guard case let .changed(edge: .left, deltaY, _) = events[1] else {
+        guard case let .changed(edge: .left, deltaY) = events[1] else {
             return XCTFail("expected changed(left), got \(events[1])")
         }
         XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
@@ -233,7 +233,7 @@ final class GestureEngineTests: XCTestCase {
         guard case .began(edge: .left) = events[0] else {
             return XCTFail("expected began(left), got \(events[0])")
         }
-        guard case let .changed(edge: .left, deltaY, _) = events[1] else {
+        guard case let .changed(edge: .left, deltaY) = events[1] else {
             return XCTFail("expected changed(left), got \(events[1])")
         }
         XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
@@ -274,10 +274,9 @@ final class GestureEngineTests: XCTestCase {
         guard case .began(edge: .left) = events[0] else {
             return XCTFail("expected began(left), got \(events[0])")
         }
-        guard case let .changed(edge: .left, deltaY, y) = events[1] else {
+        guard case let .changed(edge: .left, deltaY) = events[1] else {
             return XCTFail("expected changed(left), got \(events[1])")
         }
         XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
-        XCTAssertEqual(y, 0.58, accuracy: 0.0001)
     }
 }

@@ -46,8 +46,8 @@ for expected_default in "${required_gesture_defaults[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -ne 29 ]]; then
-  echo "Expected 29 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 32 ]]; then
+  echo "Expected at least 32 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 

@@ -59,9 +59,9 @@ The reference traces separated palm jitter (~0.5–0.6) from deliberate slides (
 
 ## Haptic detents (UX feel, Diang-verified)
 
-- Detent interval 5% (20 ticks across the full range — Diang requested "从顶端到低端二十下").
+- Detent interval 2% (50 value boundaries across the full range).
 - Hysteresis 0.008 prevents re-crossing the same boundary from micro-jitter.
-- Pulse cooldown 50 ms: renders all twenty 5% steps as discrete ticks at normal swipe speed (~20 Hz cap) while clipping the >30 Hz buzz of very fast flicks. Diang rated the final feel "合适".
+- Pulse cooldown 30 ms: preserves denser 2% feedback at normal swipe speed while rate-limiting very fast movement.
 
 ## Value mapping (gain 1.15 → 2.0)
 

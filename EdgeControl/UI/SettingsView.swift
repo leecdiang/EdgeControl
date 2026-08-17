@@ -47,13 +47,13 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Toggle(
-                    "Lower half only",
+                    "Start in lower half only",
                     isOn: Binding(
                         get: { settings.lowerHalfOnly },
                         set: { model.setLowerHalfOnly($0) }
                     )
                 )
-                Text("Restrict edge control to the lower half of the trackpad (midline = 100%, bottom = 0%).")
+                Text("Only contacts that start at or below the trackpad midline can activate; adjustment remains relative to the current value.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Toggle(
