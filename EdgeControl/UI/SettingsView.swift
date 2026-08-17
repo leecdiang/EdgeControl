@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 @MainActor
@@ -25,16 +26,31 @@ struct SettingsView: View {
                 Toggle("Volume control enabled", isOn: $settings.volumeEnabled)
                 Toggle("Brightness control enabled", isOn: $settings.brightnessEnabled)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Sensitivity")
-                        Spacer()
-                        Text(settings.sensitivity, format: .number.precision(.fractionLength(2)))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                Picker("Adjustment speed", selection: $settings.adjustmentSpeed) {
+                    ForEach(AdjustmentSpeed.allCases) { speed in
+                        Text(speed.title).tag(speed)
                     }
-                    Slider(value: $settings.sensitivity, in: 0.35...2.0, step: 0.05)
                 }
+                .pickerStyle(.segmented)
+                Text("Changes adjustment gain only; it never changes gesture activation rules.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Picker(
+                    "False-touch protection",
+                    selection: Binding(
+                        get: { settings.falseTouchProtection },
+                        set: { model.setFalseTouchProtection($0) }
+                    )
+                ) {
+                    ForEach(FalseTouchProtection.allCases) { protection in
+                        Text(protection.title).tag(protection)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text(falseTouchProtectionDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding(20)
             .tabItem { Label("Controls", systemImage: "slider.vertical.3") }
@@ -125,6 +141,19 @@ struct SettingsView: View {
             .tabItem { Label("About", systemImage: "info.circle") }
         }
         .padding(.top, 8)
+    }
+
+    private var falseTouchProtectionDescription: String {
+        let protection = settings.falseTouchProtection
+        let milliseconds = Int((protection.typingSuppressionInterval * 1_000).rounded())
+        let leftPercent = protection.leftEntryStripWidth * 100
+        let rightPercent = protection.rightEntryStripWidth * 100
+        return String(
+            format: "%dms after typing · %.1f%% left / %.1f%% right edge birth range",
+            milliseconds,
+            leftPercent,
+            rightPercent
+        )
     }
 
     @ViewBuilder

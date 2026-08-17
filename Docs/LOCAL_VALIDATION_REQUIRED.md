@@ -6,7 +6,7 @@ Checked items have recorded evidence on the macOS 26.5 arm64 reference machine. 
 
 - [x] Open and build the 1.1.0 baseline with Xcode 26.6.
 - [x] Run clean Debug and Release builds for Apple Silicon (1.1.0 baseline).
-- [ ] Rebuild and run all 40 tests after the 1.3.1 brightness-routing fix and earlier gesture/trackpad changes.
+- [ ] Rebuild and run all 52 tests after the 1.4.0 false-touch/speed split and 1.3.1 brightness-routing changes.
 - [ ] Run a clean Debug build for Intel or an Intel CI runner.
 - [x] Resolve baseline Swift strict-concurrency diagnostics without weakening isolation globally.
 - [x] Confirm the bridging callback converts cleanly to the imported C function-pointer type on Xcode 26.6.
@@ -47,6 +47,21 @@ File: `EdgeControl/PrivateFrameworks/ECPrivateAPIBridge.c`
 - [x] Verify baseline multi-finger and two-to-one rejection on the reference machine.
 - [x] Verify corridor exit cancels and stays rejected until lift.
 - [x] Record zero activations during the baseline typing/scrolling palm test.
+
+## Adjustment speed and false-touch protection
+
+- [ ] Confirm Precise / Standard / Fast change only adjustment gain (`0.75×` / `1.00×` / `1.35×`) and do not change activation eligibility.
+- [ ] Confirm Strong / Standard / Light typing boundaries are exactly 600ms / 350ms / 200ms: before rejects, after admits a new deliberate lifecycle.
+- [ ] Verify left birth widths 0.6% / 0.8% / 1.0% and right widths 1.2% / 1.5% / 1.9% with captured raw traces.
+- [ ] For every profile, confirm 450ms deadline, 3% candidate corridor, 8% Active corridor, 0.80 directionality and multi-touch behavior remain unchanged.
+- [ ] Type continuously with a palm near each edge; confirm no activation.
+- [ ] Keep a typing-rejected touch down beyond the window; it must stay rejected until lift.
+- [ ] Start a candidate, type before activation, and confirm terminal rejection until lift.
+- [ ] Type during an Active volume and brightness gesture; neither may cancel or jump.
+- [ ] Change adjustment speed during an Active gesture and confirm its pinned gain prevents a jump; the next gesture must use the new speed.
+- [ ] Change false-touch protection or lower-half admission while a finger is down; that contact must remain discarded until lift.
+- [ ] Repeat with key repeat, an external keyboard, Secure Input contexts, sleep/wake, and all protection profiles.
+- [ ] On a clean account, confirm no Accessibility or Input Monitoring prompt and no key value/text capture.
 
 ## CoreAudio
 
@@ -112,7 +127,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 ## Release engineering
 
 - [x] Populate every app-icon slot with original artwork.
-- [x] Populate the bundle identifier and 1.3.1 source version.
+- [x] Populate the bundle identifier and 1.4.0 source version.
 - [x] Validate the ad-hoc 1.1.0 baseline with Hardened Runtime and private runtime loading.
 - [ ] Sign with Developer ID Application.
 - [ ] Notarize and staple the app/DMG.

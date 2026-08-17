@@ -4,6 +4,8 @@
 
 Touch contacts are processed in memory and reduced to identifier, normalized coordinates, timestamp, and phase. Release builds do not persist or transmit traces. Debug builds can print normalized values and an opt-in raw ABI dump for local hardware tuning. Both Swift and C diagnostics are compile-gated by `EDGE_DEBUG_LOGGING`; the Release configuration excludes them.
 
+The recent-typing guard asks Quartz only for the elapsed time since the last key-down event, and does not query while EdgeControl's master switch is off. It installs no event tap or global monitor, never receives a key code or text value, and stores no keyboard activity. This design still requires a clean-account check on each target macOS version to confirm that no TCC prompt appears.
+
 ## Network posture
 
 The application target contains no networking library, URL session, analytics SDK, telemetry client, account code, updater, backend, or cloud integration. Release distribution checks should retain this property.

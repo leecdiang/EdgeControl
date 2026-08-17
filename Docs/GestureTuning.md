@@ -24,6 +24,20 @@ The entry-strip and raw-contact values below come from the reference-machine tra
 | `directionalityRatio` | 0.80 | `EdgeGestureTypes.swift` | At least 80% of the pre-activation vertical path must remain in one direction; deliberate traces measured about 0.9+, palm jitter about 0.5–0.6. |
 | `entryTimeout` | 0.450 s | `EdgeGestureTypes.swift` | See "Entry deadline" below. |
 
+## Independent adjustment speed and false-touch protection
+
+Adjustment speed is post-activation gain only: Precise `0.75×`, Standard `1.00×`, and Fast `1.35×`. The selected multiplier is pinned at activation. Legacy continuous-sensitivity values migrate to the nearest preset using midpoint thresholds `0.875` and `1.175`.
+
+False-touch protection controls only the recent-typing window and contact-birth strips:
+
+| Profile | Typing window | Left strip | Right strip |
+| --- | ---: | ---: | ---: |
+| Strong | 600ms | 0.006 | 0.012 |
+| Standard | 350ms | 0.008 | 0.015 |
+| Light | 200ms | 0.010 | 0.019 |
+
+The 450ms deadline, 3% candidate corridor, 8% Active corridor, 0.80 directionality, 1.5% vertical intent, outward rejection, interior-birth latch and multi-touch latch remain identical across profiles. A contact rejected for recent typing stays rejected until all fingers lift; an Active gesture is never interrupted. Changing admission settings while a contact is down discards it until lift. These profile values are 1.4.0 product assumptions and require physical false-positive/false-negative tuning on the release machine.
+
 ## Inward travel (0.008 → 0.0)
 
 The original constant required ≥0.8% inward travel before vertical intent counted. Live raw traces show that edge-pinned contacts report normalized x pinned at 0.0 (left) / 1.0 (right) while the finger slides vertically along the edge; the largest inward excursion ever measured during a slide-in was 0.0011 (0.11%). A positive threshold therefore made every physical edge ingress time out (observed: multiple left-edge slide-ins rejected at 250 ms with 0% inward travel).

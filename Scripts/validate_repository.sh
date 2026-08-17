@@ -12,6 +12,7 @@ required=(
   "EdgeControl/Actions/VolumeController.swift"
   "EdgeControl/Display/BuiltInDisplayBackend.swift"
   "EdgeControl/Display/ExternalDDCBackend.swift"
+  "EdgeControl/System/RecentKeyboardActivityGuard.swift"
   "EdgeControl/Feedback/HapticEngine.swift"
   "EdgeControl/UI/HUDController.swift"
   "EdgeControlTests/GestureEngineTests.swift"
@@ -20,11 +21,12 @@ required=(
   "LICENSE"
   "THIRD_PARTY_NOTICES.md"
   "HANDOFF_TO_OPENCLAW.md"
-  "OPENCLAW_VALIDATE_1.3.1.md"
-  "RELEASE_NOTES_1.3.1.md"
+  "OPENCLAW_VALIDATE_1.4.0.md"
+  "RELEASE_NOTES_1.4.0.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
-  "Docs/RELEASE_NOTES_1.3.1.md"
+  "Docs/RELEASE_NOTES_1.4.0.md"
   "Docs/STATIC_BUG_AUDIT_1.3.1.md"
+  "Docs/STATIC_BUG_AUDIT_1.4.0.md"
 )
 
 for relative_path in "${required[@]}"; do
@@ -35,9 +37,9 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.3.1;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.4.0;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.3.1, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.4.0, found $version_count." >&2
   exit 1
 fi
 
@@ -72,8 +74,74 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 40 ]]; then
-  echo "Expected at least 40 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 52 ]]; then
+  echo "Expected at least 52 XCTest methods, found $test_method_count." >&2
+  exit 1
+fi
+
+typing_guard="$project_root/EdgeControl/System/RecentKeyboardActivityGuard.swift"
+required_typing_guard_markers=(
+  "CGEventSource.secondsSinceLastEventType"
+  "suppressionInterval.isFinite"
+  "elapsed.isFinite"
+)
+
+for expected_marker in "${required_typing_guard_markers[@]}"; do
+  if ! grep -Fq "$expected_marker" "$typing_guard"; then
+    echo "Recent-typing guard drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+settings_file="$project_root/EdgeControl/Settings/AppSettings.swift"
+required_independent_profile_markers=(
+  "case .precise: return 0.75"
+  "case .standard: return 1.00"
+  "case .fast: return 1.35"
+  "case .strong: return 0.600"
+  "case .standard: return 0.350"
+  "case .light: return 0.200"
+  "case .strong: return 0.006"
+  "case .light: return 0.019"
+  "migrated(fromLegacySensitivity"
+)
+
+for expected_marker in "${required_independent_profile_markers[@]}"; do
+  if ! grep -Fq "$expected_marker" "$settings_file"; then
+    echo "Independent speed/protection preset drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+required_session_pinning_markers=(
+  "speedMultiplier: settings.adjustmentSpeed.gainMultiplier"
+  "settings.falseTouchProtection.typingSuppressionInterval"
+  "discardTouchFramesUntilLift = discardTouchFramesUntilLift || hasLiveTouchContacts"
+)
+
+for expected_marker in "${required_session_pinning_markers[@]}"; do
+  if ! grep -Fq "$expected_marker" "$app_model"; then
+    echo "Speed/protection lifecycle guard drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+required_typing_latch_markers=(
+  "recentKeyboardActivity"
+  "blockNewGestureForRecentTyping"
+  "case .idle, .entryCandidate, .entryConfirmed"
+)
+
+for expected_marker in "${required_typing_latch_markers[@]}"; do
+  if ! grep -Fq "$expected_marker" "$project_root/EdgeControl/Gesture/GestureEngine.swift"; then
+    echo "Recent-typing lifecycle guard drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+if grep -R -n -E 'CGEventTap|addGlobalMonitorForEvents|IOHIDManager' \
+  "$project_root/EdgeControl" --include='*.swift' --include='*.c'; then
+  echo "Keyboard capture/monitor API found; elapsed-time-only policy violated." >&2
   exit 1
 fi
 

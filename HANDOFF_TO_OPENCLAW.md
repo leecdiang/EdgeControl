@@ -1,6 +1,6 @@
 # HANDOFF TO OPENCLAW
 
-This is the operational handoff for EdgeControl 1.3.1. The 1.3.0 Universal 2 build and 35-test run are the latest recorded binary baseline. The current source fixes intermittent built-in brightness routing to External DDC and adds five regressions. Run `OPENCLAW_VALIDATE_1.3.1.md` before publishing; external trackpad hardware, external DDC, Intel runtime, Developer ID signing, and notarization remain explicitly unverified.
+This is the operational handoff for EdgeControl 1.4.0. The 1.3.0 Universal 2 build and 35-test run are the latest recorded binary baseline. The current source includes the 1.3.1 brightness-routing fix and adds independent adjustment-speed and false-touch-protection presets with twelve v1.4.0 regressions. Run `OPENCLAW_VALIDATE_1.4.0.md` before publishing; external trackpad hardware, external DDC, Intel runtime, Developer ID signing, and notarization remain explicitly unverified.
 
 ## A. What is already implemented
 
@@ -37,13 +37,16 @@ This is the operational handoff for EdgeControl 1.3.1. The 1.3.0 Universal 2 bui
 - At least 80% of the pre-activation vertical path must stay in one direction. Candidate/active corridor exit rejects or cancels and latches until lift.
 - Any frame with two or more live contacts cancels an active gesture and latches multi-touch rejection until an empty frame. A two-to-one transition stays rejected.
 - Events are decoupled: began, cumulative-delta changed, ended, cancelled.
-- Twenty gesture tests cover the required matrix, timeout boundary, candidate/active corridor split, directionality, lower-half admission, and zero-cross cancellation.
+- Twenty-five gesture tests cover the required matrix, timeout boundary, candidate/active corridor split, directionality, lower-half admission, zero-cross cancellation, typing rejection/latching, Active continuity, and asymmetric profile admission.
 
 ### Action mapping
 
 - Independent `EdgeAction` settings for left and right: disabled, volume, brightness. Both edges may use the same action.
-- Master, volume, brightness, haptic, HUD, sensitivity, launch-at-login, and external-DDC settings are backed by `UserDefaults`.
-- Continuous mapping uses `initialValue + cumulativeDeltaY × baseGain × sensitivity`, clamped to `[0,1]`.
+- Master, volume, brightness, haptic, HUD, adjustment-speed, false-touch-protection, launch-at-login, and external-DDC settings are backed by `UserDefaults`.
+- Public CoreGraphics supplies only elapsed time since the latest key-down; no event tap or key value is captured. Strong/Standard/Light protection selects 600/350/200ms plus asymmetric edge-birth strips while every hard recognizer rule remains fixed.
+- Recent typing rejects idle/candidate lifecycles until lift. Active gestures are deliberately uninterrupted.
+- Continuous mapping uses `initialValue + cumulativeDeltaY × baseGain × pinnedSpeedMultiplier`, clamped to `[0,1]`. Precise/Standard/Fast are 0.75×/1.00×/1.35× and never alter activation.
+- Legacy continuous sensitivity migrates to the nearest speed preset. Admission-setting changes while a contact is down discard it until lift.
 - Lower-half-only is strictly an admission filter. It never maps absolute finger height to volume or brightness, so activation cannot cause a value jump.
 - The input callback never executes an action. `EdgeControlAppModel` opens an action session only after `.began` and a successful initial-value read.
 
@@ -79,7 +82,7 @@ This is the operational handoff for EdgeControl 1.3.1. The 1.3.0 Universal 2 bui
 
 ### Tests, documentation, and release shell
 
-- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `BrightnessRoutingTests`, `HapticEngineTests`, and synthetic trace helper (40 test methods in current source).
+- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `BrightnessRoutingTests`, `HapticEngineTests`, and synthetic trace helper (52 test methods in current source).
 - MIT license and no third-party source.
 - Runtime privacy/no-network statement and static repository guard.
 - Native-tools-only release build and DMG scripts.
@@ -90,15 +93,15 @@ This is the operational handoff for EdgeControl 1.3.1. The 1.3.0 Universal 2 bui
 
 The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-The current source adds the 1.3.1 brightness-routing fix on top of the 1.3.0 baseline. Before another binary is published, rerun:
+The current source adds the 1.3.1 brightness-routing fix and 1.4.0 recent-typing protection on top of the 1.3.0 baseline. Before another binary is published, rerun:
 
 1. `./Scripts/validate_repository.sh`
-2. `./Scripts/build_release.sh test` (expect 40 tests)
+2. `./Scripts/build_release.sh test` (expect 52 tests)
 3. `./Scripts/build_release.sh build`
 4. Physical edge-entry regression for 450ms / 3% / 0.80
 5. HUD visual/accessibility regression on macOS 26 and at least one pre-26 system
 6. Lower-half regression at low and high initial values: activation must preserve the current value, and subsequent up/down motion must remain continuous
-7. Complete `OPENCLAW_VALIDATE_1.3.1.md`, including built-in-only brightness after display changes and sleep/wake
+7. Complete `OPENCLAW_VALIDATE_1.4.0.md`, including all independent speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
 8. Release binary inspection, DMG packaging, install and launch
 
 Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
@@ -347,4 +350,4 @@ Use [Docs/LOCAL_VALIDATION_REQUIRED.md](Docs/LOCAL_VALIDATION_REQUIRED.md) as th
 
 ## Local work remaining, in one paragraph
 
-The immediate remaining work is a macOS run of the current 40-test source plus the built-in-only brightness matrix in `OPENCLAW_VALIDATE_1.3.1.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and brightness regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.
+The immediate remaining work is a macOS run of the current 52-test source plus the speed/protection clean-account and built-in-only brightness matrices in `OPENCLAW_VALIDATE_1.4.0.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and physical regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.

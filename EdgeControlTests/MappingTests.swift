@@ -5,7 +5,7 @@ final class MappingTests: XCTestCase {
     func testZeroMovementKeepsActivationValue() {
         let mapper = ContinuousValueMapper(baseGain: 2.0)
         XCTAssertEqual(
-            mapper.targetValue(initialValue: 0.23, deltaY: 0.0, sensitivity: 1.0),
+            mapper.targetValue(initialValue: 0.23, deltaY: 0.0, speedMultiplier: 1.0),
             0.23,
             accuracy: 0.000_001
         )
@@ -14,7 +14,7 @@ final class MappingTests: XCTestCase {
     func testContinuousMappingUsesInitialValueAndCumulativeDelta() {
         let mapper = ContinuousValueMapper(baseGain: 1.0)
         XCTAssertEqual(
-            mapper.targetValue(initialValue: 0.40, deltaY: 0.20, sensitivity: 1.5),
+            mapper.targetValue(initialValue: 0.40, deltaY: 0.20, speedMultiplier: 1.5),
             0.70,
             accuracy: 0.000_001
         )
@@ -22,15 +22,29 @@ final class MappingTests: XCTestCase {
 
     func testMappingClampsToUnitInterval() {
         let mapper = ContinuousValueMapper(baseGain: 1.0)
-        XCTAssertEqual(mapper.targetValue(initialValue: 0.95, deltaY: 0.20, sensitivity: 1.0), 1.0)
-        XCTAssertEqual(mapper.targetValue(initialValue: 0.05, deltaY: -0.20, sensitivity: 1.0), 0.0)
+        XCTAssertEqual(mapper.targetValue(initialValue: 0.95, deltaY: 0.20, speedMultiplier: 1.0), 1.0)
+        XCTAssertEqual(mapper.targetValue(initialValue: 0.05, deltaY: -0.20, speedMultiplier: 1.0), 0.0)
     }
 
-    func testSensitivityChangesGain() {
+    func testAdjustmentSpeedChangesGainOnly() {
         let mapper = ContinuousValueMapper(baseGain: 1.0)
-        let low = mapper.targetValue(initialValue: 0.50, deltaY: 0.10, sensitivity: 0.5)
-        let high = mapper.targetValue(initialValue: 0.50, deltaY: 0.10, sensitivity: 2.0)
-        XCTAssertEqual(low, 0.55, accuracy: 0.000_001)
-        XCTAssertEqual(high, 0.70, accuracy: 0.000_001)
+        let precise = mapper.targetValue(
+            initialValue: 0.50,
+            deltaY: 0.10,
+            speedMultiplier: AdjustmentSpeed.precise.gainMultiplier
+        )
+        let fast = mapper.targetValue(
+            initialValue: 0.50,
+            deltaY: 0.10,
+            speedMultiplier: AdjustmentSpeed.fast.gainMultiplier
+        )
+        XCTAssertEqual(precise, 0.550, accuracy: 0.000_001)
+        XCTAssertEqual(fast, 0.595, accuracy: 0.000_001)
+    }
+
+    func testAdjustmentSpeedPresetMultipliersAreStable() {
+        XCTAssertEqual(AdjustmentSpeed.precise.gainMultiplier, 0.50)
+        XCTAssertEqual(AdjustmentSpeed.standard.gainMultiplier, 0.70)
+        XCTAssertEqual(AdjustmentSpeed.fast.gainMultiplier, 0.95)
     }
 }

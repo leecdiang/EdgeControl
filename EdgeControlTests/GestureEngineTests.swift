@@ -242,6 +242,140 @@ final class GestureEngineTests: XCTestCase {
         }
     }
 
+    func testRecentTypingRejectsLifecycleUntilLift() {
+        let engine = GestureEngine()
+        let birth = TouchFrame(
+            contacts: [TouchContact(id: 1, x: 0.001, y: 0.50, timestamp: 0.01, phase: .began)],
+            timestamp: 0.01
+        )
+        let moved = TouchFrame(
+            contacts: [TouchContact(id: 1, x: 0.005, y: 0.56, timestamp: 0.06, phase: .moved)],
+            timestamp: 0.06
+        )
+
+        XCTAssertTrue(
+            engine.process(birth, blockNewGestureForRecentTyping: true).isEmpty
+        )
+        XCTAssertEqual(engine.state, .rejected(.recentKeyboardActivity))
+
+        // The same physical touch must not become eligible when the keyboard
+        // window expires; only a full lift resets the rejection latch.
+        XCTAssertTrue(engine.process(moved).isEmpty)
+        XCTAssertEqual(engine.state, .rejected(.recentKeyboardActivity))
+
+        XCTAssertTrue(
+            engine.process(TouchFrame(contacts: [], timestamp: 0.07)).isEmpty
+        )
+        XCTAssertEqual(engine.state, .idle)
+    }
+
+    func testTypingDuringCandidateRejectsBeforeActivation() {
+        let engine = GestureEngine()
+        let birth = TouchFrame(
+            contacts: [TouchContact(id: 1, x: 0.001, y: 0.50, timestamp: 0.01, phase: .began)],
+            timestamp: 0.01
+        )
+        let candidateMove = TouchFrame(
+            contacts: [TouchContact(id: 1, x: 0.005, y: 0.505, timestamp: 0.04, phase: .moved)],
+            timestamp: 0.04
+        )
+
+        XCTAssertTrue(engine.process(birth).isEmpty)
+        XCTAssertTrue(engine.isAwaitingActivation)
+        XCTAssertTrue(
+            engine.process(candidateMove, blockNewGestureForRecentTyping: true).isEmpty
+        )
+        XCTAssertEqual(engine.state, .rejected(.recentKeyboardActivity))
+    }
+
+    func testRecentTypingDoesNotInterruptActiveGesture() {
+        let engine = GestureEngine()
+        let birth = TouchFrame(
+            contacts: [TouchContact(id: 1, x: 0.001, y: 0.50, timestamp: 0.01, phase: .began)],
+            timestamp: 0.01
+        )
+        let activation = TouchFrame(
+            contacts: [TouchContact(id: 1, x: 0.005, y: 0.55, timestamp: 0.06, phase: .moved)],
+            timestamp: 0.06
+        )
+        let activeMove = TouchFrame(
+            contacts: [TouchContact(id: 1, x: 0.006, y: 0.58, timestamp: 0.11, phase: .moved)],
+            timestamp: 0.11
+        )
+
+        XCTAssertTrue(engine.process(birth).isEmpty)
+        XCTAssertEqual(engine.process(activation), [.began(edge: .left)])
+        XCTAssertFalse(engine.isAwaitingActivation)
+
+        let events = engine.process(
+            activeMove,
+            blockNewGestureForRecentTyping: true
+        )
+        XCTAssertEqual(events.count, 1)
+        guard case let .changed(edge: .left, deltaY) = events[0] else {
+            return XCTFail("expected changed(left), got \(events[0])")
+        }
+        XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
+    }
+
+    func testFalseTouchProfilesChangeLeftBirthAdmission() {
+        var strongTrace = SyntheticTouchTrace()
+        strongTrace.contact(x: 0.007, y: 0.50)
+        strongTrace.contact(x: 0.010, y: 0.53, after: 0.05)
+        let strongEngine = GestureEngine(
+            configuration: FalseTouchProtection.strong.gestureConfiguration
+        )
+        XCTAssertTrue(strongTrace.events(using: strongEngine).isEmpty)
+        XCTAssertEqual(strongEngine.state, .rejected(.bornInInterior))
+
+        var standardTrace = SyntheticTouchTrace()
+        standardTrace.contact(x: 0.007, y: 0.50)
+        standardTrace.contact(x: 0.010, y: 0.53, after: 0.05)
+        XCTAssertEqual(
+            standardTrace.events(
+                using: GestureEngine(
+                    configuration: FalseTouchProtection.standard.gestureConfiguration
+                )
+            ),
+            [.began(edge: .left)]
+        )
+
+        var lightTrace = SyntheticTouchTrace()
+        lightTrace.contact(x: 0.009, y: 0.50)
+        lightTrace.contact(x: 0.012, y: 0.53, after: 0.05)
+        XCTAssertEqual(
+            lightTrace.events(
+                using: GestureEngine(
+                    configuration: FalseTouchProtection.light.gestureConfiguration
+                )
+            ),
+            [.began(edge: .left)]
+        )
+    }
+
+    func testFalseTouchProfilesPreserveAsymmetricRightBirthRange() {
+        var strongTrace = SyntheticTouchTrace()
+        strongTrace.contact(x: 0.986, y: 0.50)
+        strongTrace.contact(x: 0.980, y: 0.47, after: 0.05)
+        let strongEngine = GestureEngine(
+            configuration: FalseTouchProtection.strong.gestureConfiguration
+        )
+        XCTAssertTrue(strongTrace.events(using: strongEngine).isEmpty)
+        XCTAssertEqual(strongEngine.state, .rejected(.bornInInterior))
+
+        var standardTrace = SyntheticTouchTrace()
+        standardTrace.contact(x: 0.986, y: 0.50)
+        standardTrace.contact(x: 0.980, y: 0.47, after: 0.05)
+        XCTAssertEqual(
+            standardTrace.events(
+                using: GestureEngine(
+                    configuration: FalseTouchProtection.standard.gestureConfiguration
+                )
+            ),
+            [.began(edge: .right)]
+        )
+    }
+
     func testLowerHalfOnlyRejectsBirthAboveMidline() {
         var config = GestureConfiguration.default
         config.lowerHalfOnly = true

@@ -1,6 +1,85 @@
 import Combine
 import Foundation
 
+enum AdjustmentSpeed: String, CaseIterable, Codable, Sendable, Identifiable, Hashable {
+    case precise
+    case standard
+    case fast
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .precise: return "Precise"
+        case .standard: return "Standard"
+        case .fast: return "Fast"
+        }
+    }
+
+    var gainMultiplier: Double {
+        switch self {
+        case .precise: return 0.50
+        case .standard: return 0.70
+        case .fast: return 0.95
+        }
+    }
+
+    static func migrated(fromLegacySensitivity sensitivity: Double) -> Self {
+        guard sensitivity.isFinite else { return .standard }
+        // Nearest preset by gain multiplier.
+        if sensitivity < 0.600 { return .precise }
+        if sensitivity < 0.825 { return .standard }
+        return .fast
+    }
+}
+
+enum FalseTouchProtection: String, CaseIterable, Codable, Sendable, Identifiable, Hashable {
+    case strong
+    case standard
+    case light
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .strong: return "Strong"
+        case .standard: return "Standard"
+        case .light: return "Light"
+        }
+    }
+
+    var typingSuppressionInterval: TimeInterval {
+        switch self {
+        case .strong: return 0.600
+        case .standard: return 0.350
+        case .light: return 0.200
+        }
+    }
+
+    var leftEntryStripWidth: Double {
+        switch self {
+        case .strong: return 0.006
+        case .standard: return 0.008
+        case .light: return 0.010
+        }
+    }
+
+    var rightEntryStripWidth: Double {
+        switch self {
+        case .strong: return 0.012
+        case .standard: return 0.015
+        case .light: return 0.019
+        }
+    }
+
+    var gestureConfiguration: GestureConfiguration {
+        var configuration = GestureConfiguration.default
+        configuration.leftEntryStripWidth = leftEntryStripWidth
+        configuration.rightEntryStripWidth = rightEntryStripWidth
+        return configuration
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     enum Key {
@@ -14,6 +93,9 @@ final class AppSettings: ObservableObject {
         static let colorfulHUD = "colorfulHUD"
         static let lowerHalfOnly = "lowerHalfOnly"
         static let trackpadPreference = "trackpadPreference"
+        static let adjustmentSpeed = "adjustmentSpeed"
+        static let falseTouchProtection = "falseTouchProtection"
+        // Read-only migration key from 1.3.x and the first 1.4.0 draft.
         static let sensitivity = "sensitivity"
         static let launchAtLogin = "launchAtLogin"
         static let externalDDCEnabled = "externalDDCEnabled"
@@ -31,12 +113,35 @@ final class AppSettings: ObservableObject {
     @Published var colorfulHUD: Bool { didSet { defaults.set(colorfulHUD, forKey: Key.colorfulHUD) } }
     @Published var lowerHalfOnly: Bool { didSet { defaults.set(lowerHalfOnly, forKey: Key.lowerHalfOnly) } }
     @Published var trackpadPreference: TrackpadPreference { didSet { defaults.set(trackpadPreference.rawValue, forKey: Key.trackpadPreference) } }
-    @Published var sensitivity: Double { didSet { defaults.set(sensitivity, forKey: Key.sensitivity) } }
+    @Published var adjustmentSpeed: AdjustmentSpeed { didSet { defaults.set(adjustmentSpeed.rawValue, forKey: Key.adjustmentSpeed) } }
+    @Published var falseTouchProtection: FalseTouchProtection { didSet { defaults.set(falseTouchProtection.rawValue, forKey: Key.falseTouchProtection) } }
     @Published var launchAtLogin: Bool { didSet { defaults.set(launchAtLogin, forKey: Key.launchAtLogin) } }
     @Published var externalDDCEnabled: Bool { didSet { defaults.set(externalDDCEnabled, forKey: Key.externalDDCEnabled) } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+
+        // Registration defaults are process-global and shared by every
+        // AppSettings instance, so a key can look "stored" when it only exists
+        // in the registration domain. Treat a value as persisted only when it
+        // differs from the injected registration default.
+        let registration = defaults.volatileDomain(forName: UserDefaults.registrationDomain)
+
+        func persistedValue(_ key: String) -> Any? {
+            guard let value = defaults.object(forKey: key) else { return nil }
+            if let registered = registration[key],
+               (registered as AnyObject).isEqual(value as AnyObject) {
+                return nil
+            }
+            return value
+        }
+
+        let storedAdjustmentSpeed = persistedValue(Key.adjustmentSpeed) as? String
+        let storedFalseTouchProtection = persistedValue(Key.falseTouchProtection) as? String
+        let legacySensitivity: Double? = persistedValue(Key.sensitivity) == nil
+            ? nil
+            : defaults.double(forKey: Key.sensitivity)
+
         defaults.register(defaults: [
             Key.masterEnabled: true,
             Key.volumeEnabled: true,
@@ -48,7 +153,8 @@ final class AppSettings: ObservableObject {
             Key.colorfulHUD: false,
             Key.lowerHalfOnly: false,
             Key.trackpadPreference: TrackpadPreference.automatic.rawValue,
-            Key.sensitivity: 1.0,
+            Key.adjustmentSpeed: AdjustmentSpeed.standard.rawValue,
+            Key.falseTouchProtection: FalseTouchProtection.standard.rawValue,
             Key.launchAtLogin: false,
             Key.externalDDCEnabled: false
         ])
@@ -65,7 +171,18 @@ final class AppSettings: ObservableObject {
         trackpadPreference = TrackpadPreference(
             rawValue: defaults.string(forKey: Key.trackpadPreference) ?? ""
         ) ?? .automatic
-        sensitivity = min(2.0, max(0.35, defaults.double(forKey: Key.sensitivity)))
+        if let storedAdjustmentSpeed {
+            adjustmentSpeed = AdjustmentSpeed(rawValue: storedAdjustmentSpeed) ?? .standard
+        } else if let legacySensitivity {
+            adjustmentSpeed = AdjustmentSpeed.migrated(
+                fromLegacySensitivity: legacySensitivity
+            )
+        } else {
+            adjustmentSpeed = .standard
+        }
+        falseTouchProtection = FalseTouchProtection(
+            rawValue: storedFalseTouchProtection ?? ""
+        ) ?? .standard
         launchAtLogin = defaults.bool(forKey: Key.launchAtLogin)
         externalDDCEnabled = defaults.bool(forKey: Key.externalDDCEnabled)
     }

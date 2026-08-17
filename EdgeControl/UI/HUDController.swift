@@ -68,7 +68,14 @@ final class HUDController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
-        panel.contentView = NSHostingView(rootView: EdgeHUDView(model: viewModel))
+        let hostingView = NSHostingView(rootView: EdgeHUDView(model: viewModel))
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.isOpaque = false
+        panel.contentView = hostingView
+        panel.contentView?.wantsLayer = true
+        panel.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
+        panel.contentView?.layer?.isOpaque = false
     }
 
     func show(_ presentation: HUDPresentation) {
@@ -145,7 +152,11 @@ private struct EdgeHUDView: View {
                     reduceTransparency: reduceTransparency
                 )
             )
-            .shadow(color: .black.opacity(0.16), radius: 10, y: 4)
+            // Force the composited alpha mask to the capsule before shadowing.
+            // This prevents a rectangular material backing from leaking into
+            // the shadow shape on light backgrounds.
+            .compositingGroup()
+            .clipShape(Capsule())
             .scaleEffect(model.isPresented || reduceMotion ? 1 : 0.96)
             .opacity(model.isPresented ? 1 : 0)
             .animation(
@@ -260,34 +271,32 @@ private struct EdgeHUDGlassModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if reduceTransparency {
-            opaqueBackground(content)
-        } else {
-            #if compiler(>=6.2)
-            if #available(macOS 26.0, *) {
-                content
-                    .glassEffect(.regular.tint(tint), in: Capsule())
-            } else {
-                legacyGlass(content)
-            }
-            #else
-            legacyGlass(content)
-            #endif
-        }
-    }
-
-    private func legacyGlass(_ content: Content) -> some View {
-        content
-            .background(.ultraThinMaterial, in: Capsule())
-            .overlay(
-                Capsule()
-                    .strokeBorder(.white.opacity(0.16), lineWidth: 0.5)
-            )
+        // Avoid material backdrops in HUD windows: on some light backgrounds
+        // they can leak a rectangular ambient plate behind rounded content.
+        // Use a deterministic capsule fill in both accessibility modes.
+        opaqueBackground(content)
     }
 
     private func opaqueBackground(_ content: Content) -> some View {
         content
-            .background(Color(nsColor: .windowBackgroundColor), in: Capsule())
+            .background {
+                ZStack {
+                    Capsule()
+                        .fill(Color(nsColor: .windowBackgroundColor).opacity(reduceTransparency ? 1.0 : 0.84))
+                    Capsule()
+                        .fill(tint.opacity(reduceTransparency ? 0 : 0.16))
+                }
+                .shadow(
+                    color: .black.opacity(reduceTransparency ? 0.10 : 0.16),
+                    radius: 10,
+                    y: 4
+                )
+                .shadow(
+                    color: .black.opacity(reduceTransparency ? 0.04 : 0.08),
+                    radius: 2,
+                    y: 1
+                )
+            }
             .overlay(
                 Capsule()
                     .strokeBorder(.primary.opacity(0.16), lineWidth: 0.5)

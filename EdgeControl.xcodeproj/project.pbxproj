@@ -29,6 +29,7 @@
 		200000000000000000000015 /* CursorController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000015 /* CursorController.swift */; };
 		200000000000000000000016 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000016 /* LaunchAtLoginController.swift */; };
 		200000000000000000000017 /* SystemEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* SystemEventMonitor.swift */; };
+		200000000000000000000025 /* RecentKeyboardActivityGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001E /* RecentKeyboardActivityGuard.swift */; };
 		200000000000000000000018 /* ECPrivateAPIBridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000018 /* ECPrivateAPIBridge.c */; };
 		200000000000000000000019 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 10000000000000000000001C /* Assets.xcassets */; };
 		200000000000000000000020 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 100000000000000000000020 /* AppKit.framework */; };
@@ -79,6 +80,7 @@
 		100000000000000000000015 /* CursorController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System/CursorController.swift; sourceTree = "<group>"; };
 		100000000000000000000016 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System/LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		100000000000000000000017 /* SystemEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System/SystemEventMonitor.swift; sourceTree = "<group>"; };
+		10000000000000000000001E /* RecentKeyboardActivityGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System/RecentKeyboardActivityGuard.swift; sourceTree = "<group>"; };
 		100000000000000000000018 /* ECPrivateAPIBridge.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = PrivateFrameworks/ECPrivateAPIBridge.c; sourceTree = "<group>"; };
 		100000000000000000000019 /* ECPrivateAPIBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PrivateFrameworks/ECPrivateAPIBridge.h; sourceTree = "<group>"; };
 		10000000000000000000001A /* EdgeControl-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "EdgeControl-Bridging-Header.h"; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 				100000000000000000000015 /* CursorController.swift */,
 				100000000000000000000016 /* LaunchAtLoginController.swift */,
 				100000000000000000000017 /* SystemEventMonitor.swift */,
+				10000000000000000000001E /* RecentKeyboardActivityGuard.swift */,
 				100000000000000000000018 /* ECPrivateAPIBridge.c */,
 				100000000000000000000019 /* ECPrivateAPIBridge.h */,
 				10000000000000000000001A /* EdgeControl-Bridging-Header.h */,
@@ -314,6 +317,7 @@
 				200000000000000000000015,
 				200000000000000000000016,
 				200000000000000000000017,
+				200000000000000000000025,
 				200000000000000000000018,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -394,7 +398,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited) EDGE_DEBUG_LOGGING=1";
 				INFOPLIST_FILE = EdgeControl/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControl;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) EDGE_DEBUG_LOGGING";
@@ -416,7 +420,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = EdgeControl/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 1.3.1;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.edgecontrol.EdgeControl;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "EdgeControl/EdgeControl-Bridging-Header.h";

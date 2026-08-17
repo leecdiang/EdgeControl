@@ -15,6 +15,7 @@ final class EdgeControlAppModel: ObservableObject {
         let edge: Edge
         let action: EdgeAction
         let initialValue: Double
+        let speedMultiplier: Double
         let brightnessSession: BrightnessControlSession?
     }
 
@@ -31,6 +32,7 @@ final class EdgeControlAppModel: ObservableObject {
     private let cursorController = CursorController()
     private let hudController = HUDController()
     private let launchAtLoginController = LaunchAtLoginController()
+    private let keyboardActivityGuard: RecentKeyboardActivityGuard
     private let mapper = ContinuousValueMapper()
     private var session: ControlSession?
     private var hasStarted = false
@@ -46,14 +48,18 @@ final class EdgeControlAppModel: ObservableObject {
         onTerminate: { [weak self] in self?.stop() }
     )
 
-    init(settings: AppSettings = AppSettings()) {
+    init(
+        settings: AppSettings = AppSettings(),
+        keyboardActivityGuard: RecentKeyboardActivityGuard = RecentKeyboardActivityGuard()
+    ) {
         self.settings = settings
+        self.keyboardActivityGuard = keyboardActivityGuard
         self.gestureEngine = Self.makeGestureEngine(settings: settings)
         brightnessController.setExternalDDCEnabled(settings.externalDDCEnabled)
     }
 
     private static func makeGestureEngine(settings: AppSettings) -> GestureEngine {
-        var config = GestureConfiguration.default
+        var config = settings.falseTouchProtection.gestureConfiguration
         config.lowerHalfOnly = settings.lowerHalfOnly
         return GestureEngine(configuration: config)
     }
@@ -98,8 +104,21 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     func setLowerHalfOnly(_ enabled: Bool) {
-        finishSession()
         settings.lowerHalfOnly = enabled
+        rebuildGestureEngineAfterAdmissionChange()
+    }
+
+    func setFalseTouchProtection(_ protection: FalseTouchProtection) {
+        settings.falseTouchProtection = protection
+        rebuildGestureEngineAfterAdmissionChange()
+    }
+
+    private func rebuildGestureEngineAfterAdmissionChange() {
+        finishSession()
+        // Rebuilding while a finger is down must never reinterpret that
+        // existing contact as a fresh edge birth. Preserve a watchdog latch
+        // even though that recovery path has already cleared the live flag.
+        discardTouchFramesUntilLift = discardTouchFramesUntilLift || hasLiveTouchContacts
         gestureEngine = Self.makeGestureEngine(settings: settings)
         lastError = nil
     }
@@ -290,7 +309,17 @@ final class EdgeControlAppModel: ObservableObject {
         }
 
         hasLiveTouchContacts = !frame.contacts.isEmpty
-        let events = gestureEngine.process(frame)
+        // Do not query keyboard timing while the product master switch is off.
+        let blockNewGestureForRecentTyping = settings.masterEnabled
+            && !frame.contacts.isEmpty
+            && gestureEngine.isAwaitingActivation
+            && keyboardActivityGuard.shouldBlock(
+                for: settings.falseTouchProtection.typingSuppressionInterval
+            )
+        let events = gestureEngine.process(
+            frame,
+            blockNewGestureForRecentTyping: blockNewGestureForRecentTyping
+        )
         for event in events {
             switch event {
             case let .began(edge):
@@ -327,6 +356,9 @@ final class EdgeControlAppModel: ObservableObject {
                 edge: edge,
                 action: action,
                 initialValue: initialValue,
+                // Pin speed for the whole gesture so a settings change cannot
+                // alter gain halfway through an adjustment and cause a jump.
+                speedMultiplier: settings.adjustmentSpeed.gainMultiplier,
                 brightnessSession: brightnessSession
             )
             if settings.hapticFeedback {
@@ -355,7 +387,7 @@ final class EdgeControlAppModel: ObservableObject {
         let target = mapper.targetValue(
             initialValue: session.initialValue,
             deltaY: deltaY,
-            sensitivity: settings.sensitivity
+            speedMultiplier: session.speedMultiplier
         )
         do {
             switch session.action {

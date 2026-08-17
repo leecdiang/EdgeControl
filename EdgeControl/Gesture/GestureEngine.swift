@@ -45,8 +45,23 @@ final class GestureEngine {
         self.configuration = configuration
     }
 
+    /// Recent keyboard activity can reject only a lifecycle that has not yet
+    /// activated. Once Active, typing must not interrupt an intentional system
+    /// value adjustment.
+    var isAwaitingActivation: Bool {
+        switch state {
+        case .idle, .entryCandidate, .entryConfirmed:
+            return true
+        case .active, .rejected, .multiTouchRejected:
+            return false
+        }
+    }
+
     @discardableResult
-    func process(_ frame: TouchFrame) -> [EdgeGestureEvent] {
+    func process(
+        _ frame: TouchFrame,
+        blockNewGestureForRecentTyping: Bool = false
+    ) -> [EdgeGestureEvent] {
         let liveContacts = frame.contacts.filter {
             $0.phase != .ended && $0.phase != .cancelled
         }
@@ -81,6 +96,17 @@ final class GestureEngine {
             state = .multiTouchRejected
             debug(frame, note: GestureRejectReason.multipleContacts.rawValue)
             return events
+        }
+
+        if blockNewGestureForRecentTyping {
+            switch state {
+            case .idle, .entryCandidate, .entryConfirmed:
+                state = .rejected(.recentKeyboardActivity)
+                debug(frame, note: GestureRejectReason.recentKeyboardActivity.rawValue)
+                return []
+            case .active, .rejected, .multiTouchRejected:
+                break
+            }
         }
 
         let contact = liveContacts[0]

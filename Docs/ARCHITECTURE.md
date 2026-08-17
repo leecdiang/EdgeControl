@@ -23,11 +23,13 @@ Every additional macOS/architecture target must confirm that those assumptions s
 
 Eligibility is assigned only on the first non-empty frame of a contact lifecycle. The engine never “rescues” an interior-born contact after it reaches the edge. Multi-touch is a global lifecycle latch. Before activation, candidates must remain in a narrow 3% edge corridor and establish 80%-directional vertical intent within 450ms. Active gestures use the wider 8% control corridor and cancel when they leave it.
 
+`RecentKeyboardActivityGuard` uses public CoreGraphics to query only elapsed time since the latest key-down. It does not capture key codes or text. `EdgeControlAppModel` converts that system fact into a boolean admission input, preserving the Foundation-only recognizer boundary. The independent false-touch profile supplies a fixed 600/350/200ms window and 0.6%/0.8%/1.0% left plus 1.2%/1.5%/1.9% right birth strip. All other recognizer safety thresholds remain invariant. Recent typing may reject only idle/candidate states; the rejection remains latched until an empty frame, and Active gestures ignore it.
+
 ### Execution boundary
 
 `EdgeControlAppModel` is `@MainActor`. It resolves the independently configured action when an edge emits `.began`, reads that controller’s current value, and creates a control session. Only a successful session freezes the pointer and emits the activation tick.
 
-Every `.changed` event maps cumulative vertical movement against the session’s initial value. Hardware callbacks never call CoreAudio or display APIs directly.
+Every `.changed` event maps cumulative vertical movement against the session’s initial value. The independently selected adjustment-speed multiplier is captured in the control session at activation, so settings changes cannot alter gain mid-gesture. Hardware callbacks never call CoreAudio or display APIs directly.
 
 Settings expose Automatic, Built-in, and External Magic Trackpad preferences plus a manual rescan. Runtime status reports the selected kind when classification succeeds. While any touch lifecycle is live, a 750 ms callback-silence watchdog resets recognition; if control is active, it also ends the session and restores cursor movement. Frames that resume after such silence are discarded until an empty frame or explicit bridge restart, so a stranded contact cannot be reinterpreted as a fresh edge birth.
 
@@ -49,7 +51,7 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 
 ## Lifecycle
 
-On display reconfiguration, an active brightness session ends before brightness backends re-enumerate; an unrelated volume gesture is left alone. Changing the DDC setting follows the same ordering. On wake, the current control session ends, the gesture recognizer resets, display backends refresh, haptics reset, and the trackpad bridge closes and reopens. Trackpad connect/disconnect does not automatically switch devices; the user invokes **Rescan Trackpads**, which performs the same safe session teardown and bridge reopen.
+On display reconfiguration, an active brightness session ends before brightness backends re-enumerate; an unrelated volume gesture is left alone. Changing the DDC setting follows the same ordering. Changing false-touch protection or lower-half admission ends the current session, rebuilds recognition, and discards an already-down contact until lift so it cannot become a fresh birth. On wake, the current control session ends, the gesture recognizer resets, display backends refresh, haptics reset, and the trackpad bridge closes and reopens. Trackpad connect/disconnect does not automatically switch devices; the user invokes **Rescan Trackpads**, which performs the same safe session teardown and bridge reopen.
 
 Wake and close/open recovery passed on the reference machine. Display hot-plug, external DDC, and every other OS/hardware combination remain `LOCAL_VALIDATION_REQUIRED`.
 

@@ -9,8 +9,7 @@ struct ContinuousValueMapper: Sendable {
     /// normalization keeps the behavior consistent across Mac models.
     var baseGain: Double = 2.0
 
-    func targetValue(initialValue: Double, deltaY: Double, sensitivity: Double) -> Double {
-        min(1.0, max(0.0, initialValue + deltaY * baseGain * sensitivity))
+    func targetValue(initialValue: Double, deltaY: Double, speedMultiplier: Double) -> Double {
+        min(1.0, max(0.0, initialValue + deltaY * baseGain * speedMultiplier))
     }
 }
-

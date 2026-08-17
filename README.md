@@ -21,15 +21,17 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 ## Status
 
-The 1.3.0 baseline was hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. Version 1.3.1 adds a brightness-routing fix that requires the macOS rerun described in `OPENCLAW_VALIDATE_1.3.1.md`. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item matrix.
+The 1.3.0 baseline was hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. Version 1.4.0 contains the 1.3.1 brightness-routing fix plus independent adjustment-speed and false-touch-protection presets; run the macOS matrix in `OPENCLAW_VALIDATE_1.4.0.md` before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item matrix.
 
-The gesture recognizer, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 40 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 52 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
 - Physical left-edge and right-edge ingress recognition
 - Independent edge assignment: Off, Volume, or Brightness
-- Master, volume, brightness, haptic, HUD, sensitivity, launch-at-login, and external-DDC settings
+- Master, volume, brightness, haptic, HUD, adjustment-speed, false-touch-protection, launch-at-login, and external-DDC settings
+- Independent three-level adjustment speed: Precise (`0.50×`), Standard (`0.70×`), or Fast (`0.95×`)
+- Independent false-touch protection: Strong (`600ms`, narrow edge birth), Standard (`350ms`), or Light (`200ms`, wider edge birth)
 - Continuous relative mapping anchored to the volume/brightness captured at gesture activation, so entering at a high or low position never causes an immediate value jump
 - CoreAudio volume control with default-output re-resolution and unsupported-device handling
 - Built-in display brightness through runtime-loaded DisplayServices
@@ -43,6 +45,14 @@ The gesture recognizer, value mapping, brightness routing, trackpad-selection po
 - `LSUIElement` menu-bar app with no Dock icon
 - Synthetic gesture tests; no physical trackpad required for recognizer tests
 - No account, network, analytics, telemetry, or backend
+
+## Recent typing protection
+
+Version 1.4.0 queries Quartz only for the elapsed time since the last key-down event; it does not install a key-event tap, inspect key values, or store keyboard activity. Recent typing blocks only idle or pre-activation edge contacts. A blocked contact stays rejected until every finger lifts, while an already active volume or brightness gesture continues normally.
+
+Adjustment speed and false-touch protection are independent. Speed changes only the post-activation value gain. Protection selects the typing window and physical edge-birth range: Strong uses 600ms and 0.6%/1.2% left/right strips, Standard uses 350ms and 0.8%/1.5%, and Light uses 200ms and 1.0%/1.9%. The asymmetric ranges preserve the measured left/right hardware behavior.
+
+The 450ms intent deadline, 3% candidate corridor, 8% Active corridor, 0.80 directionality, vertical-intent threshold, interior-birth rejection, and multi-touch latch never weaken with the selected profile. Existing continuous-sensitivity preferences migrate to the nearest three-level adjustment-speed preset.
 
 ## Start in lower half only
 
@@ -76,7 +86,7 @@ The script disables code signing for local compilation when no `DEVELOPMENT_TEAM
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.3.1-macOS.dmg
+  ./dist/EdgeControl-1.4.0-macOS.dmg
 ```
 
 The script uses only macOS-provided tools (`hdiutil`, Finder/AppleScript, `codesign`, `xcrun`). It stages `EdgeControl.app` on the left and an `Applications` symlink on the right, then converts to a compressed read-only DMG. Verified layout: App at (145,175), Applications at (410,175), icon size 104.
@@ -96,11 +106,11 @@ Tuned values (see [Docs/GestureTuning.md](Docs/GestureTuning.md) for evidence):
 | Directionality | 80% | At least 80% of the pre-activation vertical path must remain in one direction |
 | Entry deadline | 450 ms | Keeps measured 256–331ms deliberate entries and rejects the former 620ms dwell-then-push case |
 
-The recognizer transitions through `idle → entryCandidate → entryConfirmed → active`. Interior birth, wrong initial direction, timeout, identity changes, corridor exit, and multi-touch produce terminal rejection for the current lifecycle. `multiTouchRejected` remains latched as fingers go from two to one and resets only on an empty frame.
+The recognizer transitions through `idle → entryCandidate → entryConfirmed → active`. Interior birth, recent typing, wrong initial direction, timeout, identity changes, corridor exit, and multi-touch produce terminal rejection for the current lifecycle. Typing rejection and `multiTouchRejected` reset only on an empty frame.
 
 ## Permissions
 
-Validated on this machine: **no TCC permissions are required** (no Accessibility, Input Monitoring, Screen Recording, or Full Disk Access). This was verified while the app ran as an `LSUIElement` menu-bar app. Re-validate on other macOS versions.
+The 1.3.0 baseline required no TCC permissions (no Accessibility, Input Monitoring, Screen Recording, or Full Disk Access). The 1.4.0 implementation only queries elapsed time through public CoreGraphics and never reads key values, but its clean-account no-prompt behavior must be revalidated before release and on every target macOS version.
 
 ## Privacy and networking
 

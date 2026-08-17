@@ -11,6 +11,8 @@ final class SettingsTests: XCTestCase {
         let settings = AppSettings(defaults: defaults)
         XCTAssertEqual(settings.leftEdgeAction, .volume)
         XCTAssertEqual(settings.rightEdgeAction, .brightness)
+        XCTAssertEqual(settings.adjustmentSpeed, .standard)
+        XCTAssertEqual(settings.falseTouchProtection, .standard)
     }
 
     func testBothEdgesCanUseSameAction() {
@@ -32,7 +34,8 @@ final class SettingsTests: XCTestCase {
         var settings: AppSettings? = AppSettings(defaults: defaults)
         settings?.masterEnabled = false
         settings?.hapticFeedback = false
-        settings?.sensitivity = 1.65
+        settings?.adjustmentSpeed = .fast
+        settings?.falseTouchProtection = .strong
         settings?.leftEdgeAction = .disabled
         settings?.externalDDCEnabled = true
         settings?.trackpadPreference = .external
@@ -41,10 +44,122 @@ final class SettingsTests: XCTestCase {
         let restored = AppSettings(defaults: defaults)
         XCTAssertFalse(restored.masterEnabled)
         XCTAssertFalse(restored.hapticFeedback)
-        XCTAssertEqual(restored.sensitivity, 1.65, accuracy: 0.000_001)
+        XCTAssertEqual(restored.adjustmentSpeed, .fast)
+        XCTAssertEqual(restored.falseTouchProtection, .strong)
         XCTAssertEqual(restored.leftEdgeAction, .disabled)
         XCTAssertTrue(restored.externalDDCEnabled)
         XCTAssertEqual(restored.trackpadPreference, .external)
+    }
+
+    func testTypingProtectionUsesIndependentProfileBoundaries() {
+        for protection in FalseTouchProtection.allCases {
+            var elapsed = protection.typingSuppressionInterval - 0.001
+            let guardLogic = RecentKeyboardActivityGuard { elapsed }
+
+            XCTAssertTrue(guardLogic.shouldBlock(for: protection.typingSuppressionInterval))
+            elapsed = protection.typingSuppressionInterval
+            XCTAssertFalse(guardLogic.shouldBlock(for: protection.typingSuppressionInterval))
+        }
+    }
+
+    func testFalseTouchProfilesChangeOnlyAdmissionValues() {
+        XCTAssertEqual(FalseTouchProtection.strong.typingSuppressionInterval, 0.600)
+        XCTAssertEqual(FalseTouchProtection.standard.typingSuppressionInterval, 0.350)
+        XCTAssertEqual(FalseTouchProtection.light.typingSuppressionInterval, 0.200)
+
+        let strong = FalseTouchProtection.strong.gestureConfiguration
+        let standard = FalseTouchProtection.standard.gestureConfiguration
+        let light = FalseTouchProtection.light.gestureConfiguration
+        XCTAssertEqual(strong.leftEntryStripWidth, 0.006)
+        XCTAssertEqual(standard.leftEntryStripWidth, 0.008)
+        XCTAssertEqual(light.leftEntryStripWidth, 0.010)
+        XCTAssertEqual(strong.rightEntryStripWidth, 0.012)
+        XCTAssertEqual(standard.rightEntryStripWidth, 0.015)
+        XCTAssertEqual(light.rightEntryStripWidth, 0.019)
+
+        // Hard safety rules must never drift between user-facing profiles.
+        for configuration in [strong, standard, light] {
+            XCTAssertEqual(configuration.entryCorridor, 0.03)
+            XCTAssertEqual(configuration.controlCorridor, 0.08)
+            XCTAssertEqual(configuration.minimumInwardTravel, 0.0)
+            XCTAssertEqual(configuration.minimumVerticalMove, 0.015)
+            XCTAssertEqual(configuration.outwardRejectionTravel, 0.004)
+            XCTAssertEqual(configuration.directionalityRatio, 0.80)
+            XCTAssertEqual(configuration.entryTimeout, 0.450)
+            XCTAssertFalse(configuration.lowerHalfOnly)
+        }
+    }
+
+    func testLegacySensitivityMigratesToNearestAdjustmentSpeed() {
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: 0.30),
+            .precise
+        )
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: 0.50),
+            .precise
+        )
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: 0.58),
+            .precise
+        )
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: 0.70),
+            .standard
+        )
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: 0.75),
+            .standard
+        )
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: 1.00),
+            .fast
+        )
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: 1.65),
+            .fast
+        )
+    }
+
+    func testPersistedLegacySensitivityMigratesWhenNewKeyIsAbsent() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        defaults.set(1.65, forKey: "sensitivity")
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertEqual(settings.adjustmentSpeed, .fast)
+        XCTAssertEqual(settings.falseTouchProtection, .standard)
+    }
+
+    func testInvalidLegacyAndUnknownPresetValuesFallBackToDefaults() {
+        XCTAssertEqual(
+            AdjustmentSpeed.migrated(fromLegacySensitivity: .nan),
+            .standard
+        )
+
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("future-speed", forKey: "adjustmentSpeed")
+        defaults.set("future-protection", forKey: "falseTouchProtection")
+        defaults.set(2.0, forKey: "sensitivity")
+
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertEqual(settings.adjustmentSpeed, .standard)
+        XCTAssertEqual(settings.falseTouchProtection, .standard)
+    }
+
+    func testTypingProtectionFailsOpenForInvalidElapsedTimeAndInterval() {
+        var elapsed = -1.0
+        let guardLogic = RecentKeyboardActivityGuard { elapsed }
+
+        XCTAssertFalse(guardLogic.shouldBlock(for: 0.350))
+        elapsed = .infinity
+        XCTAssertFalse(guardLogic.shouldBlock(for: 0.600))
+        elapsed = .nan
+        XCTAssertFalse(guardLogic.shouldBlock(for: 0.200))
+        elapsed = 0.0
+        XCTAssertFalse(guardLogic.shouldBlock(for: 0.0))
+        XCTAssertFalse(guardLogic.shouldBlock(for: .nan))
     }
 
     func testTrackpadPreferenceDefaultsToAutomatic() {

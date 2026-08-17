@@ -1,9 +1,9 @@
-# BUILD_REPORT — EdgeControl 1.3.1 source status
+# BUILD_REPORT — EdgeControl 1.4.0 source status
 
 Date: 2026-08-17
-Status: **VALIDATED AND PUBLISHED 1.3.1 — 40/40 tests, Release + Universal 2 builds, built-in brightness regression PASS on validation Mac**
+Status: **1.4.0 SOURCE PREPARED; macOS build, 52-test run, false-touch/permission matrix, and built-in brightness regression required before publication**
 
-The 1.3.1 source fixes an intermittent route from a temporarily unavailable built-in display to External DDC, pins each brightness gesture to its activation backend, and adds five regressions. The suite contains 40 test methods.
+The 1.3.0 Universal 2 build and 35/35 test run below remain the latest binary evidence. The current source includes the 1.3.1 brightness-routing fix and adds independent adjustment-speed and false-touch-protection presets. The suite now contains 52 test methods; the new source has not yet been compiled or run on macOS.
 
 ## Environment
 
@@ -21,13 +21,13 @@ The 1.3.1 source fixes an intermittent route from a temporarily unavailable buil
 
 | Item | Result |
 |---|---|
-| Debug build | PASS | 2026-08-17 15:43 |
-| Release build | PASS | 2026-08-17 15:43 |
+| Debug build | PASS | 2026-08-17 13:18 |
+| Release build | PASS | 2026-08-17 13:19 |
 | Universal 2 build (arm64 + x86_64) | PASS | ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO; lipo: x86_64 arm64 |
-| Last binary unit-test run | PASS — 40/40 (GestureEngine 20, Mapping 4, Detent 2, Settings 12, HapticEngine 2) | 2026-08-17 15:43 |
-| Current source test suite | 40 methods; all pass | adds 5 brightness-routing regressions |
+| Last binary unit-test run | PASS — 35/35 (GestureEngine 20, Mapping 4, Detent 2, Settings 7, HapticEngine 2) | 2026-08-17 13:19 |
+| Current source test suite | 52 methods; macOS rerun pending | adds 5 brightness-routing and 12 v1.4.0 regressions |
 | Current source HUD | 148×42 normal / 220×42 error; macOS 26 Liquid Glass + macOS 13–15 fallback; visual regression pending |
-| Release verbose touch logging | PASS — strings: ECProbe 0, [RawTouch] 0, EDGE_RAW_DUMP 0, backend=built-in 0, backend=external-ddc 0 (Universal2 binary) |
+| Release verbose touch logging | PASS — strings: ECProbe 0, [RawTouch] 0, EDGE_RAW_DUMP 0 (Universal2 binary) |
 | No network/telemetry | PASS (otool/nm: no network frameworks, no analytics symbols) |
 
 ## Hardware validation
@@ -74,7 +74,21 @@ The 1.3.1 source fixes an intermittent route from a temporarily unavailable buil
 | Per-gesture backend pinning | SOURCE TEST ADDED / RUN REQUIRED | Availability changes cannot reroute an active gesture |
 | Transient display-list failure | SOURCE TEST ADDED / RUN REQUIRED | Query failure retains last built-in ID; successful external-only list clears it |
 | Built-in-only physical regression | NOT TESTED | Run 20 gestures plus display-scaling and three sleep/wake cycles; no DDC error allowed |
-| Release / Universal 2 / DMG | NOT BUILT FOR 1.3.1 | Follow `OPENCLAW_VALIDATE_1.3.1.md` |
+| Release / Universal 2 / DMG | NOT BUILT FOR CURRENT SOURCE | Follow `OPENCLAW_VALIDATE_1.4.0.md` |
+
+## 1.4.0 recent-typing validation
+
+| Item | Result | Evidence |
+|---|---|---|
+| Privacy-preserving query | SOURCE REVIEW PASS / MACOS REQUIRED | Uses only elapsed time from `CGEventSource.secondsSinceLastEventType`; no event tap/key value/text storage |
+| Independent speed presets | SOURCE TESTS ADDED / RUN REQUIRED | Precise/Standard/Fast use pinned 0.75×/1.00×/1.35× gain and do not affect activation |
+| False-touch profiles | SOURCE TESTS ADDED / RUN REQUIRED | Strong/Standard/Light use 600/350/200ms plus asymmetric narrow/standard/wide birth strips; hard rules remain fixed |
+| Legacy migration | SOURCE TESTS ADDED / RUN REQUIRED | Old continuous sensitivity maps to nearest speed preset; invalid/unknown values fall back to Standard |
+| Reject-until-lift | SOURCE TEST ADDED / RUN REQUIRED | Recent typing at birth or during candidacy is terminal until an empty frame |
+| Active continuity | SOURCE TEST ADDED / RUN REQUIRED | Typing must not interrupt an Active volume/brightness gesture |
+| Invalid elapsed values | SOURCE TEST ADDED / RUN REQUIRED | Negative, NaN, and infinity fail open without bypassing gesture protections |
+| Clean-account TCC | NOT TESTED | Must show no Accessibility/Input Monitoring prompt before release |
+| Physical typing matrix | NOT TESTED | Run continuous typing, boundary, key-repeat, external-keyboard, sleep/wake, all protection profiles, and edge-range traces |
 
 ## 1.3.0 external-trackpad validation
 
@@ -92,22 +106,6 @@ The 1.3.1 source fixes an intermittent route from a temporarily unavailable buil
 | Install regression | PASS | Copied to /Applications, launched, running, dual-arch |
 
 \* I: a slide-in from the bottom-right corner that stayed pinned in the corner with no vertical intent was rejected (`initialMotionNotInward`), which is the correct outcome; natural diagonals with vertical intent activate.
-
-## 1.3.1 brightness-backend validation
-
-| Item | Result | Evidence |
-|---|---|---|
-| 40/40 tests | PASS | 2026-08-17 15:43; brightness-routing regressions: disabled-DDC isolation, built-in refresh recovery, valid DDC fallback, per-gesture backend pinning, transient display-list failure retention |
-| Release + Universal 2 build | PASS | lipo: x86_64 arm64; version 1.3.1; **Intel runtime unverified** (no Intel Mac) |
-| Debug brightness probe | PASS | `[EdgeControl][Brightness] backend=built-in` x2; round-trip before=0.609 set=0.300 after=0.300; no `No external DDC...` message |
-| Release backend strings | PASS | Universal2 binary strings: `backend=built-in` 0 hits, `backend=external-ddc` 0 hits |
-| Built-in-only brightness regression (≥20 gestures, no DDC message) | PASS | Physical test on validation Mac 2026-08-17 15:57; continuous built-in brightness, no DDC error surfaced |
-| Display scaling change + gestures | PASS | Physical: gestures remain smooth after one scaling change |
-| Sleep/wake x3, immediate + 5s | PASS | Physical: brightness gestures recover immediately and after 5s on each wake |
-| External DDC toggle (on/off) | PASS | Physical: built-in panel keeps priority while toggle on with no external display; no `No external DDC...`; clean after toggle off |
-| Display-change during active gesture | PASS | Physical: in-flight brightness gesture ends safely, next gesture recovers |
-| DMG | PASS | dist/EdgeControl-1.3.1-macOS.dmg, hdiutil verify VALID, SHA-256 8fe3915117a989421f2f03e9985f6f2a4d60d5b1654fbf80ddb22da793136050 |
-| Install regression | PASS | Copied to /Applications, launched, running, dual-arch |
 
 ## Permissions
 
@@ -139,4 +137,4 @@ NOT PERFORMED (no credentials). Ad-hoc DMG is the local deliverable.
 - The new compact HUD requires checks on light/dark desktops, Reduce Transparency, Reduce Motion, multiple displays, and the macOS 13–15 fallback.
 - Trackpad selection is experimental. Automatic mode remains the compatibility default. Explicit external mode chooses the first non-built-in landscape surface, rejects portrait surfaces, and requires manual **Rescan Trackpads** after connection changes.
 - Multiple external trackpads, Touch Bar-era built-in enumeration, Magic Mouse filtering, Bluetooth loss, sleep/wake, and perceived haptic routing all require physical validation. No automatic hot-plug switching or per-device calibration is claimed.
-- The 1.3.1 brightness-routing source must pass 40/40 tests and the built-in-only display-change/sleep-wake matrix before its DMG or tag is published.
+- The 1.4.0 source must pass 52/52 tests, the independent speed/false-touch clean-account matrix, and the built-in-only display-change/sleep-wake matrix before its DMG or tag is published.
