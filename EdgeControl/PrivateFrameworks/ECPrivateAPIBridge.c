@@ -52,6 +52,11 @@ typedef struct {
 } ECMTFingerABI;
 
 typedef void *(*ECMTDeviceCreateDefaultFn)(void);
+// LOCAL_VALIDATION_REQUIRED: these three enumeration/metadata signatures are
+// private ABI and must be rechecked on every supported macOS/architecture.
+typedef CFArrayRef (*ECMTDeviceCreateListFn)(void);
+typedef bool (*ECMTDeviceIsBuiltInFn)(void *);
+typedef int32_t (*ECMTDeviceGetSensorSurfaceDimensionsFn)(void *, int32_t *, int32_t *);
 typedef void (*ECMTRegisterFrameCallbackFn)(void *, void *);
 typedef void (*ECMTUnregisterFrameCallbackFn)(void *, void *);
 typedef void (*ECMTDeviceStartFn)(void *, int32_t);
@@ -68,6 +73,10 @@ typedef int32_t (*ECMTSystemFrameCallback)(
 struct ECMultitouchHandle {
     void *framework;
     void *device;
+    CFArrayRef device_list;
+    int32_t selected_kind;
+    int32_t sensor_width;
+    int32_t sensor_height;
     ECTouchFrameCallback callback;
     void *context;
     ECMTUnregisterFrameCallbackFn unregister_callback;
@@ -166,9 +175,127 @@ bool ec_mt_is_available(void) {
     return available;
 }
 
-ECMultitouchHandle *ec_mt_open(ECTouchFrameCallback callback, void *context) {
+static void ec_mt_release_default_device(void *device, ECMTDeviceReleaseFn release) {
+    if (device != NULL && release != NULL) {
+        release(device);
+    }
+}
+
+static bool ec_mt_read_surface_dimensions(
+    void *device,
+    ECMTDeviceGetSensorSurfaceDimensionsFn get_dimensions,
+    int32_t *width,
+    int32_t *height
+) {
+    if (device == NULL || get_dimensions == NULL || width == NULL || height == NULL) {
+        return false;
+    }
+    *width = 0;
+    *height = 0;
+    return get_dimensions(device, width, height) == 0 && *width > 0 && *height > 0;
+}
+
+bool ec_mt_surface_dimensions_look_like_trackpad(int32_t width, int32_t height) {
+    return width > 0 && height > 0 && width > height;
+}
+
+/// Magic Mouse surfaces observed by existing MultitouchSupport clients are
+/// portrait-oriented, while built-in and Magic Trackpad surfaces are
+/// landscape-oriented. Explicit external selection therefore fails closed
+/// unless the device is non-built-in and reports width > height. Revalidate
+/// this heuristic on every external Trackpad generation.
+/// LOCAL_VALIDATION_REQUIRED: confirm Magic Mouse rejection and every supported
+/// Magic Trackpad generation with the Debug selection probe.
+static bool ec_mt_is_external_trackpad(
+    void *device,
+    ECMTDeviceIsBuiltInFn is_built_in,
+    ECMTDeviceGetSensorSurfaceDimensionsFn get_dimensions,
+    int32_t *width,
+    int32_t *height
+) {
+    if (device == NULL || is_built_in == NULL || is_built_in(device)) {
+        return false;
+    }
+    return ec_mt_read_surface_dimensions(device, get_dimensions, width, height) &&
+        ec_mt_surface_dimensions_look_like_trackpad(*width, *height);
+}
+
+static void *ec_mt_select_from_list(
+    CFArrayRef devices,
+    int32_t selection,
+    ECMTDeviceIsBuiltInFn is_built_in,
+    ECMTDeviceGetSensorSurfaceDimensionsFn get_dimensions,
+    int32_t *selected_kind,
+    int32_t *sensor_width,
+    int32_t *sensor_height
+) {
+    if (devices == NULL || is_built_in == NULL) {
+        return NULL;
+    }
+
+    CFIndex count = CFArrayGetCount(devices);
+    for (CFIndex index = 0; index < count; index += 1) {
+        void *device = (void *)CFArrayGetValueAtIndex(devices, index);
+        if (device == NULL) {
+            continue;
+        }
+
+        if (selection == EC_TRACKPAD_SELECTION_BUILT_IN && is_built_in(device)) {
+            if (selected_kind != NULL) {
+                *selected_kind = EC_TRACKPAD_KIND_BUILT_IN;
+            }
+            (void)ec_mt_read_surface_dimensions(
+                device,
+                get_dimensions,
+                sensor_width,
+                sensor_height
+            );
+            return device;
+        }
+
+        int32_t width = 0;
+        int32_t height = 0;
+        if (selection == EC_TRACKPAD_SELECTION_EXTERNAL &&
+            ec_mt_is_external_trackpad(
+                device,
+                is_built_in,
+                get_dimensions,
+                &width,
+                &height
+            )) {
+            if (selected_kind != NULL) {
+                *selected_kind = EC_TRACKPAD_KIND_EXTERNAL;
+            }
+            if (sensor_width != NULL) {
+                *sensor_width = width;
+            }
+            if (sensor_height != NULL) {
+                *sensor_height = height;
+            }
+            return device;
+        }
+    }
+    return NULL;
+}
+
+ECMultitouchHandle *ec_mt_open(
+    int32_t selection,
+    ECTouchFrameCallback callback,
+    void *context,
+    int32_t *selected_kind
+) {
     if (callback == NULL) {
         return NULL;
+    }
+
+    if (selection != EC_TRACKPAD_SELECTION_AUTO &&
+        selection != EC_TRACKPAD_SELECTION_BUILT_IN &&
+        selection != EC_TRACKPAD_SELECTION_EXTERNAL) {
+        return NULL;
+    }
+
+    if (selected_kind != NULL) {
+        *selected_kind = EC_TRACKPAD_KIND_UNKNOWN;
     }
 
     pthread_mutex_lock(&g_mt_lock);
@@ -185,6 +312,15 @@ ECMultitouchHandle *ec_mt_open(ECTouchFrameCallback callback, void *context) {
 
     ECMTDeviceCreateDefaultFn create_device =
         (ECMTDeviceCreateDefaultFn)dlsym(framework, "MTDeviceCreateDefault");
+    ECMTDeviceCreateListFn create_device_list =
+        (ECMTDeviceCreateListFn)dlsym(framework, "MTDeviceCreateList");
+    ECMTDeviceIsBuiltInFn is_built_in =
+        (ECMTDeviceIsBuiltInFn)dlsym(framework, "MTDeviceIsBuiltIn");
+    ECMTDeviceGetSensorSurfaceDimensionsFn get_dimensions =
+        (ECMTDeviceGetSensorSurfaceDimensionsFn)dlsym(
+            framework,
+            "MTDeviceGetSensorSurfaceDimensions"
+        );
     ECMTRegisterFrameCallbackFn register_callback =
         (ECMTRegisterFrameCallbackFn)dlsym(framework, "MTRegisterContactFrameCallback");
     ECMTUnregisterFrameCallbackFn unregister_callback =
@@ -198,16 +334,94 @@ ECMultitouchHandle *ec_mt_open(ECTouchFrameCallback callback, void *context) {
         return NULL;
     }
 
-    void *device = create_device();
+    void *device = NULL;
+    CFArrayRef device_list = NULL;
+    int32_t resolved_kind = EC_TRACKPAD_KIND_UNKNOWN;
+    int32_t sensor_width = 0;
+    int32_t sensor_height = 0;
+
+    if (selection == EC_TRACKPAD_SELECTION_AUTO) {
+        // Preserve the 1.2.x default-device behavior exactly. Classification is
+        // informational only; automatic mode must keep working if enumeration
+        // or metadata symbols disappear on a future macOS release.
+        device = create_device();
+        if (device != NULL && is_built_in != NULL) {
+            if (is_built_in(device)) {
+                resolved_kind = EC_TRACKPAD_KIND_BUILT_IN;
+            } else if (ec_mt_is_external_trackpad(
+                device,
+                is_built_in,
+                get_dimensions,
+                &sensor_width,
+                &sensor_height
+            )) {
+                resolved_kind = EC_TRACKPAD_KIND_EXTERNAL;
+            }
+        }
+        if (device != NULL && sensor_width == 0 && sensor_height == 0) {
+            (void)ec_mt_read_surface_dimensions(
+                device,
+                get_dimensions,
+                &sensor_width,
+                &sensor_height
+            );
+        }
+    } else if (selection == EC_TRACKPAD_SELECTION_BUILT_IN && is_built_in != NULL) {
+        // Prefer the system default when it is built in. This avoids assuming
+        // that the first built-in list entry is the trackpad on Touch Bar Macs.
+        device = create_device();
+        if (device != NULL && is_built_in(device)) {
+            resolved_kind = EC_TRACKPAD_KIND_BUILT_IN;
+            (void)ec_mt_read_surface_dimensions(
+                device,
+                get_dimensions,
+                &sensor_width,
+                &sensor_height
+            );
+        } else {
+            ec_mt_release_default_device(device, release);
+            device = NULL;
+            if (create_device_list != NULL) {
+                device_list = create_device_list();
+                device = ec_mt_select_from_list(
+                    device_list,
+                    selection,
+                    is_built_in,
+                    get_dimensions,
+                    &resolved_kind,
+                    &sensor_width,
+                    &sensor_height
+                );
+            }
+        }
+    } else if (selection == EC_TRACKPAD_SELECTION_EXTERNAL &&
+               create_device_list != NULL && is_built_in != NULL) {
+        device_list = create_device_list();
+        device = ec_mt_select_from_list(
+            device_list,
+            selection,
+            is_built_in,
+            get_dimensions,
+            &resolved_kind,
+            &sensor_width,
+            &sensor_height
+        );
+    }
+
     if (device == NULL) {
+        if (device_list != NULL) {
+            CFRelease(device_list);
+        }
         dlclose(framework);
         return NULL;
     }
 
     ECMultitouchHandle *handle = calloc(1, sizeof(ECMultitouchHandle));
     if (handle == NULL) {
-        if (release != NULL) {
-            release(device);
+        if (device_list != NULL) {
+            CFRelease(device_list);
+        } else {
+            ec_mt_release_default_device(device, release);
         }
         dlclose(framework);
         return NULL;
@@ -215,6 +429,10 @@ ECMultitouchHandle *ec_mt_open(ECTouchFrameCallback callback, void *context) {
 
     handle->framework = framework;
     handle->device = device;
+    handle->device_list = device_list;
+    handle->selected_kind = resolved_kind;
+    handle->sensor_width = sensor_width;
+    handle->sensor_height = sensor_height;
     handle->callback = callback;
     handle->context = context;
     handle->unregister_callback = unregister_callback;
@@ -229,6 +447,21 @@ ECMultitouchHandle *ec_mt_open(ECTouchFrameCallback callback, void *context) {
     // not represented by a public SDK header. LOCAL_VALIDATION_REQUIRED.
     register_callback(device, (void *)(ECMTSystemFrameCallback)ec_mt_system_callback);
     start(device, 0);
+
+    if (selected_kind != NULL) {
+        *selected_kind = resolved_kind;
+    }
+
+#if defined(EDGE_DEBUG_LOGGING) && EDGE_DEBUG_LOGGING
+    fprintf(
+        stderr,
+        "[ECProbe] selected trackpad kind=%d surface=%dx%d selection=%d\n",
+        resolved_kind,
+        sensor_width,
+        sensor_height,
+        selection
+    );
+#endif
     return handle;
 }
 
@@ -260,7 +493,9 @@ void ec_mt_close(ECMultitouchHandle *handle) {
     }
     pthread_mutex_unlock(&g_mt_lock);
 
-    if (handle->release != NULL) {
+    if (handle->device_list != NULL) {
+        CFRelease(handle->device_list);
+    } else if (handle->release != NULL) {
         handle->release(handle->device);
     }
     if (handle->framework != NULL) {

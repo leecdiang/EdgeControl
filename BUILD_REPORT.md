@@ -1,9 +1,9 @@
-# BUILD_REPORT — EdgeControl 1.2.1 source status
+# BUILD_REPORT — EdgeControl 1.3.0 source status
 
 Date: 2026-08-17
-Status: **AUTOMATED CHECKS PASSED (validate / 32 tests / Release build / binary guards / DMG); physical no-jump gesture regression pending on the validation Mac**
+Status: **AUTOMATED CHECKS PASSED; external-hardware matrix NOT TESTED (no Magic Trackpad/Mouse connected); publication pending physical external validation**
 
-The 1.2.1 source includes DDC persistence, stricter gesture admission (450ms / 3% / 0.80), a compact persistent Liquid Glass HUD, lower-half admission, and relative value anchoring that removes the absolute-position jump. The suite now contains 32 test methods.
+The 1.3.0 source includes all 1.2.1 changes plus experimental built-in/external trackpad selection, a fail-closed surface-shape guard designed to reject Magic Mouse, manual rescan, selected-device status, and a live-contact callback watchdog. The suite contains 35 test methods.
 
 ## Environment
 
@@ -21,12 +21,13 @@ The 1.2.1 source includes DDC persistence, stricter gesture admission (450ms / 3
 
 | Item | Result |
 |---|---|
-| Debug build | PASS |
-| Release build | PASS | 2026-08-17 12:57, version 1.2.1 |
-| Last binary unit-test run | PASS — 32/32 (GestureEngine 20, Mapping 4, Detent 2, Settings 4, HapticEngine 2) | 2026-08-17 12:57 |
-| Current source test suite | 32 methods; all pass | includes testZeroMovementKeepsActivationValue |
+| Debug build | PASS | 2026-08-17 13:18 |
+| Release build | PASS | 2026-08-17 13:19 |
+| Universal 2 build (arm64 + x86_64) | PASS | ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO; lipo: x86_64 arm64 |
+| Last binary unit-test run | PASS — 35/35 (GestureEngine 20, Mapping 4, Detent 2, Settings 7, HapticEngine 2) | 2026-08-17 13:19 |
+| Current source test suite | 35 methods; all pass | includes external-surface shape guard + preference persistence tests |
 | Current source HUD | 148×42 normal / 220×42 error; macOS 26 Liquid Glass + macOS 13–15 fallback; visual regression pending |
-| Release verbose touch logging | PASS — strings check: EDGE_RAW_DUMP 0 hits, ECProbe 0 hits (2026-08-17) |
+| Release verbose touch logging | PASS — strings: ECProbe 0, [RawTouch] 0, EDGE_RAW_DUMP 0 (Universal2 binary) |
 | No network/telemetry | PASS (otool/nm: no network frameworks, no analytics symbols) |
 
 ## Hardware validation
@@ -52,12 +53,32 @@ The 1.2.1 source includes DDC persistence, stricter gesture admission (450ms / 3
 | Volume continuous mapping | PASS | Slow/fast/reverse; 0% and 100% clamps, no out-of-bounds |
 | Built-in brightness 25/50/75% | PASS | Exact round-trip via DisplayServices |
 | Brightness full range in one swipe | PASS | Down-swipe → 0.000 (screen black), up-swipe → 1.000 |
-| Lower-half activation continuity | LOCAL VALIDATION REQUIRED | Starting at a high/low y must preserve the current value; only post-activation delta may change it. Automated suite covers the mapping (testZeroMovementKeepsActivationValue); physical swipe pending |
-| Haptic (public backend) | PASS | Activation tick + 5% detents; LSUIElement background app |
+| Lower-half activation continuity | LOCAL VALIDATION REQUIRED | Starting at a high/low y must preserve the current value; only post-activation delta may change it |
+| Trackpad automatic mode | BASELINE PASS / RETEST | Automatic preserves the 1.2.x default-device path; selected-kind metadata is informational |
+| Explicit built-in selection | LOCAL VALIDATION REQUIRED | Default built-in is preferred; list enumeration is a fallback |
+| Explicit external selection | LOCAL VALIDATION REQUIRED | Requires non-built-in identity and landscape sensor dimensions; first matching device wins |
+| Magic Mouse rejection | LOCAL VALIDATION REQUIRED | Portrait sensor dimensions are rejected; confirm against every target device generation |
+| External disconnect/rescan | LOCAL VALIDATION REQUIRED | 750 ms active-session callback watchdog restores cursor; manual Rescan must reopen input |
+| Haptic (public backend) | BASELINE PASS / RETEST | Public activation tick passed; current 2% detents and external-device routing require regression |
 | Haptic (private actuator) | NOT SUPPORTED | MTActuator* symbols absent on macOS 26.5; graceful fallback |
 | Cursor freeze | PASS | Frozen only while Active; restores on end/cancel/error/quit; SIGKILL test proves system resets association |
 | Sleep/wake | PASS | Trackpad, haptic, volume, brightness all recover |
 | External DDC | NOT TESTED | No external monitor on validation machine; experimental toggle, off by default |
+
+## 1.3.0 external-trackpad validation
+
+| Item | Result | Evidence |
+|---|---|---|
+| MultitouchSupport ABI symbols (8/8) | PASS | dlopen+dlsym runtime probe: MTDeviceCreateDefault/CreateList/IsBuiltIn/GetSensorSurfaceDimensions/Start/Stop, MTRegister/UnregisterContactFrameCallback all present (2026-08-17) |
+| Debug selection probe | PASS | `[ECProbe] selected trackpad kind=1 surface=14267x8509 selection=0` (Automatic, built-in, landscape) |
+| Release probe exclusion | PASS | Universal2 binary strings: ECProbe 0, RawTouch 0, EDGE_RAW_DUMP 0 |
+| Universal 2 | PASS | lipo: x86_64 arm64; DMG-mounted app verified fat; **Intel runtime unverified** (no Intel Mac) |
+| Automatic, built-in only | PASS | App launches, built-in input active, no errors |
+| Built-in gesture / no-jump / watchdog | UNIT-TEST PASS | 35/35 tests incl. no-jump mapping, preference persistence, shape guard; physical swipe regression pending on validation Mac |
+| External Magic Trackpad (all matrix items) | NOT TESTED | No external Magic Trackpad/Mouse connected to validation Mac; required before publication per OPENCLAW_VALIDATE_1.3.0.md |
+| Sleep/wake, rescan, disconnect watchdog (physical) | NOT TESTED | Physical external device required |
+| DMG | PASS | dist/EdgeControl-1.3.0-macOS.dmg, hdiutil verify VALID, SHA-256 dbc671f88d2c85ea98ced1ee82f85d1fe2f50eaea821dca2e274c747e779062e |
+| Install regression | PASS | Copied to /Applications, launched, running, dual-arch |
 
 \* I: a slide-in from the bottom-right corner that stayed pinned in the corner with no vertical intent was rejected (`initialMotionNotInward`), which is the correct outcome; natural diagonals with vertical intent activate.
 
@@ -89,3 +110,5 @@ NOT PERFORMED (no credentials). Ad-hoc DMG is the local deliverable.
 - External DDC: experimental, off by default, untested (no external display).
 - The current 450ms deadline, 3% candidate corridor, 0.80 directionality threshold, and 1.2.1 relative lower-half mapping require physical regression before packaging the next DMG.
 - The new compact HUD requires checks on light/dark desktops, Reduce Transparency, Reduce Motion, multiple displays, and the macOS 13–15 fallback.
+- Trackpad selection is experimental. Automatic mode remains the compatibility default. Explicit external mode chooses the first non-built-in landscape surface, rejects portrait surfaces, and requires manual **Rescan Trackpads** after connection changes.
+- Multiple external trackpads, Touch Bar-era built-in enumeration, Magic Mouse filtering, Bluetooth loss, sleep/wake, and perceived haptic routing all require physical validation. No automatic hot-plug switching or per-device calibration is claimed.

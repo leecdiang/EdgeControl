@@ -7,7 +7,7 @@ import SwiftUI
 final class EdgeControlAppModel: ObservableObject {
     enum TouchStatus: Equatable {
         case stopped
-        case running
+        case running(TrackpadKind)
         case unavailable(String)
     }
 
@@ -33,6 +33,10 @@ final class EdgeControlAppModel: ObservableObject {
     private let mapper = ContinuousValueMapper()
     private var session: ControlSession?
     private var hasStarted = false
+    private var lastTouchFrameUptime = ProcessInfo.processInfo.systemUptime
+    private var hasLiveTouchContacts = false
+    private var discardTouchFramesUntilLift = false
+    private var touchWatchdogTask: Task<Void, Never>?
 
     private lazy var systemEventMonitor = SystemEventMonitor(
         onSleep: { [weak self] in self?.finishSession() },
@@ -60,12 +64,17 @@ final class EdgeControlAppModel: ObservableObject {
         settings.launchAtLogin = launchAtLoginController.isEnabled
         runVolumeProbeIfRequested()
         runBrightnessProbeIfRequested()
+        startTouchWatchdog()
         startTouchInput()
     }
 
     func stop() {
         finishSession()
         trackpadManager.stop()
+        hasLiveTouchContacts = false
+        discardTouchFramesUntilLift = false
+        touchWatchdogTask?.cancel()
+        touchWatchdogTask = nil
         touchStatus = .stopped
         hasStarted = false
     }
@@ -87,9 +96,31 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     func setLowerHalfOnly(_ enabled: Bool) {
+        finishSession()
         settings.lowerHalfOnly = enabled
         gestureEngine = Self.makeGestureEngine(settings: settings)
         lastError = nil
+    }
+
+    func setTrackpadPreference(_ preference: TrackpadPreference) {
+        settings.trackpadPreference = preference
+        if hasStarted {
+            rescanTrackpads()
+        } else {
+            lastError = nil
+        }
+    }
+
+    func rescanTrackpads() {
+        guard hasStarted else { return }
+        finishSession()
+        hapticEngine.resetAfterWake()
+        trackpadManager.stop()
+        hasLiveTouchContacts = false
+        discardTouchFramesUntilLift = false
+        gestureEngine = Self.makeGestureEngine(settings: settings)
+        touchStatus = .stopped
+        startTouchInput()
     }
 
     func openSettings() {
@@ -139,17 +170,44 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func startTouchInput() {
         do {
-            try trackpadManager.start { [weak self] frame in
+            try trackpadManager.start(preference: settings.trackpadPreference) { [weak self] frame in
                 Task { @MainActor [weak self] in
                     self?.consume(frame)
                 }
             }
-            touchStatus = .running
+            touchStatus = .running(trackpadManager.selectedKind)
             lastError = nil
             runActuatorProbeIfRequested()
         } catch {
             touchStatus = .unavailable(error.localizedDescription)
             lastError = error.localizedDescription
+        }
+    }
+
+    /// A Bluetooth disconnect may stop callbacks without delivering a final
+    /// empty frame. Reset any live-contact lifecycle after sustained frame
+    /// silence; if it was Active, this also restores cursor and haptic state.
+    /// The intended gesture is continuous, so 750ms is deliberately much longer
+    /// than normal frame gaps.
+    private func startTouchWatchdog() {
+        touchWatchdogTask?.cancel()
+        touchWatchdogTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                guard !Task.isCancelled, let self else { return }
+                guard self.hasLiveTouchContacts || self.session != nil else { continue }
+
+                let silence = ProcessInfo.processInfo.systemUptime - self.lastTouchFrameUptime
+                if silence >= 0.750 {
+                    self.finishSession()
+                    self.hasLiveTouchContacts = false
+                    self.discardTouchFramesUntilLift = true
+                    self.gestureEngine = Self.makeGestureEngine(settings: self.settings)
+                    #if EDGE_DEBUG_LOGGING
+                    print("[EdgeControl][Trackpad] live touch reset after callback silence")
+                    #endif
+                }
+            }
         }
     }
 
@@ -190,14 +248,16 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func handleWake() {
         finishSession()
+        hasLiveTouchContacts = false
+        discardTouchFramesUntilLift = false
         gestureEngine = Self.makeGestureEngine(settings: settings)
         brightnessController.refresh()
         hapticEngine.resetAfterWake()
         do {
-            try trackpadManager.restart { [weak self] frame in
+            try trackpadManager.restart(preference: settings.trackpadPreference) { [weak self] frame in
                 Task { @MainActor [weak self] in self?.consume(frame) }
             }
-            touchStatus = .running
+            touchStatus = .running(trackpadManager.selectedKind)
         } catch {
             touchStatus = .unavailable(error.localizedDescription)
             lastError = error.localizedDescription
@@ -205,6 +265,21 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     private func consume(_ frame: TouchFrame) {
+        lastTouchFrameUptime = ProcessInfo.processInfo.systemUptime
+
+        // After callback silence, a resumed frame may still carry the old
+        // physical contact. Do not let that frame become a fresh edge birth.
+        // An empty frame or an explicit bridge restart clears this latch.
+        if discardTouchFramesUntilLift {
+            if frame.contacts.isEmpty {
+                discardTouchFramesUntilLift = false
+                gestureEngine = Self.makeGestureEngine(settings: settings)
+            }
+            hasLiveTouchContacts = false
+            return
+        }
+
+        hasLiveTouchContacts = !frame.contacts.isEmpty
         let events = gestureEngine.process(frame)
         for event in events {
             switch event {

@@ -13,6 +13,7 @@ final class AppSettings: ObservableObject {
         static let showHUD = "showHUD"
         static let colorfulHUD = "colorfulHUD"
         static let lowerHalfOnly = "lowerHalfOnly"
+        static let trackpadPreference = "trackpadPreference"
         static let sensitivity = "sensitivity"
         static let launchAtLogin = "launchAtLogin"
         static let externalDDCEnabled = "externalDDCEnabled"
@@ -29,6 +30,7 @@ final class AppSettings: ObservableObject {
     @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Key.showHUD) } }
     @Published var colorfulHUD: Bool { didSet { defaults.set(colorfulHUD, forKey: Key.colorfulHUD) } }
     @Published var lowerHalfOnly: Bool { didSet { defaults.set(lowerHalfOnly, forKey: Key.lowerHalfOnly) } }
+    @Published var trackpadPreference: TrackpadPreference { didSet { defaults.set(trackpadPreference.rawValue, forKey: Key.trackpadPreference) } }
     @Published var sensitivity: Double { didSet { defaults.set(sensitivity, forKey: Key.sensitivity) } }
     @Published var launchAtLogin: Bool { didSet { defaults.set(launchAtLogin, forKey: Key.launchAtLogin) } }
     @Published var externalDDCEnabled: Bool { didSet { defaults.set(externalDDCEnabled, forKey: Key.externalDDCEnabled) } }
@@ -45,6 +47,7 @@ final class AppSettings: ObservableObject {
             Key.showHUD: true,
             Key.colorfulHUD: false,
             Key.lowerHalfOnly: false,
+            Key.trackpadPreference: TrackpadPreference.automatic.rawValue,
             Key.sensitivity: 1.0,
             Key.launchAtLogin: false,
             Key.externalDDCEnabled: false
@@ -59,9 +62,11 @@ final class AppSettings: ObservableObject {
         showHUD = defaults.bool(forKey: Key.showHUD)
         colorfulHUD = defaults.bool(forKey: Key.colorfulHUD)
         lowerHalfOnly = defaults.bool(forKey: Key.lowerHalfOnly)
+        trackpadPreference = TrackpadPreference(
+            rawValue: defaults.string(forKey: Key.trackpadPreference) ?? ""
+        ) ?? .automatic
         sensitivity = min(2.0, max(0.35, defaults.double(forKey: Key.sensitivity)))
         launchAtLogin = defaults.bool(forKey: Key.launchAtLogin)
         externalDDCEnabled = defaults.bool(forKey: Key.externalDDCEnabled)
     }
 }
-

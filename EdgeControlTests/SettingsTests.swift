@@ -34,6 +34,7 @@ final class SettingsTests: XCTestCase {
         settings?.sensitivity = 1.65
         settings?.leftEdgeAction = .disabled
         settings?.externalDDCEnabled = true
+        settings?.trackpadPreference = .external
         settings = nil
 
         let restored = AppSettings(defaults: defaults)
@@ -42,6 +43,29 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(restored.sensitivity, 1.65, accuracy: 0.000_001)
         XCTAssertEqual(restored.leftEdgeAction, .disabled)
         XCTAssertTrue(restored.externalDDCEnabled)
+        XCTAssertEqual(restored.trackpadPreference, .external)
+    }
+
+    func testTrackpadPreferenceDefaultsToAutomatic() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        XCTAssertEqual(AppSettings(defaults: defaults).trackpadPreference, .automatic)
+    }
+
+    func testUnknownTrackpadPreferenceFallsBackToAutomatic() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set("future-value", forKey: "trackpadPreference")
+
+        XCTAssertEqual(AppSettings(defaults: defaults).trackpadPreference, .automatic)
+    }
+
+    func testExternalTrackpadShapeGuardRejectsPortraitAndInvalidSurfaces() {
+        XCTAssertTrue(TrackpadManager.surfaceDimensionsLookLikeTrackpad(width: 13_000, height: 10_000))
+        XCTAssertFalse(TrackpadManager.surfaceDimensionsLookLikeTrackpad(width: 5_152, height: 9_056))
+        XCTAssertFalse(TrackpadManager.surfaceDimensionsLookLikeTrackpad(width: 0, height: 10_000))
+        XCTAssertFalse(TrackpadManager.surfaceDimensionsLookLikeTrackpad(width: 10_000, height: 10_000))
     }
 
     func testExternalDDCToggleThroughAppModelPersists() {

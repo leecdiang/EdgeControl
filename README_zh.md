@@ -6,7 +6,7 @@
 
 <img src="assets/icon-512.png" alt="EdgeControl 图标" width="128" height="128" align="left" style="margin-right: 16px;">
 
-EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把 MacBook 触控板上**从机身滑入边缘**的刻意手势，映射为连续的音量 / 亮度调节。
+EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置触控板或选定的 Apple 外接触控板上**从外侧滑入边缘**的刻意手势，映射为连续的音量 / 亮度调节。
 
 ## 用法
 
@@ -23,7 +23,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把 MacBoo
 
 2026-08-16/17 在 macOS 26.5（Apple Silicon MacBook Air）上完成真机验证。逐项 PASS/FAIL 矩阵见 [BUILD_REPORT.md](BUILD_REPORT.md)，识别器调参依据见 [Docs/GestureTuning.md](Docs/GestureTuning.md)。
 
-手势识别、数值映射、档位、触觉反馈与设置层由 32 个单元测试覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
+手势识别、数值映射、触控板选择策略、档位、触觉反馈与设置层由 35 个单元测试覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
 
 ## 功能
 
@@ -36,6 +36,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把 MacBoo
 - 可选、隔离的 DDC/CI VCP `0x10` 外接显示器后端（实验性，默认关闭）
 - 激活震动 + 2% 档位轻震（迟滞 + 频率限制）
 - 可选的“仅从下半部分开始”过滤：中线以上出生的触点直接拒绝；通过准入后仍从当前系统数值开始相对调节
+- 触控板来源选择：自动 / 内置触控板 / 外接 Magic Trackpad，选择可持久化，并显示当前设备类型及提供手动重扫
 - 仅在手势进入 `Active` 后冻结指针；应用退出时系统自动恢复指针关联
 - 148×42 单行精简 HUD：macOS 26 使用原生 Liquid Glass，macOS 13–15 回退为超薄半透明材质
 - `LSUIElement` 菜单栏应用，无 Dock 图标
@@ -46,11 +47,17 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把 MacBoo
 
 开启“仅从下半部分开始”（设置 → System）后，只有出生在归一化触控板中线或中线以下的触点才能成为控制手势；中线以上出生的触点在整个生命周期内都会被拒绝，适合上半部分容易碰到手掌或误触的情况。通过准入后，调节仍以手势激活时读取到的音量 / 亮度为起点，绝不会把手指滑入高度直接写成目标值。默认增益下，约半块触控板的纵向行程即可覆盖完整调节范围。
 
+## 外接 Magic Trackpad（实验性）
+
+1.3.0 可在“设置 → System”里明确选择内置或外接触控板。“自动”完整保留 1.2.x 的 `MTDeviceCreateDefault` 路径；显式选择会动态解析 `MTDeviceCreateList`、`MTDeviceIsBuiltIn` 和 `MTDeviceGetSensorSurfaceDimensions`。外接候选必须同时满足“非内置”和“横向触控面”，其设计目标是排除 Magic Mouse 这类纵向设备，仍须用真机确认。所需私有符号或匹配设备不存在时，应用会安全失败并显示错误。
+
+连接或断开触控板后，请点击“Rescan Trackpads”或重启应用；睡眠唤醒时也会重新打开选定来源。目前外接模式选择第一块匹配的 Magic Trackpad，发布前必须完成真机验证；暂不宣称支持自动热插拔切换与逐设备校准。
+
 ## 环境要求
 
 - 已在 macOS 26.5（Apple Silicon MacBook Air）验证。其他 macOS 版本与 Intel 未测试——视为实验性。
 - 验证使用 Xcode 26.x，部署目标为 macOS 13；其他 Xcode 版本尚未纳入测试矩阵。
-- 需要内置 Force Touch 触控板才能获得预期体验。
+- 需要内置 Force Touch 触控板；实验性外接输入路径可使用 Apple Magic Trackpad。
 
 私有接口可能随系统版本与硬件而变化。外接显示器 DDC 支持为实验性，默认关闭。
 
@@ -68,7 +75,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把 MacBoo
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.2.1-macOS.dmg
+  ./dist/EdgeControl-1.3.0-macOS.dmg
 ```
 
 脚本只使用 macOS 自带工具（`hdiutil`、Finder/AppleScript、`codesign`、`xcrun`）。左侧 `EdgeControl.app`、右侧 `Applications` 软链，随后转换为压缩只读 DMG。已验证布局：App 在 (145,175)、Applications 在 (410,175)、图标 104px。

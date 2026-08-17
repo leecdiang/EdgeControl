@@ -1,6 +1,6 @@
 # HANDOFF TO OPENCLAW
 
-This is the operational handoff for continued macOS validation and release work. The 1.2.1 source removes the lower-half absolute-position jump while preserving the stricter gesture admission added in 1.2.0. The last evidence-backed binary baseline in `BUILD_REPORT.md` remains 1.1.0; rerun the macOS checks below before publishing 1.2.1. External DDC, Intel/other macOS versions, Developer ID signing, and notarization remain explicitly unverified.
+This is the operational handoff for continued macOS validation and release work. The 1.3.0 source retains the 1.2.1 no-jump mapping and adds experimental built-in/external Magic Trackpad selection, manual rescan, selected-device status, and active-session disconnect recovery. The last evidence-backed binary baseline in `BUILD_REPORT.md` remains 1.1.0; do not publish 1.3.0 until the dedicated matrix in `OPENCLAW_VALIDATE_1.3.0.md` passes. External trackpad input, external DDC, Intel/other macOS versions, Developer ID signing, and notarization remain explicitly unverified.
 
 ## A. What is already implemented
 
@@ -18,6 +18,9 @@ This is the operational handoff for continued macOS validation and release work.
 ### Input pipeline
 
 - `ECPrivateAPIBridge.c/.h` dynamically opens MultitouchSupport and resolves device/callback/start/stop symbols.
+- Automatic input deliberately preserves `MTDeviceCreateDefault`, matching 1.2.x behavior. Explicit selection additionally resolves device-list, built-in identity, and sensor-dimension metadata at runtime.
+- Built-in mode prefers a positively identified built-in default device before list fallback. External mode selects the first non-built-in landscape surface and fails closed when none matches, so it does not silently fall back or accept a portrait-shaped Magic Mouse surface.
+- The bridge retains the device-list array for as long as an enumerated device is active. Settings provide Automatic/Built-in/External, selected-kind status, persistence, and a manual **Rescan Trackpads** action.
 - Private callback memory is translated to an owned C record containing identifier, normalized X/Y, and raw state.
 - C-side close marks the bridge as closing, stops/unregisters, and waits for callbacks in flight.
 - `TrackpadManager` copies raw contacts synchronously, serializes Swift mutation on a dedicated queue, infers began/moved lifecycle phases by stable contact ID, and emits normalized `TouchFrame` values.
@@ -71,10 +74,11 @@ This is the operational handoff for continued macOS validation and release work.
 - Compact 148×42 single-row normal HUD, 220×42 error state, native macOS 26 Liquid Glass, macOS 13–15 ultra-thin fallback, custom progress capsule, and Reduce Motion-aware presentation.
 - Public `SMAppService.mainApp` launch-at-login controller with rollback to actual service status after errors.
 - Wake monitor ends the session, resets recognition/haptic state, refreshes displays, and reopens the trackpad bridge.
+- A 750 ms live-contact callback-silence watchdog resets recognition and, when active, ends the session and restores cursor movement if Bluetooth loss prevents a final touch frame. Resumed frames are discarded until an empty frame or bridge restart, preventing the stranded touch from becoming a fresh edge birth. This does not claim automatic device discovery; connect/disconnect changes require manual rescan or restart.
 
 ### Tests, documentation, and release shell
 
-- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `HapticEngineTests`, and synthetic trace helper (32 test methods in current source).
+- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `HapticEngineTests`, and synthetic trace helper (35 test methods in current source).
 - MIT license and no third-party source.
 - Runtime privacy/no-network statement and static repository guard.
 - Native-tools-only release build and DMG scripts.
@@ -85,15 +89,16 @@ This is the operational handoff for continued macOS validation and release work.
 
 The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-The current source includes the 1.2.0 hardening plus the 1.2.1 no-jump mapping fix. Before another binary is published, rerun:
+The current source includes the 1.2.0 hardening, 1.2.1 no-jump mapping, and experimental 1.3.0 trackpad-source changes. Before another binary is published, rerun:
 
 1. `./Scripts/validate_repository.sh`
-2. `./Scripts/build_release.sh test` (expect 32 tests)
+2. `./Scripts/build_release.sh test` (expect 35 tests)
 3. `./Scripts/build_release.sh build`
 4. Physical edge-entry regression for 450ms / 3% / 0.80
 5. HUD visual/accessibility regression on macOS 26 and at least one pre-26 system
 6. Lower-half regression at low and high initial values: activation must preserve the current value, and subsequent up/down motion must remain continuous
-7. Release binary inspection, DMG packaging, install and launch
+7. Complete every Automatic/Built-in/External, Magic Mouse rejection, Bluetooth disconnect, manual-rescan, sleep/wake, and multiple-device scenario in `OPENCLAW_VALIDATE_1.3.0.md`
+8. Release binary inspection, DMG packaging, install and launch
 
 Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
 
@@ -110,6 +115,9 @@ Current runtime path:
 Current symbol assumptions:
 
 - `MTDeviceCreateDefault(void) -> device`
+- `MTDeviceCreateList(void) -> CFArrayRef`
+- `MTDeviceIsBuiltIn(device) -> bool`
+- `MTDeviceGetSensorSurfaceDimensions(device, int32 *width, int32 *height) -> int32`
 - `MTRegisterContactFrameCallback(device, callback)`
 - `MTUnregisterContactFrameCallback(device, callback)`
 - `MTDeviceStart(device, 0)`
@@ -120,7 +128,7 @@ Current callback assumption:
 
 `int32 callback(device, ECMTFingerABI *, int32 count, double timestamp, int32 frame)`
 
-The 96-byte `ECMTFingerABI` stride and normalized-coordinate fields were verified on macOS 26.5 arm64. Revalidate return types, parameter widths, callback registration, contact stride/alignment/offsets, state semantics, empty-frame behavior, device retention, and start/stop ordering on every other supported macOS/architecture combination.
+The 96-byte `ECMTFingerABI` stride and normalized-coordinate fields were verified on macOS 26.5 arm64. The three enumeration/metadata signatures and their ownership semantics have not been verified locally. Revalidate return types, parameter widths, callback registration, contact stride/alignment/offsets, state semantics, empty-frame behavior, device-list retention, device identity, surface orientation, and start/stop ordering on every supported macOS/architecture combination.
 
 ### Trackpad actuator
 
@@ -170,7 +178,9 @@ Do not claim external DDC support on a machine/OS combination until VCP `0x10` g
 ### Raw multitouch
 
 - A symbol can exist while the contact layout is wrong, causing corrupted coordinates or a crash.
-- Device enumeration may choose an external trackpad or no device.
+- Automatic selection inherits the OS default-device decision. Explicit external selection chooses the first non-built-in landscape surface; list order, sensor orientation, multiple-device behavior, and Magic Mouse rejection require hardware proof.
+- Explicit built-in selection prefers a built-in default but may use list fallback; Touch Bar-era hardware must prove that fallback cannot select the wrong built-in multitouch surface.
+- A Bluetooth disconnect may stop callbacks without an empty frame. The 750 ms watchdog resets a stranded candidate or active lifecycle; device reconnection still requires manual rescan or restart.
 - Last-finger lift may not arrive as an empty callback; the state machine then needs an explicit removal translation based on raw state.
 - Y direction may be opposite the mapper assumption.
 - Callback teardown and Swift queued frames need Thread Sanitizer coverage.
@@ -232,7 +242,7 @@ Run `./Scripts/build_release.sh test`. All synthetic gesture, mapping, detent, a
 
 ### 3. Raw touch logger
 
-Run Debug with `EDGE_DEBUG_LOGGING`. Confirm device opening, callback cadence, coordinate range/direction, identifier stability, live contact count, empty lift frames, and birth positions. At this stage, temporarily keep master control off so no system values change.
+Run Debug with `EDGE_DEBUG_LOGGING`. Confirm each selection mode, selected-kind probe, surface dimensions, device opening, callback cadence, coordinate range/direction, identifier stability, live contact count, empty lift frames, and birth positions. Prove Magic Mouse rejection. At this stage, temporarily keep master control off so no system values change.
 
 ### 4. Edge Entry detector
 
@@ -254,23 +264,27 @@ Test the public backend from the menu-bar app. Confirm activation timing and det
 
 Use a clean user account/VM plus real hardware where needed. Record every TCC prompt and system setting. Do not reuse an account with previous grants.
 
-### 9. Sleep/wake
+### 9. External trackpad and lifecycle
+
+Run the complete hardware matrix in `OPENCLAW_VALIDATE_1.3.0.md`: device preference persistence, missing-device failure, built-in/external isolation, multiple external devices, connection plus manual rescan, active Bluetooth disconnect and 750 ms cursor recovery, sleep/wake, relaunch, lower-half continuity, and haptic behavior. Treat every unchecked item as a release blocker for the 1.3.0 external-input claim.
+
+### 10. Sleep/wake
 
 Test sleep/wake while idle, candidate, active, with a display attached, and after an output-device change. Confirm touch reopens, display enumeration refreshes, haptic resources reset, and cursor restores.
 
-### 10. External DDC
+### 11. External DDC
 
 Validate legacy Intel transport first if an Intel Mac is available. Then implement/validate Apple Silicon IOAV transport behind the existing backend. Test unsupported monitors and hot-plug failure isolation.
 
-### 11. Release build
+### 12. Release build
 
 Run an unsigned Release build, confirm Debug logs are absent, inspect linked frameworks, and verify there is no network dependency or runtime call.
 
-### 12. Signing
+### 13. Signing
 
 Set final bundle ID/team, archive with Developer ID Application, enable Hardened Runtime, and verify private dynamic loading. Inspect with `codesign -dv --verbose=4` and `spctl`.
 
-### 13. DMG
+### 14. DMG
 
 Run `package_dmg.sh`, notarize/staple, verify the left-app/right-Applications presentation, drag installation, first launch, quarantine/Gatekeeper behavior, and checksum on a second clean Mac.
 
@@ -300,6 +314,9 @@ Use [Docs/LOCAL_VALIDATION_REQUIRED.md](Docs/LOCAL_VALIDATION_REQUIRED.md) as th
 - [x] Apple Silicon build and run
 - [ ] Intel build and run, or Intel support removed transparently
 - [x] MultitouchSupport framework path and required device symbols on macOS 26.5 arm64
+- [ ] Trackpad enumeration/metadata ABI and device-list ownership
+- [ ] Automatic/Built-in/External selection matrix and Magic Mouse rejection
+- [ ] Active external disconnect watchdog and manual rescan
 - [x] Contact callback signature on macOS 26.5 arm64
 - [x] Contact struct size/alignment/offsets on macOS 26.5 arm64
 - [x] Coordinate range and Y direction on the reference machine
@@ -329,4 +346,4 @@ Use [Docs/LOCAL_VALIDATION_REQUIRED.md](Docs/LOCAL_VALIDATION_REQUIRED.md) as th
 
 ## Local work remaining, in one paragraph
 
-The immediate remaining work is a macOS regression run for the current 29-test source and the stricter 450ms / 3% / 0.80 gesture admission, followed by a fresh Release build and binary-log inspection. External DDC still needs real monitor testing. Public distribution additionally requires owner-supplied Developer ID credentials, notarization, Gatekeeper verification, and replacement of the stale GitHub Release attachments. The existing architecture should remain intact unless those measurements demonstrate a structural defect.
+The immediate remaining work is a macOS regression run for the current 35-test source, the stricter 450ms / 3% / 0.80 gesture admission, and the full external-trackpad hardware matrix, followed by a fresh Release build and binary-log inspection. External DDC still needs real monitor testing. Public distribution additionally requires owner-supplied Developer ID credentials, notarization, Gatekeeper verification, and replacement of stale GitHub Release attachments. The existing architecture should remain intact unless those measurements demonstrate a structural defect.

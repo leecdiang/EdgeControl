@@ -56,6 +56,23 @@ struct SettingsView: View {
                 Text("Only contacts that start at or below the trackpad midline can activate; adjustment remains relative to the current value.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Picker(
+                    "Trackpad",
+                    selection: Binding(
+                        get: { settings.trackpadPreference },
+                        set: { model.setTrackpadPreference($0) }
+                    )
+                ) {
+                    ForEach(TrackpadPreference.allCases) { preference in
+                        Text(preference.title).tag(preference)
+                    }
+                }
+                Text("Automatic preserves the default-device behavior. Explicit external selection ignores portrait-oriented devices such as Magic Mouse.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button("Rescan Trackpads") {
+                    model.rescanTrackpads()
+                }
                 Toggle(
                     "External display DDC (experimental)",
                     isOn: Binding(
@@ -115,8 +132,8 @@ struct SettingsView: View {
         switch model.touchStatus {
         case .stopped:
             Text("Stopped").foregroundStyle(.secondary)
-        case .running:
-            Label("Running", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case let .running(kind):
+            Label(kind.statusTitle, systemImage: "checkmark.circle.fill").foregroundStyle(.green)
         case let .unavailable(message):
             Label("Unavailable", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)

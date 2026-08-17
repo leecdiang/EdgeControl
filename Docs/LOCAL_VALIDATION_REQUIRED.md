@@ -6,7 +6,7 @@ Checked items have recorded evidence on the macOS 26.5 arm64 reference machine. 
 
 - [x] Open and build the 1.1.0 baseline with Xcode 26.6.
 - [x] Run clean Debug and Release builds for Apple Silicon (1.1.0 baseline).
-- [ ] Rebuild and run all 32 tests after the 450ms / 3% / 0.80, DDC-persistence, lower-half admission, and no-jump mapping changes.
+- [ ] Rebuild and run all 35 tests after the 450ms / 3% / 0.80, DDC-persistence, lower-half admission, no-jump mapping, and trackpad-selection changes.
 - [ ] Run a clean Debug build for Intel or an Intel CI runner.
 - [x] Resolve baseline Swift strict-concurrency diagnostics without weakening isolation globally.
 - [x] Confirm the bridging callback converts cleanly to the imported C function-pointer type on Xcode 26.6.
@@ -19,6 +19,7 @@ File: `EdgeControl/PrivateFrameworks/ECPrivateAPIBridge.c`
 
 - [x] Confirm framework path `/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport` on macOS 26.5.
 - [x] Confirm required device/callback/start/stop symbols on macOS 26.5.
+- [ ] Confirm `MTDeviceCreateList`, `MTDeviceIsBuiltIn`, and `MTDeviceGetSensorSurfaceDimensions` signatures and ownership on every release architecture.
 - [x] Confirm callback signature on macOS 26.5 arm64.
 - [x] Confirm the 96-byte `ECMTFingerABI` stride and normalized-coordinate layout on arm64.
 - [ ] Repeat ABI checks on x86_64 if Intel remains supported.
@@ -26,7 +27,16 @@ File: `EdgeControl/PrivateFrameworks/ECPrivateAPIBridge.c`
 - [x] Confirm contact identifiers remain stable for an entire physical contact on the reference machine.
 - [ ] Confirm whether a raw state must be filtered before a contact counts as live.
 - [x] Confirm normalized coordinate range and upward-increasing Y on the reference machine.
-- [ ] Confirm internal versus external Apple trackpad enumeration behavior.
+- [ ] With only the built-in trackpad available, confirm Automatic and Built-in both report Built-in and produce frames.
+- [ ] With both devices available, confirm Automatic preserves system-default behavior and Built-in never selects Touch Bar or an external surface.
+- [ ] With both devices available, confirm External reports External and receives frames only from the selected external surface.
+- [ ] Confirm External fails safely when no external Magic Trackpad is connected; it must not fall back to built-in.
+- [ ] Confirm a connected Magic Mouse is rejected by the portrait-surface heuristic and never drives an edge action.
+- [ ] Capture the Debug `[ECProbe] selected trackpad` kind and surface dimensions for each tested Magic Trackpad and Magic Mouse generation.
+- [ ] With multiple external trackpads, document which list entry is selected; 1.3.0 intentionally chooses the first matching surface.
+- [ ] Connect/disconnect a Magic Trackpad, press **Rescan Trackpads**, and confirm the old bridge closes before the new bridge opens.
+- [ ] Disconnect Bluetooth once during a candidate and once during an active gesture; confirm the 750 ms callback watchdog resets recognition, restores cursor movement, ends the HUD session, and permits a clean rescan.
+- [ ] Repeat external selection after sleep/wake and after app relaunch.
 
 ## Physical Edge Entry UX
 
@@ -58,7 +68,8 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 
 - [x] Test `NSHapticFeedbackManager` from the reference `LSUIElement` app.
 - [x] Confirm activation ticks happen only after `Active`.
-- [x] Confirm 5% detents do not buzz at a boundary on the reference machine.
+- [x] Confirm detents do not buzz at a boundary on the reference machine (baseline spacing differed).
+- [ ] Confirm current 2% detent spacing remains usable on both the built-in and external Magic Trackpad and does not double-trigger from Bluetooth frame jitter.
 - [ ] Do not enable private haptics until the following symbols and signatures are validated: `MTActuatorCreateFromDevice`, `MTActuatorOpen`, `MTActuatorActuate`, `MTActuatorClose`.
 - [ ] Replace placeholder private pattern `1` only with independently measured values; do not copy Verge constants or patterns.
 - [ ] Confirm actuator open/close and sleep/wake lifetime.
@@ -76,6 +87,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 
 - [x] Confirm `CGAssociateMouseAndMouseCursorPosition` freezes only at Active and restores on the tested end, cancellation, error, sleep, stop, quit, and forced-termination paths.
 - [ ] Verify pointer behavior with an external mouse connected.
+- [ ] Verify cursor restoration after active external-trackpad Bluetooth loss and after manual rescan.
 - [ ] Confirm no Accessibility permission is requested by pointer control.
 - [ ] Verify the HUD does not activate the app, accept clicks, steal focus, or appear on the wrong display.
 - [ ] Inspect the 148×42 Liquid Glass HUD on macOS 26 over light, dark, colorful, and full-screen content.
@@ -95,7 +107,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 ## Release engineering
 
 - [x] Populate every app-icon slot with original artwork.
-- [x] Populate the bundle identifier and 1.1.0 version.
+- [x] Populate the bundle identifier and 1.3.0 source version.
 - [x] Validate the ad-hoc 1.1.0 baseline with Hardened Runtime and private runtime loading.
 - [ ] Sign with Developer ID Application.
 - [ ] Notarize and staple the app/DMG.

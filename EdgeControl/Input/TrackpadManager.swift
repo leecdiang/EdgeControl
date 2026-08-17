@@ -1,15 +1,61 @@
 import Foundation
 
+enum TrackpadPreference: String, CaseIterable, Identifiable, Sendable {
+    case automatic
+    case builtIn
+    case external
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .automatic: return "Automatic"
+        case .builtIn: return "Built-in trackpad"
+        case .external: return "External Magic Trackpad"
+        }
+    }
+
+    fileprivate var bridgeValue: Int32 {
+        switch self {
+        case .automatic: return 0
+        case .builtIn: return 1
+        case .external: return 2
+        }
+    }
+}
+
+enum TrackpadKind: Sendable, Equatable {
+    case unknown
+    case builtIn
+    case external
+
+    init(bridgeValue: Int32) {
+        switch bridgeValue {
+        case 1: self = .builtIn
+        case 2: self = .external
+        default: self = .unknown
+        }
+    }
+
+    var statusTitle: String {
+        switch self {
+        case .unknown: return "Running"
+        case .builtIn: return "Built-in"
+        case .external: return "External"
+        }
+    }
+}
+
 enum TrackpadManagerError: LocalizedError {
     case privateAPIUnavailable
-    case openFailed
+    case openFailed(TrackpadPreference)
 
     var errorDescription: String? {
         switch self {
         case .privateAPIUnavailable:
             return "The private multitouch interface is unavailable on this Mac."
-        case .openFailed:
-            return "The trackpad could not be opened."
+        case let .openFailed(preference):
+            return "\(preference.title) could not be opened. Connect it, choose another trackpad, or rescan."
         }
     }
 }
@@ -39,12 +85,20 @@ final class TrackpadManager: @unchecked Sendable {
     private var activeContactIDs: Set<Int> = []
     private var frameHandler: FrameHandler?
     private var handle: OpaquePointer?
+    private(set) var selectedKind: TrackpadKind = .unknown
 
     var isPrivateAPIAvailable: Bool {
         ec_mt_is_available()
     }
 
-    func start(frameHandler: @escaping FrameHandler) throws {
+    static func surfaceDimensionsLookLikeTrackpad(width: Int32, height: Int32) -> Bool {
+        ec_mt_surface_dimensions_look_like_trackpad(width, height)
+    }
+
+    func start(
+        preference: TrackpadPreference,
+        frameHandler: @escaping FrameHandler
+    ) throws {
         try lifecycleQueue.sync {
             guard handle == nil else {
                 processingQueue.sync { self.frameHandler = frameHandler }
@@ -60,11 +114,19 @@ final class TrackpadManager: @unchecked Sendable {
             }
 
             let context = Unmanaged.passUnretained(self).toOpaque()
-            guard let opened = ec_mt_open(edgeControlTouchFrameCallback, context) else {
+            var selectedKindValue: Int32 = 0
+            guard let opened = ec_mt_open(
+                preference.bridgeValue,
+                edgeControlTouchFrameCallback,
+                context,
+                &selectedKindValue
+            ) else {
                 processingQueue.sync { self.frameHandler = nil }
-                throw TrackpadManagerError.openFailed
+                selectedKind = .unknown
+                throw TrackpadManagerError.openFailed(preference)
             }
             handle = opened
+            selectedKind = TrackpadKind(bridgeValue: selectedKindValue)
         }
     }
 
@@ -78,12 +140,16 @@ final class TrackpadManager: @unchecked Sendable {
                 self.activeContactIDs.removeAll()
                 self.frameHandler = nil
             }
+            selectedKind = .unknown
         }
     }
 
-    func restart(frameHandler: @escaping FrameHandler) throws {
+    func restart(
+        preference: TrackpadPreference,
+        frameHandler: @escaping FrameHandler
+    ) throws {
         stop()
-        try start(frameHandler: frameHandler)
+        try start(preference: preference, frameHandler: frameHandler)
     }
 
     fileprivate func receive(
@@ -151,4 +217,3 @@ private func edgeControlTouchFrameCallback(
     let manager = Unmanaged<TrackpadManager>.fromOpaque(context).takeUnretainedValue()
     manager.receive(contacts: contacts, count: contactCount, timestamp: timestamp)
 }
-

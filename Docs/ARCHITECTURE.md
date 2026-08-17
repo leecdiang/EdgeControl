@@ -6,6 +6,8 @@
 
 `ECPrivateAPIBridge.c` is the only place that knows the private MultitouchSupport callback ABI and contact memory layout. The current 96-byte layout was verified on macOS 26.5 arm64 and remains an assumption everywhere else. The bridge copies only contact identifier, normalized X/Y, and raw state into a small public C record. `TrackpadManager` immediately copies those records into Swift value types.
 
+Automatic input preserves the established `MTDeviceCreateDefault` path. Explicit selection resolves `MTDeviceCreateList`, `MTDeviceIsBuiltIn`, and `MTDeviceGetSensorSurfaceDimensions` at runtime. Built-in mode prefers a default device positively identified as built in, then falls back to enumeration. External mode fails closed unless a device is non-built-in and has landscape sensor dimensions; this prevents a known portrait-shaped Magic Mouse surface from being selected. A retained device-list array owns an enumerated device for the complete bridge lifetime. All of these private ABI and shape assumptions require physical revalidation.
+
 `TrackpadManager` is an explicit `@unchecked Sendable` owner. This is justified only because:
 
 1. the undocumented callback may arrive on any thread;
@@ -27,6 +29,8 @@ Eligibility is assigned only on the first non-empty frame of a contact lifecycle
 
 Every `.changed` event maps cumulative vertical movement against the session’s initial value. Hardware callbacks never call CoreAudio or display APIs directly.
 
+Settings expose Automatic, Built-in, and External Magic Trackpad preferences plus a manual rescan. Runtime status reports the selected kind when classification succeeds. While any touch lifecycle is live, a 750 ms callback-silence watchdog resets recognition; if control is active, it also ends the session and restores cursor movement. Frames that resume after such silence are discarded until an empty frame or explicit bridge restart, so a stranded contact cannot be reinterpreted as a fresh edge birth.
+
 ### Controller boundary
 
 - `VolumeController`: public CoreAudio only; default output device is resolved on every operation.
@@ -37,20 +41,21 @@ Every `.changed` event maps cumulative vertical movement against the session’s
 ### Feedback boundary
 
 - `HapticEngine` chooses between a public AppKit performer and an opt-in private actuator backend.
-- `DetentTracker` is pure logic with 5% spacing and hysteresis.
+- `DetentTracker` is pure logic with 2% spacing and hysteresis.
 - `CursorController` uses CoreGraphics cursor/mouse association only after activation.
 - `HUDController` owns one persistent non-activating, click-through floating `NSPanel` and one observable SwiftUI model; touch updates mutate the model rather than rebuilding `NSHostingView`.
 - The normal HUD is a 148×42 single-row capsule. macOS 26 uses native `glassEffect`; older deployment targets use an ultra-thin material capsule. Error content expands to 220×42. Reduce Transparency switches to an opaque system background and Reduce Motion removes the scale transition.
 
 ## Lifecycle
 
-On display reconfiguration, brightness backends re-enumerate. On wake, the current control session ends, the gesture recognizer resets, display backends refresh, haptics reset, and the trackpad bridge closes and reopens.
+On display reconfiguration, brightness backends re-enumerate. On wake, the current control session ends, the gesture recognizer resets, display backends refresh, haptics reset, and the trackpad bridge closes and reopens. Trackpad connect/disconnect does not automatically switch devices in 1.3.0; the user invokes **Rescan Trackpads**, which performs the same safe session teardown and bridge reopen.
 
 Wake and close/open recovery passed on the reference machine. Display hot-plug, external DDC, and every other OS/hardware combination remain `LOCAL_VALIDATION_REQUIRED`.
 
 ## Failure policy
 
 - Missing MultitouchSupport: menu-bar app remains open and reports touch input unavailable.
+- Requested trackpad unavailable or rejected by the external-surface filter: the app remains open, shows the selected preference as unavailable, and does not silently control a different device.
 - Unsupported audio device: gesture safely ends; HUD can show the error.
 - Missing DisplayServices: built-in backend becomes unavailable.
 - DDC failure: external backend fails independently; it never breaks built-in brightness or app startup.

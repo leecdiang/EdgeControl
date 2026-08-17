@@ -11,6 +11,18 @@ extern "C" {
 
 typedef struct ECMultitouchHandle ECMultitouchHandle;
 
+enum {
+    EC_TRACKPAD_SELECTION_AUTO = 0,
+    EC_TRACKPAD_SELECTION_BUILT_IN = 1,
+    EC_TRACKPAD_SELECTION_EXTERNAL = 2
+};
+
+enum {
+    EC_TRACKPAD_KIND_UNKNOWN = 0,
+    EC_TRACKPAD_KIND_BUILT_IN = 1,
+    EC_TRACKPAD_KIND_EXTERNAL = 2
+};
+
 typedef struct {
     int32_t identifier;
     double x;
@@ -27,9 +39,16 @@ typedef void (*ECTouchFrameCallback)(
 );
 
 /// LOCAL_VALIDATION_REQUIRED: MultitouchSupport ABI and contact layout.
-ECMultitouchHandle *ec_mt_open(ECTouchFrameCallback callback, void *context);
+ECMultitouchHandle *ec_mt_open(
+    int32_t selection,
+    ECTouchFrameCallback callback,
+    void *context,
+    int32_t *selected_kind
+);
 void ec_mt_close(ECMultitouchHandle *handle);
 bool ec_mt_is_available(void);
+/// Pure geometry guard used to reject portrait-oriented external devices.
+bool ec_mt_surface_dimensions_look_like_trackpad(int32_t width, int32_t height);
 
 /// Private actuator calls stay disabled unless explicitly enabled for local ABI work.
 bool ec_mt_private_haptic_is_available(void);
@@ -54,4 +73,3 @@ bool ec_ddc_set_vcp10(ECDDCHandle *handle, uint16_t value);
 #endif
 
 #endif
-
