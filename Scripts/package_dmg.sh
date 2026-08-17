@@ -21,6 +21,7 @@ stage_dir="$temp_root/stage"
 rw_dmg="$temp_root/EdgeControl-rw.dmg"
 attached_device=""
 mounted_path=""
+layout_template="$script_dir/dmg_layout/.DS_Store"
 
 cleanup() {
   if [[ -n "$attached_device" ]]; then
@@ -33,10 +34,15 @@ trap cleanup EXIT
 mkdir -p "$stage_dir" "$(dirname "$output_path")"
 ditto "$app_path" "$stage_dir/EdgeControl.app"
 ln -s /Applications "$stage_dir/Applications"
+if [[ -f "$layout_template" ]]; then
+  cp "$layout_template" "$stage_dir/.DS_Store"
+fi
 
 hdiutil create \
   -volname "$volume_name" \
   -srcfolder "$stage_dir" \
+  -fs HFS+ \
+  -fsargs "-c c=64,a=16,e=16" \
   -ov \
   -format UDRW \
   "$rw_dmg"
@@ -50,12 +56,13 @@ if [[ -z "$attached_device" || -z "$mounted_path" || ! -d "$mounted_path" ]]; th
   exit 1
 fi
 
-# Wait until Finder can address the volume (race on attach). Finder only
-# registers volumes mounted under /Volumes. Resolve the disk from the exact
-# mount path so a pre-existing same-name volume cannot be targeted by mistake.
-finder_ready=false
-for _ in $(seq 1 20); do
-  if osascript - "$mounted_path" 2>/dev/null <<'APPLESCRIPT' | grep -qi true; then
+if [[ ! -f "$layout_template" ]]; then
+  # Wait until Finder can address the volume (race on attach). Finder only
+  # registers volumes mounted under /Volumes. Resolve the disk from the exact
+  # mount path so a pre-existing same-name volume cannot be targeted by mistake.
+  finder_ready=false
+  for _ in $(seq 1 20); do
+    if osascript - "$mounted_path" 2>/dev/null <<'APPLESCRIPT' | grep -qi true; then
 on run argv
   try
     set mountAlias to POSIX file (item 1 of argv) as alias
@@ -66,18 +73,18 @@ on run argv
   end try
 end run
 APPLESCRIPT
-    finder_ready=true
-    break
+      finder_ready=true
+      break
+    fi
+    sleep 0.5
+  done
+
+  if [[ "$finder_ready" != true ]]; then
+    echo "Finder did not register the mounted volume: $mounted_path" >&2
+    exit 1
   fi
-  sleep 0.5
-done
 
-if [[ "$finder_ready" != true ]]; then
-  echo "Finder did not register the mounted volume: $mounted_path" >&2
-  exit 1
-fi
-
-osascript - "$mounted_path" <<'APPLESCRIPT'
+  osascript - "$mounted_path" <<'APPLESCRIPT'
 on run argv
 set mountAlias to POSIX file (item 1 of argv) as alias
 tell application "Finder"
@@ -100,6 +107,7 @@ tell application "Finder"
 end tell
 end run
 APPLESCRIPT
+fi
 
 sync
 hdiutil detach "$attached_device" -quiet
