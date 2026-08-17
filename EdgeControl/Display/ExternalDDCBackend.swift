@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 @MainActor
-final class ExternalDDCBackend: BrightnessBackend {
+final class ExternalDDCBackend: ExternalBrightnessBackend {
     private final class Connection {
         let displayID: CGDirectDisplayID
         let handle: OpaquePointer

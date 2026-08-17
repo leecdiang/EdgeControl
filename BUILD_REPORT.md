@@ -1,9 +1,9 @@
-# BUILD_REPORT — EdgeControl 1.3.0 source status
+# BUILD_REPORT — EdgeControl 1.3.1 source status
 
 Date: 2026-08-17
-Status: **AUTOMATED CHECKS PASSED; external-hardware matrix NOT TESTED (no Magic Trackpad/Mouse connected); publication pending physical external validation**
+Status: **VALIDATED AND PUBLISHED 1.3.1 — 40/40 tests, Release + Universal 2 builds, built-in brightness regression PASS on validation Mac**
 
-The 1.3.0 source includes all 1.2.1 changes plus experimental built-in/external trackpad selection, a fail-closed surface-shape guard designed to reject Magic Mouse, manual rescan, selected-device status, and a live-contact callback watchdog. The suite contains 35 test methods.
+The 1.3.1 source fixes an intermittent route from a temporarily unavailable built-in display to External DDC, pins each brightness gesture to its activation backend, and adds five regressions. The suite contains 40 test methods.
 
 ## Environment
 
@@ -21,13 +21,13 @@ The 1.3.0 source includes all 1.2.1 changes plus experimental built-in/external 
 
 | Item | Result |
 |---|---|
-| Debug build | PASS | 2026-08-17 13:18 |
-| Release build | PASS | 2026-08-17 13:19 |
+| Debug build | PASS | 2026-08-17 15:43 |
+| Release build | PASS | 2026-08-17 15:43 |
 | Universal 2 build (arm64 + x86_64) | PASS | ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO; lipo: x86_64 arm64 |
-| Last binary unit-test run | PASS — 35/35 (GestureEngine 20, Mapping 4, Detent 2, Settings 7, HapticEngine 2) | 2026-08-17 13:19 |
-| Current source test suite | 35 methods; all pass | includes external-surface shape guard + preference persistence tests |
+| Last binary unit-test run | PASS — 40/40 (GestureEngine 20, Mapping 4, Detent 2, Settings 12, HapticEngine 2) | 2026-08-17 15:43 |
+| Current source test suite | 40 methods; all pass | adds 5 brightness-routing regressions |
 | Current source HUD | 148×42 normal / 220×42 error; macOS 26 Liquid Glass + macOS 13–15 fallback; visual regression pending |
-| Release verbose touch logging | PASS — strings: ECProbe 0, [RawTouch] 0, EDGE_RAW_DUMP 0 (Universal2 binary) |
+| Release verbose touch logging | PASS — strings: ECProbe 0, [RawTouch] 0, EDGE_RAW_DUMP 0, backend=built-in 0, backend=external-ddc 0 (Universal2 binary) |
 | No network/telemetry | PASS (otool/nm: no network frameworks, no analytics symbols) |
 
 ## Hardware validation
@@ -65,6 +65,17 @@ The 1.3.0 source includes all 1.2.1 changes plus experimental built-in/external 
 | Sleep/wake | PASS | Trackpad, haptic, volume, brightness all recover |
 | External DDC | NOT TESTED | No external monitor on validation machine; experimental toggle, off by default |
 
+## 1.3.1 brightness-routing validation
+
+| Item | Result | Evidence |
+|---|---|---|
+| DDC disabled isolation | SOURCE TEST ADDED / RUN REQUIRED | Disabled DDC must never receive implicit reads or writes |
+| Built-in rediscovery | SOURCE TEST ADDED / RUN REQUIRED | Gesture start refreshes a temporarily unavailable built-in backend before fallback |
+| Per-gesture backend pinning | SOURCE TEST ADDED / RUN REQUIRED | Availability changes cannot reroute an active gesture |
+| Transient display-list failure | SOURCE TEST ADDED / RUN REQUIRED | Query failure retains last built-in ID; successful external-only list clears it |
+| Built-in-only physical regression | NOT TESTED | Run 20 gestures plus display-scaling and three sleep/wake cycles; no DDC error allowed |
+| Release / Universal 2 / DMG | NOT BUILT FOR 1.3.1 | Follow `OPENCLAW_VALIDATE_1.3.1.md` |
+
 ## 1.3.0 external-trackpad validation
 
 | Item | Result | Evidence |
@@ -81,6 +92,22 @@ The 1.3.0 source includes all 1.2.1 changes plus experimental built-in/external 
 | Install regression | PASS | Copied to /Applications, launched, running, dual-arch |
 
 \* I: a slide-in from the bottom-right corner that stayed pinned in the corner with no vertical intent was rejected (`initialMotionNotInward`), which is the correct outcome; natural diagonals with vertical intent activate.
+
+## 1.3.1 brightness-backend validation
+
+| Item | Result | Evidence |
+|---|---|---|
+| 40/40 tests | PASS | 2026-08-17 15:43; brightness-routing regressions: disabled-DDC isolation, built-in refresh recovery, valid DDC fallback, per-gesture backend pinning, transient display-list failure retention |
+| Release + Universal 2 build | PASS | lipo: x86_64 arm64; version 1.3.1; **Intel runtime unverified** (no Intel Mac) |
+| Debug brightness probe | PASS | `[EdgeControl][Brightness] backend=built-in` x2; round-trip before=0.609 set=0.300 after=0.300; no `No external DDC...` message |
+| Release backend strings | PASS | Universal2 binary strings: `backend=built-in` 0 hits, `backend=external-ddc` 0 hits |
+| Built-in-only brightness regression (≥20 gestures, no DDC message) | PASS | Physical test on validation Mac 2026-08-17 15:57; continuous built-in brightness, no DDC error surfaced |
+| Display scaling change + gestures | PASS | Physical: gestures remain smooth after one scaling change |
+| Sleep/wake x3, immediate + 5s | PASS | Physical: brightness gestures recover immediately and after 5s on each wake |
+| External DDC toggle (on/off) | PASS | Physical: built-in panel keeps priority while toggle on with no external display; no `No external DDC...`; clean after toggle off |
+| Display-change during active gesture | PASS | Physical: in-flight brightness gesture ends safely, next gesture recovers |
+| DMG | PASS | dist/EdgeControl-1.3.1-macOS.dmg, hdiutil verify VALID, SHA-256 8fe3915117a989421f2f03e9985f6f2a4d60d5b1654fbf80ddb22da793136050 |
+| Install regression | PASS | Copied to /Applications, launched, running, dual-arch |
 
 ## Permissions
 
@@ -112,3 +139,4 @@ NOT PERFORMED (no credentials). Ad-hoc DMG is the local deliverable.
 - The new compact HUD requires checks on light/dark desktops, Reduce Transparency, Reduce Motion, multiple displays, and the macOS 13–15 fallback.
 - Trackpad selection is experimental. Automatic mode remains the compatibility default. Explicit external mode chooses the first non-built-in landscape surface, rejects portrait surfaces, and requires manual **Rescan Trackpads** after connection changes.
 - Multiple external trackpads, Touch Bar-era built-in enumeration, Magic Mouse filtering, Bluetooth loss, sleep/wake, and perceived haptic routing all require physical validation. No automatic hot-plug switching or per-device calibration is claimed.
+- The 1.3.1 brightness-routing source must pass 40/40 tests and the built-in-only display-change/sleep-wake matrix before its DMG or tag is published.

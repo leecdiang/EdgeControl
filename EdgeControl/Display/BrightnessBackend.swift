@@ -8,3 +8,7 @@ protocol BrightnessBackend: AnyObject {
     func setBrightness(_ value: Double) throws
 }
 
+@MainActor
+protocol ExternalBrightnessBackend: BrightnessBackend {
+    var enabled: Bool { get set }
+}

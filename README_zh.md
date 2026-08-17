@@ -21,9 +21,9 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 
 ## 状态
 
-2026-08-16/17 在 macOS 26.5（Apple Silicon MacBook Air）上完成真机验证。逐项 PASS/FAIL 矩阵见 [BUILD_REPORT.md](BUILD_REPORT.md)，识别器调参依据见 [Docs/GestureTuning.md](Docs/GestureTuning.md)。
+1.3.0 基线已于 2026-08-16/17 在 macOS 26.5（Apple Silicon MacBook Air）上完成真机验证。1.3.1 新增亮度路由修复，仍需按 `OPENCLAW_VALIDATE_1.3.1.md` 在 macOS 上复测。逐项矩阵见 [BUILD_REPORT.md](BUILD_REPORT.md)。
 
-手势识别、数值映射、触控板选择策略、档位、触觉反馈与设置层由 35 个单元测试覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
+手势识别、数值映射、亮度路由、触控板选择策略、档位、触觉反馈与设置层由 40 个单元测试方法覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
 
 ## 功能
 
@@ -34,6 +34,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 - CoreAudio 音量控制（默认输出设备变化自动重解析、不支持设备有处理）
 - 运行时动态加载 DisplayServices 控制内屏亮度
 - 可选、隔离的 DDC/CI VCP `0x10` 外接显示器后端（实验性，默认关闭）
+- 单次手势锁定亮度后端：仅在明确开启且真实可用时考虑 External DDC；内屏瞬时枚举失败会重试，不再误报 DDC 错误
 - 激活震动 + 2% 档位轻震（迟滞 + 频率限制）
 - 可选的“仅从下半部分开始”过滤：中线以上出生的触点直接拒绝；通过准入后仍从当前系统数值开始相对调节
 - 触控板来源选择：自动 / 内置触控板 / 外接 Magic Trackpad，选择可持久化，并显示当前设备类型及提供手动重扫
@@ -49,7 +50,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 
 ## 外接 Magic Trackpad（实验性）
 
-1.3.0 可在“设置 → System”里明确选择内置或外接触控板。“自动”完整保留 1.2.x 的 `MTDeviceCreateDefault` 路径；显式选择会动态解析 `MTDeviceCreateList`、`MTDeviceIsBuiltIn` 和 `MTDeviceGetSensorSurfaceDimensions`。外接候选必须同时满足“非内置”和“横向触控面”，其设计目标是排除 Magic Mouse 这类纵向设备，仍须用真机确认。所需私有符号或匹配设备不存在时，应用会安全失败并显示错误。
+从 1.3.0 起，可在“设置 → System”里明确选择内置或外接触控板。“自动”完整保留 1.2.x 的 `MTDeviceCreateDefault` 路径；显式选择会动态解析 `MTDeviceCreateList`、`MTDeviceIsBuiltIn` 和 `MTDeviceGetSensorSurfaceDimensions`。外接候选必须同时满足“非内置”和“横向触控面”，其设计目标是排除 Magic Mouse 这类纵向设备，仍须用真机确认。所需私有符号或匹配设备不存在时，应用会安全失败并显示错误。
 
 连接或断开触控板后，请点击“Rescan Trackpads”或重启应用；睡眠唤醒时也会重新打开选定来源。目前外接模式选择第一块匹配的 Magic Trackpad，发布前必须完成真机验证；暂不宣称支持自动热插拔切换与逐设备校准。
 
@@ -75,7 +76,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.3.0-macOS.dmg
+  ./dist/EdgeControl-1.3.1-macOS.dmg
 ```
 
 脚本只使用 macOS 自带工具（`hdiutil`、Finder/AppleScript、`codesign`、`xcrun`）。左侧 `EdgeControl.app`、右侧 `Applications` 软链，随后转换为压缩只读 DMG。已验证布局：App 在 (145,175)、Applications 在 (410,175)、图标 104px。

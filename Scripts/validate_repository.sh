@@ -20,9 +20,11 @@ required=(
   "LICENSE"
   "THIRD_PARTY_NOTICES.md"
   "HANDOFF_TO_OPENCLAW.md"
-  "OPENCLAW_VALIDATE_1.3.0.md"
+  "OPENCLAW_VALIDATE_1.3.1.md"
+  "RELEASE_NOTES_1.3.1.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
-  "Docs/RELEASE_NOTES_1.3.0.md"
+  "Docs/RELEASE_NOTES_1.3.1.md"
+  "Docs/STATIC_BUG_AUDIT_1.3.1.md"
 )
 
 for relative_path in "${required[@]}"; do
@@ -33,9 +35,9 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.3.0;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.3.1;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.3.0, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.3.1, found $version_count." >&2
   exit 1
 fi
 
@@ -70,8 +72,29 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 35 ]]; then
-  echo "Expected at least 35 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 40 ]]; then
+  echo "Expected at least 40 XCTest methods, found $test_method_count." >&2
+  exit 1
+fi
+
+brightness_controller="$project_root/EdgeControl/Display/DisplayBrightnessController.swift"
+required_brightness_routing_markers=(
+  "external.enabled && external.isAvailable"
+  "guard external.enabled else"
+  "func beginSession() throws -> BrightnessControlSession"
+  "builtIn.refresh()"
+)
+
+for expected_marker in "${required_brightness_routing_markers[@]}"; do
+  if ! grep -Fq "$expected_marker" "$brightness_controller"; then
+    echo "Brightness routing guard drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+if ! grep -Fq "guard let activeDisplays = activeDisplayProvider() else { return }" \
+  "$project_root/EdgeControl/Display/BuiltInDisplayBackend.swift"; then
+  echo "Built-in display refresh must preserve its last ID on query failure." >&2
   exit 1
 fi
 

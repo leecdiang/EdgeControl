@@ -15,6 +15,7 @@ final class EdgeControlAppModel: ObservableObject {
         let edge: Edge
         let action: EdgeAction
         let initialValue: Double
+        let brightnessSession: BrightnessControlSession?
     }
 
     let settings: AppSettings
@@ -41,7 +42,7 @@ final class EdgeControlAppModel: ObservableObject {
     private lazy var systemEventMonitor = SystemEventMonitor(
         onSleep: { [weak self] in self?.finishSession() },
         onWake: { [weak self] in self?.handleWake() },
-        onDisplaysChanged: { [weak self] in self?.brightnessController.refresh() },
+        onDisplaysChanged: { [weak self] in self?.handleDisplaysChanged() },
         onTerminate: { [weak self] in self?.stop() }
     )
 
@@ -91,6 +92,7 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     func setExternalDDCEnabled(_ enabled: Bool) {
+        finishBrightnessSessionIfNeeded()
         settings.externalDDCEnabled = enabled
         brightnessController.setExternalDDCEnabled(enabled)
     }
@@ -157,9 +159,10 @@ final class EdgeControlAppModel: ObservableObject {
               let target = Double(raw) else { return }
         setvbuf(stdout, nil, _IONBF, 0)
         do {
-            let before = try brightnessController.getBrightness()
-            try brightnessController.setBrightness(target)
-            let after = try brightnessController.getBrightness()
+            let session = try brightnessController.beginSession()
+            let before = session.initialValue
+            try session.setBrightness(target)
+            let after = try brightnessController.beginSession().initialValue
             print("[EdgeControl][BrightnessProbe] before=\(String(format: "%.3f", before)) "
                 + "set=\(String(format: "%.3f", target)) after=\(String(format: "%.3f", after))")
         } catch {
@@ -264,6 +267,13 @@ final class EdgeControlAppModel: ObservableObject {
         }
     }
 
+    private func handleDisplaysChanged() {
+        // Never let a display reconfiguration switch an in-flight brightness
+        // gesture from the built-in panel to DDC (or the reverse).
+        finishBrightnessSessionIfNeeded()
+        brightnessController.refresh()
+    }
+
     private func consume(_ frame: TouchFrame) {
         lastTouchFrameUptime = ProcessInfo.processInfo.systemUptime
 
@@ -300,16 +310,25 @@ final class EdgeControlAppModel: ObservableObject {
 
         do {
             let initialValue: Double
+            let brightnessSession: BrightnessControlSession?
             switch action {
             case .volume:
                 initialValue = try volumeController.getVolume()
+                brightnessSession = nil
             case .brightness:
-                initialValue = try brightnessController.getBrightness()
+                let started = try brightnessController.beginSession()
+                initialValue = started.initialValue
+                brightnessSession = started
             case .disabled:
                 return
             }
 
-            session = ControlSession(edge: edge, action: action, initialValue: initialValue)
+            session = ControlSession(
+                edge: edge,
+                action: action,
+                initialValue: initialValue,
+                brightnessSession: brightnessSession
+            )
             if settings.hapticFeedback {
                 hapticEngine.activationTick(initialValue: initialValue)
             }
@@ -349,7 +368,10 @@ final class EdgeControlAppModel: ObservableObject {
                 #if EDGE_DEBUG_LOGGING
                 print("[EdgeControl][Brightness] set target=\(String(format: "%.3f", target)) deltaY=\(String(format: "%.4f", deltaY))")
                 #endif
-                try brightnessController.setBrightness(target)
+                guard let brightnessSession = session.brightnessSession else {
+                    throw ControlError.unavailable("Brightness session is unavailable.")
+                }
+                try brightnessSession.setBrightness(target)
             case .disabled:
                 return
             }
@@ -369,6 +391,12 @@ final class EdgeControlAppModel: ObservableObject {
         session = nil
         cursorController.restore()
         hapticEngine.endGesture()
+    }
+
+    private func finishBrightnessSessionIfNeeded() {
+        if session?.action == .brightness {
+            finishSession()
+        }
     }
 
     private func isEnabled(_ action: EdgeAction) -> Bool {

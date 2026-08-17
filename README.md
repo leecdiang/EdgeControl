@@ -21,9 +21,9 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 ## Status
 
-Hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item PASS/FAIL matrix and [Docs/GestureTuning.md](Docs/GestureTuning.md) for the tuned recognizer values.
+The 1.3.0 baseline was hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. Version 1.3.1 adds a brightness-routing fix that requires the macOS rerun described in `OPENCLAW_VALIDATE_1.3.1.md`. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item matrix.
 
-The gesture recognizer, value mapping, trackpad-selection policy, detent, haptic, and settings layers are covered by 35 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 40 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
@@ -34,6 +34,7 @@ The gesture recognizer, value mapping, trackpad-selection policy, detent, haptic
 - CoreAudio volume control with default-output re-resolution and unsupported-device handling
 - Built-in display brightness through runtime-loaded DisplayServices
 - Optional, isolated DDC/CI VCP `0x10` external-display backend (experimental, off by default)
+- Per-gesture brightness-backend pinning: External DDC is considered only when explicitly enabled and available; transient built-in enumeration failures are retried without false DDC errors
 - Activation haptic plus 2% value detents with hysteresis and rate limiting
 - Optional lower-half start filter: contacts born above the trackpad midline are rejected, while accepted gestures continue to adjust relative to the current value
 - Trackpad source selection: Automatic / Built-in trackpad / External Magic Trackpad, with persistent preference, visible active-device status, and manual rescan
@@ -49,7 +50,7 @@ With "Start in lower half only" enabled (Settings > System), only contacts born 
 
 ## External Magic Trackpad (experimental)
 
-Version 1.3.0 can explicitly select a built-in or external trackpad in Settings > System. Automatic mode preserves the 1.2.x `MTDeviceCreateDefault` path. Explicit selection dynamically resolves `MTDeviceCreateList`, `MTDeviceIsBuiltIn`, and `MTDeviceGetSensorSurfaceDimensions`; external candidates must be non-built-in and report a landscape touch surface. This is designed to reject portrait-oriented devices such as Magic Mouse and must be confirmed on real hardware. If the required private symbols or a matching device are unavailable, the app fails closed with a visible error.
+Since version 1.3.0, EdgeControl can explicitly select a built-in or external trackpad in Settings > System. Automatic mode preserves the 1.2.x `MTDeviceCreateDefault` path. Explicit selection dynamically resolves `MTDeviceCreateList`, `MTDeviceIsBuiltIn`, and `MTDeviceGetSensorSurfaceDimensions`; external candidates must be non-built-in and report a landscape touch surface. This is designed to reject portrait-oriented devices such as Magic Mouse and must be confirmed on real hardware. If the required private symbols or a matching device are unavailable, the app fails closed with a visible error.
 
 Connect or disconnect a trackpad, then use "Rescan Trackpads" (or restart the app). Sleep/wake also reopens the selected source. External selection currently chooses the first matching Magic Trackpad and requires hardware validation before this release is published; automatic hot-plug switching and per-device calibration are not claimed.
 
@@ -75,7 +76,7 @@ The script disables code signing for local compilation when no `DEVELOPMENT_TEAM
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.3.0-macOS.dmg
+  ./dist/EdgeControl-1.3.1-macOS.dmg
 ```
 
 The script uses only macOS-provided tools (`hdiutil`, Finder/AppleScript, `codesign`, `xcrun`). It stages `EdgeControl.app` on the left and an `Applications` symlink on the right, then converts to a compressed read-only DMG. Verified layout: App at (145,175), Applications at (410,175), icon size 104.

@@ -36,7 +36,8 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 - `VolumeController`: public CoreAudio only; default output device is resolved on every operation.
 - `BuiltInDisplayBackend`: finds an active built-in display using CoreGraphics, then calls runtime-loaded DisplayServices.
 - `ExternalDDCBackend`: enumerates non-built-in online displays and owns isolated DDC handles.
-- `DisplayBrightnessController`: built-in display first; an external DDC display is used only when built-in control is unavailable. The experimental DDC enable flag is persisted and applied during app-model initialization.
+- `DisplayBrightnessController`: refreshes and prioritizes the built-in display at gesture start. External DDC is eligible only when explicitly enabled and backed by a live connection. A `BrightnessControlSession` pins the selected backend for the gesture, so availability changes cannot silently reroute an in-flight adjustment.
+- `BuiltInDisplayBackend`: distinguishes display-list query failure from a successful list with no built-in panel. Query failure preserves the last known ID; a valid external-only list clears it for clamshell mode.
 
 ### Feedback boundary
 
@@ -48,7 +49,7 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 
 ## Lifecycle
 
-On display reconfiguration, brightness backends re-enumerate. On wake, the current control session ends, the gesture recognizer resets, display backends refresh, haptics reset, and the trackpad bridge closes and reopens. Trackpad connect/disconnect does not automatically switch devices in 1.3.0; the user invokes **Rescan Trackpads**, which performs the same safe session teardown and bridge reopen.
+On display reconfiguration, an active brightness session ends before brightness backends re-enumerate; an unrelated volume gesture is left alone. Changing the DDC setting follows the same ordering. On wake, the current control session ends, the gesture recognizer resets, display backends refresh, haptics reset, and the trackpad bridge closes and reopens. Trackpad connect/disconnect does not automatically switch devices; the user invokes **Rescan Trackpads**, which performs the same safe session teardown and bridge reopen.
 
 Wake and close/open recovery passed on the reference machine. Display hot-plug, external DDC, and every other OS/hardware combination remain `LOCAL_VALIDATION_REQUIRED`.
 
@@ -57,7 +58,7 @@ Wake and close/open recovery passed on the reference machine. Display hot-plug, 
 - Missing MultitouchSupport: menu-bar app remains open and reports touch input unavailable.
 - Requested trackpad unavailable or rejected by the external-surface filter: the app remains open, shows the selected preference as unavailable, and does not silently control a different device.
 - Unsupported audio device: gesture safely ends; HUD can show the error.
-- Missing DisplayServices: built-in backend becomes unavailable.
-- DDC failure: external backend fails independently; it never breaks built-in brightness or app startup.
+- Missing DisplayServices: built-in backend retries discovery at the next gesture, then reports built-in brightness unavailable.
+- DDC disabled or disconnected: it is never called as an implicit fallback. DDC failure remains isolated from built-in brightness and app startup.
 - Haptic failure: control continues without vibration.
 - Cursor freeze failure: control continues with ordinary pointer movement.

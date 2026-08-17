@@ -6,7 +6,7 @@ Checked items have recorded evidence on the macOS 26.5 arm64 reference machine. 
 
 - [x] Open and build the 1.1.0 baseline with Xcode 26.6.
 - [x] Run clean Debug and Release builds for Apple Silicon (1.1.0 baseline).
-- [ ] Rebuild and run all 35 tests after the 450ms / 3% / 0.80, DDC-persistence, lower-half admission, no-jump mapping, and trackpad-selection changes.
+- [ ] Rebuild and run all 40 tests after the 1.3.1 brightness-routing fix and earlier gesture/trackpad changes.
 - [ ] Run a clean Debug build for Intel or an Intel CI runner.
 - [x] Resolve baseline Swift strict-concurrency diagnostics without weakening isolation globally.
 - [x] Confirm the bridging callback converts cleanly to the imported C function-pointer type on Xcode 26.6.
@@ -63,6 +63,11 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 - [x] Confirm the private framework path, signatures, and return semantics on macOS 26.5 arm64.
 - [ ] Confirm CoreGraphics built-in detection finds the MacBook panel even when the menu bar is on another display.
 - [ ] Test clamshell, mirror, Sidecar/AirPlay, sleep/wake, and display reconfiguration.
+- [ ] With no external display, perform 20 brightness gestures with DDC off and again with the toggle on; no `No external DDC...` error may appear.
+- [ ] Repeat immediately after display scaling changes and three sleep/wake cycles.
+- [ ] Confirm a display-change notification ends an active brightness session and the next gesture re-discovers the built-in panel.
+- [ ] Confirm a transient active-display query failure preserves the last valid built-in ID, while a successful external-only list clears it in clamshell mode.
+- [ ] Confirm a brightness gesture never switches from its activation backend to DDC mid-gesture.
 
 ## Haptics
 
@@ -107,7 +112,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 ## Release engineering
 
 - [x] Populate every app-icon slot with original artwork.
-- [x] Populate the bundle identifier and 1.3.0 source version.
+- [x] Populate the bundle identifier and 1.3.1 source version.
 - [x] Validate the ad-hoc 1.1.0 baseline with Hardened Runtime and private runtime loading.
 - [ ] Sign with Developer ID Application.
 - [ ] Notarize and staple the app/DMG.
