@@ -43,14 +43,14 @@ final class HapticEngine {
 
     private let publicBackend: HapticBackend
     private let privateBackend: HapticBackend
-    private var detents = DetentTracker()
+    private var detents = DetentTracker(interval: 0.02)
     var preference: BackendPreference = .publicAPI
 
-    /// Minimum interval between detent pulses. 50ms lets a full-range swipe at
-    /// normal speed render all twenty 5% steps as discrete ticks (~20Hz cap,
-    /// enough to read as individual detents), while still clipping the >30Hz
+    /// Minimum interval between detent pulses. 30ms lets a full-range swipe at
+    /// normal speed render most 2% steps as discrete ticks (~33Hz cap,
+    /// enough to read as individual detents), while still clipping the >33Hz
     /// buzz of very fast flicks. The activation tick always fires.
-    var pulseCooldown: TimeInterval = 0.05
+    var pulseCooldown: TimeInterval = 0.03
     private var lastPulseTime: TimeInterval = -.infinity
     private let now: () -> TimeInterval
 

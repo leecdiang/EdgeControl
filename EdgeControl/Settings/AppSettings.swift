@@ -11,6 +11,8 @@ final class AppSettings: ObservableObject {
         static let rightEdgeAction = "rightEdgeAction"
         static let hapticFeedback = "hapticFeedback"
         static let showHUD = "showHUD"
+        static let colorfulHUD = "colorfulHUD"
+        static let lowerHalfOnly = "lowerHalfOnly"
         static let sensitivity = "sensitivity"
         static let launchAtLogin = "launchAtLogin"
         static let externalDDCEnabled = "externalDDCEnabled"
@@ -25,6 +27,8 @@ final class AppSettings: ObservableObject {
     @Published var rightEdgeAction: EdgeAction { didSet { defaults.set(rightEdgeAction.rawValue, forKey: Key.rightEdgeAction) } }
     @Published var hapticFeedback: Bool { didSet { defaults.set(hapticFeedback, forKey: Key.hapticFeedback) } }
     @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Key.showHUD) } }
+    @Published var colorfulHUD: Bool { didSet { defaults.set(colorfulHUD, forKey: Key.colorfulHUD) } }
+    @Published var lowerHalfOnly: Bool { didSet { defaults.set(lowerHalfOnly, forKey: Key.lowerHalfOnly) } }
     @Published var sensitivity: Double { didSet { defaults.set(sensitivity, forKey: Key.sensitivity) } }
     @Published var launchAtLogin: Bool { didSet { defaults.set(launchAtLogin, forKey: Key.launchAtLogin) } }
     @Published var externalDDCEnabled: Bool { didSet { defaults.set(externalDDCEnabled, forKey: Key.externalDDCEnabled) } }
@@ -39,6 +43,8 @@ final class AppSettings: ObservableObject {
             Key.rightEdgeAction: EdgeAction.brightness.rawValue,
             Key.hapticFeedback: true,
             Key.showHUD: true,
+            Key.colorfulHUD: false,
+            Key.lowerHalfOnly: false,
             Key.sensitivity: 1.0,
             Key.launchAtLogin: false,
             Key.externalDDCEnabled: false
@@ -51,6 +57,8 @@ final class AppSettings: ObservableObject {
         rightEdgeAction = EdgeAction(rawValue: defaults.string(forKey: Key.rightEdgeAction) ?? "") ?? .brightness
         hapticFeedback = defaults.bool(forKey: Key.hapticFeedback)
         showHUD = defaults.bool(forKey: Key.showHUD)
+        colorfulHUD = defaults.bool(forKey: Key.colorfulHUD)
+        lowerHalfOnly = defaults.bool(forKey: Key.lowerHalfOnly)
         sensitivity = min(2.0, max(0.35, defaults.double(forKey: Key.sensitivity)))
         launchAtLogin = defaults.bool(forKey: Key.launchAtLogin)
         externalDDCEnabled = defaults.bool(forKey: Key.externalDDCEnabled)

@@ -108,6 +108,11 @@ final class GestureEngine {
     }
 
     private func beginLifecycle(with contact: TouchContact) -> [EdgeGestureEvent] {
+        if configuration.lowerHalfOnly, contact.y > 0.5 {
+            state = .rejected(.bornInUpperHalf)
+            return []
+        }
+
         let edge: Edge?
         if contact.x <= configuration.leftEntryStripWidth {
             edge = .left
@@ -154,7 +159,11 @@ final class GestureEngine {
             return []
         }
 
-        guard isInsideCorridor(x: contact.x, edge: candidate.edge) else {
+        guard isInsideCorridor(
+            x: contact.x,
+            edge: candidate.edge,
+            width: configuration.entryCorridor
+        ) else {
             state = .rejected(corridorRejectReason(for: candidate.edge))
             return []
         }
@@ -225,7 +234,11 @@ final class GestureEngine {
             return [.cancelled(edge: active.edge)]
         }
 
-        guard isInsideCorridor(x: contact.x, edge: active.edge) else {
+        guard isInsideCorridor(
+            x: contact.x,
+            edge: active.edge,
+            width: configuration.controlCorridor
+        ) else {
             state = .rejected(corridorRejectReason(for: active.edge))
             return [.cancelled(edge: active.edge)]
         }
@@ -251,15 +264,15 @@ final class GestureEngine {
         active.lastX = contact.x
         active.lastY = contact.y
         state = .active(active)
-        return moved ? [.changed(edge: active.edge, deltaY: deltaY)] : []
+        return moved ? [.changed(edge: active.edge, deltaY: deltaY, y: contact.y)] : []
     }
 
-    private func isInsideCorridor(x: Double, edge: Edge) -> Bool {
+    private func isInsideCorridor(x: Double, edge: Edge, width: Double) -> Bool {
         switch edge {
         case .left:
-            return x >= 0.0 && x <= configuration.controlCorridor
+            return x >= 0.0 && x <= width
         case .right:
-            return x >= 1.0 - configuration.controlCorridor && x <= 1.0
+            return x >= 1.0 - width && x <= 1.0
         }
     }
 

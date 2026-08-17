@@ -7,13 +7,14 @@ enum Edge: String, CaseIterable, Sendable, Equatable {
 
 enum EdgeGestureEvent: Sendable, Equatable {
     case began(edge: Edge)
-    case changed(edge: Edge, deltaY: Double)
+    case changed(edge: Edge, deltaY: Double, y: Double)
     case ended(edge: Edge)
     case cancelled(edge: Edge)
 }
 
 enum GestureRejectReason: String, Sendable, Equatable {
     case bornInInterior
+    case bornInUpperHalf
     case initialMotionNotInward
     case entryTimedOut
     case leftControlCorridorExited
@@ -34,6 +35,12 @@ struct GestureConfiguration: Sendable, Equatable {
     /// Right-edge births measure x ≈ 0.985-1.0 on this machine, so the right
     /// strip stays wider.
     var rightEntryStripWidth: Double = 0.015
+    /// Before activation, keep the contact close to the physical edge. This is
+    /// deliberately narrower than controlCorridor so an ordinary horizontal
+    /// swipe cannot travel deep into the pad and become eligible later.
+    var entryCorridor: Double = 0.03
+    /// Once active, allow enough horizontal room for comfortable vertical
+    /// control without cancelling the session.
     var controlCorridor: Double = 0.08
     /// Hardware-tuned on macOS 26.5 (arm64, MacBook Air): edge-pinned contacts
     /// report normalized x pinned at 0.0/1.0 with no measurable positive inward
@@ -47,14 +54,19 @@ struct GestureConfiguration: Sendable, Equatable {
     /// Fraction of the vertical path that must be one-directional before
     /// activation. Tuned from live traces: a resting palm jiggling at the edge
     /// while typing measured ~0.5-0.6; deliberate swipes measure ~0.9+. Default
-    /// 0.75 rejects palms while keeping decisive (including slow) swipes.
-    var directionalityRatio: Double = 0.75
-    /// 800ms tuned from live traces (macOS 26.5, MacBook Air): slide-ins often
-    /// dwell at the edge ~600-700ms before the vertical push (observed 620ms
-    /// dwell followed by a decisive 40% push). A dwell significantly exceeding
-    /// 800ms (spec H) still rejects. See Docs/GestureTuning.md.
-    var entryTimeout: TimeInterval = 0.800
+    /// 0.80 rejects borderline oscillation while keeping deliberate swipes,
+    /// which measured ~0.9+ in the reference traces.
+    var directionalityRatio: Double = 0.80
+    /// The product gesture is "enter, then immediately move vertically". 450ms
+    /// retains measured 256-331ms deliberate slides while rejecting the former
+    /// 620ms dwell-then-push case. See Docs/GestureTuning.md.
+    var entryTimeout: TimeInterval = 0.450
+
+    /// When true, only contacts born in the lower half of the trackpad
+    /// (normalized y <= 0.5, i.e. below the midline) can start a gesture.
+    /// Resting palms and stray touches in the upper half are rejected at birth.
+    /// Normalized y is device-relative, so the midline adapts across Mac models.
+    var lowerHalfOnly: Bool = false
 
     static let `default` = GestureConfiguration()
 }
-

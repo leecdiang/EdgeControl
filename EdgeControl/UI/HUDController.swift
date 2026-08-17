@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 enum HUDKind: Sendable, Equatable {
@@ -6,20 +7,54 @@ enum HUDKind: Sendable, Equatable {
     case brightness
 }
 
-struct HUDPresentation: Sendable {
+struct HUDPresentation: Sendable, Equatable {
     let kind: HUDKind
     let value: Double?
     let message: String?
 }
 
+private enum HUDLayout {
+    static let compactWidth: CGFloat = 148
+    static let errorWidth: CGFloat = 220
+    static let height: CGFloat = 42
+    static let progressWidth: CGFloat = 60
+    static let progressHeight: CGFloat = 4
+
+    static func size(for presentation: HUDPresentation) -> NSSize {
+        NSSize(
+            width: presentation.value == nil ? errorWidth : compactWidth,
+            height: height
+        )
+    }
+}
+
+@MainActor
+private final class HUDViewModel: ObservableObject {
+    @Published var presentation = HUDPresentation(kind: .volume, value: 0, message: nil)
+    @Published var isPresented = false
+    @Published var colorfulHUD = false
+}
+
 @MainActor
 final class HUDController {
     private let panel: NSPanel
+    private let viewModel: HUDViewModel
     private var dismissTask: Task<Void, Never>?
 
+    var colorfulHUD: Bool = false {
+        didSet { viewModel.colorfulHUD = colorfulHUD }
+    }
+
     init() {
+        let viewModel = HUDViewModel()
+        self.viewModel = viewModel
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 190, height: 64),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: HUDLayout.compactWidth,
+                height: HUDLayout.height
+            ),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -27,34 +62,59 @@ final class HUDController {
         panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
+        panel.animationBehavior = .none
+        panel.contentView = NSHostingView(rootView: EdgeHUDView(model: viewModel))
     }
 
     func show(_ presentation: HUDPresentation) {
         dismissTask?.cancel()
-        panel.contentView = NSHostingView(rootView: EdgeHUDView(presentation: presentation))
+        let wasVisible = panel.isVisible
+        if !wasVisible {
+            viewModel.isPresented = false
+        }
+        viewModel.presentation = presentation
+        panel.setContentSize(HUDLayout.size(for: presentation))
         positionPanel()
-        panel.alphaValue = 1
         panel.orderFrontRegardless()
 
-        dismissTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 850_000_000)
-            guard !Task.isCancelled, let self else { return }
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.20
-                self.panel.animator().alphaValue = 0
-            } completionHandler: { [weak self] in
-                Task { @MainActor in self?.panel.orderOut(nil) }
+        if wasVisible {
+            viewModel.isPresented = true
+        } else {
+            Task { @MainActor [weak viewModel] in
+                await Task.yield()
+                viewModel?.isPresented = true
             }
+        }
+
+        let visibleNanoseconds: UInt64 = presentation.value == nil
+            ? 1_500_000_000
+            : 650_000_000
+        dismissTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: visibleNanoseconds)
+            } catch {
+                return
+            }
+            guard let self else { return }
+            self.viewModel.isPresented = false
+            do {
+                try await Task.sleep(nanoseconds: 180_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self.panel.orderOut(nil)
         }
     }
 
     func hideImmediately() {
         dismissTask?.cancel()
+        viewModel.isPresented = false
         panel.orderOut(nil)
     }
 
@@ -64,7 +124,7 @@ final class HUDController {
         guard let visibleFrame = screen?.visibleFrame else { return }
         let origin = NSPoint(
             x: visibleFrame.midX - panel.frame.width / 2,
-            y: visibleFrame.minY + visibleFrame.height * 0.18
+            y: visibleFrame.minY + visibleFrame.height * 0.16
         )
         panel.setFrameOrigin(origin)
     }
@@ -72,47 +132,89 @@ final class HUDController {
 
 @MainActor
 private struct EdgeHUDView: View {
-    let presentation: HUDPresentation
+    @ObservedObject var model: HUDViewModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 6) {
+        content
+            .frame(width: width, height: HUDLayout.height)
+            .modifier(
+                EdgeHUDGlassModifier(
+                    tint: glassTint,
+                    reduceTransparency: reduceTransparency
+                )
+            )
+            .shadow(color: .black.opacity(0.16), radius: 10, y: 4)
+            .scaleEffect(model.isPresented || reduceMotion ? 1 : 0.96)
+            .opacity(model.isPresented ? 1 : 0)
+            .animation(
+                reduceMotion ? .linear(duration: 0.10) : .easeOut(duration: 0.12),
+                value: model.isPresented
+            )
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let value = model.presentation.value {
+            HStack(spacing: 7) {
                 Image(systemName: symbolName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(width: 22)
-                if let value = presentation.value {
-                    Text("\(Int((value * 100).rounded()))%")
-                        .monospacedDigit()
-                        .font(.system(size: 13, weight: .semibold))
-                } else {
-                    Text(presentation.message ?? "Unavailable")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 16)
+
+                EdgeHUDProgress(value: value, tint: accentColor)
+
+                Text("\(Int((clamped(value) * 100).rounded()))%")
+                    .monospacedDigit()
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 32, alignment: .trailing)
+            }
+            .padding(.horizontal, 11)
+        } else {
+            HStack(spacing: 7) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(model.colorfulHUD ? .orange : .primary)
+                    .frame(width: 16)
+
+                Text(model.presentation.message ?? "Unavailable")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
                 Spacer(minLength: 0)
             }
-
-            if let value = presentation.value {
-                ProgressView(value: value)
-                    .progressViewStyle(.linear)
-                    .controlSize(.small)
-            }
+            .padding(.horizontal, 11)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .foregroundStyle(.primary)
-        .background(.ultraThickMaterial, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .strokeBorder(.white.opacity(0.14), lineWidth: 1)
-        )
-        .frame(width: 190, height: 64)
+    }
+
+    private var width: CGFloat {
+        model.presentation.value == nil ? HUDLayout.errorWidth : HUDLayout.compactWidth
+    }
+
+    private var accentColor: Color {
+        guard model.colorfulHUD else { return .primary }
+        switch model.presentation.kind {
+        case .volume: return .cyan
+        case .brightness: return .yellow
+        }
+    }
+
+    private var glassTint: Color {
+        guard model.colorfulHUD else { return .primary.opacity(0.06) }
+        if model.presentation.value == nil {
+            return .orange.opacity(0.10)
+        }
+        return accentColor.opacity(0.08)
     }
 
     private var symbolName: String {
-        guard let value = presentation.value else { return "exclamationmark.triangle.fill" }
-        switch presentation.kind {
+        guard let value = model.presentation.value else {
+            return "exclamationmark.triangle.fill"
+        }
+        switch model.presentation.kind {
         case .brightness:
             return "sun.max.fill"
         case .volume:
@@ -121,5 +223,74 @@ private struct EdgeHUDView: View {
             if value < 0.67 { return "speaker.wave.2.fill" }
             return "speaker.wave.3.fill"
         }
+    }
+
+    private func clamped(_ value: Double) -> Double {
+        min(1, max(0, value))
+    }
+}
+
+private struct EdgeHUDProgress: View {
+    let value: Double
+    let tint: Color
+
+    private var clampedValue: Double {
+        min(1, max(0, value))
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.primary.opacity(0.14))
+                Capsule()
+                    .fill(tint.opacity(0.88))
+                    .frame(width: geometry.size.width * CGFloat(clampedValue))
+            }
+        }
+        .frame(width: HUDLayout.progressWidth, height: HUDLayout.progressHeight)
+        .animation(.easeOut(duration: 0.08), value: clampedValue)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct EdgeHUDGlassModifier: ViewModifier {
+    let tint: Color
+    let reduceTransparency: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            opaqueBackground(content)
+        } else {
+            #if compiler(>=6.2)
+            if #available(macOS 26.0, *) {
+                content
+                    .glassEffect(.regular.tint(tint), in: Capsule())
+            } else {
+                legacyGlass(content)
+            }
+            #else
+            legacyGlass(content)
+            #endif
+        }
+    }
+
+    private func legacyGlass(_ content: Content) -> some View {
+        content
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(.white.opacity(0.16), lineWidth: 0.5)
+            )
+    }
+
+    private func opaqueBackground(_ content: Content) -> some View {
+        content
+            .background(Color(nsColor: .windowBackgroundColor), in: Capsule())
+            .overlay(
+                Capsule()
+                    .strokeBorder(.primary.opacity(0.16), lineWidth: 0.5)
+            )
     }
 }

@@ -23,7 +23,7 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 Hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. See [BUILD_REPORT.md](BUILD_REPORT.md) for the per-item PASS/FAIL matrix and [Docs/GestureTuning.md](Docs/GestureTuning.md) for the tuned recognizer values.
 
-The gesture recognizer, value mapping, detent, and settings layers are covered by 26 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, value mapping, detent, haptic, and settings layers are covered by 29 unit tests. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
@@ -36,7 +36,7 @@ The gesture recognizer, value mapping, detent, and settings layers are covered b
 - Optional, isolated DDC/CI VCP `0x10` external-display backend (experimental, off by default)
 - Activation haptic plus 5% value detents with hysteresis and rate limiting
 - Pointer freeze only after the gesture reaches `Active`; the system restores the cursor if the app dies
-- Custom non-activating AppKit/SwiftUI HUD
+- Compact 148×42 single-row HUD: native Liquid Glass on macOS 26, ultra-thin material fallback on macOS 13–15
 - `LSUIElement` menu-bar app with no Dock icon
 - Synthetic gesture tests; no physical trackpad required for recognizer tests
 - No account, network, analytics, telemetry, or backend
@@ -44,7 +44,7 @@ The gesture recognizer, value mapping, detent, and settings layers are covered b
 ## Requirements
 
 - Validated on macOS 26.5 (Apple Silicon, MacBook Air). Other macOS versions and Intel are untested — treat as experimental.
-- Xcode 26.x used for validation; the project also builds with Xcode 15+ (deployment target macOS 13).
+- Xcode 26.x was used for validation. The deployment target is macOS 13; other Xcode versions are not yet part of the tested matrix.
 - A built-in Force Touch trackpad for the intended UX.
 
 Private interfaces can vary by OS release and hardware. External DDC support is experimental and off by default.
@@ -74,11 +74,14 @@ Tuned values (see [Docs/GestureTuning.md](Docs/GestureTuning.md) for evidence):
 
 | Parameter | Value | Notes |
 | --- | ---: | --- |
-| Entry strip | 1.5% from either physical edge | Birth must land here; interior births are permanently rejected |
-| Control corridor | 8% from the active edge | Leaving it cancels the gesture |
+| Left entry strip | 0.8% | Birth must land here; interior births are permanently rejected |
+| Right entry strip | 1.5% | Wider to match right-edge birth positions observed on the reference machine |
+| Pre-activation corridor | 3% from the candidate edge | Prevents a horizontal swipe from travelling inward and becoming eligible later |
+| Active control corridor | 8% from the active edge | Preserves comfortable control room; leaving it cancels the gesture |
 | Minimum inward travel | 0.0 | Edge-pinned contacts report x pinned at the edge; inward character is enforced by birth-in-strip + outward-motion rejection |
 | Minimum vertical movement | 1.5% | Must appear within the entry deadline |
-| Entry deadline | 800 ms | Tuned for the observed dwell-then-push pattern; pauses beyond it never activate |
+| Directionality | 80% | At least 80% of the pre-activation vertical path must remain in one direction |
+| Entry deadline | 450 ms | Keeps measured 256–331ms deliberate entries and rejects the former 620ms dwell-then-push case |
 
 The recognizer transitions through `idle → entryCandidate → entryConfirmed → active`. Interior birth, wrong initial direction, timeout, identity changes, corridor exit, and multi-touch produce terminal rejection for the current lifecycle. `multiTouchRejected` remains latched as fingers go from two to one and resets only on an empty frame.
 
@@ -88,7 +91,7 @@ Validated on this machine: **no TCC permissions are required** (no Accessibility
 
 ## Privacy and networking
 
-EdgeControl has no networking code, telemetry, analytics, account system, cloud service, or backend. It does not intentionally persist touch traces. Debug builds print raw/normalized contact diagnostics because `EDGE_DEBUG_LOGGING` is defined in the Debug Xcode configuration; Release builds do not define that flag (verified via binary inspection).
+EdgeControl has no networking code, telemetry, analytics, account system, cloud service, or backend. It does not intentionally persist touch traces. Debug builds can print raw/normalized contact diagnostics because `EDGE_DEBUG_LOGGING` is defined for both Swift and C in the Debug configuration. Release compilation excludes those diagnostic paths.
 
 ## Private APIs and distribution
 

@@ -1,6 +1,6 @@
 # HANDOFF TO OPENCLAW
 
-This is the operational handoff for the local macOS agent. The cloud stage completed the repository structure and implementation but had no macOS SDK, Xcode, MacBook trackpad, Taptic Engine, built-in display, external DDC monitor, signing identity, or notarization credentials. Treat every real-hardware result as unknown until measured.
+This is the operational handoff for continued macOS validation and release work. The 1.1.0 baseline was compiled and hardware-tested on the reference Apple Silicon MacBook Air; exact evidence is recorded in `BUILD_REPORT.md`. External DDC, Intel/other macOS versions, Developer ID signing, notarization, and the post-1.1 gesture hardening remain explicitly unverified.
 
 ## A. What is already implemented
 
@@ -11,8 +11,8 @@ This is the operational handoff for the local macOS agent. The cloud stage compl
 - Deployment target macOS 13.0; Apple Silicon and Intel use standard Xcode architectures.
 - `LSUIElement=true`; the app is menu-bar-only and has no default Dock icon.
 - SwiftUI `MenuBarExtra` and Settings scene.
-- Empty entitlements file and no TCC usage strings, consistent with the unverified zero-permission goal.
-- Debug defines `EDGE_DEBUG_LOGGING`; Release does not.
+- Empty entitlements file and no TCC usage strings. Zero-TCC behavior was observed on the reference machine and must be rechecked on other OS/hardware combinations.
+- Debug defines `EDGE_DEBUG_LOGGING` for Swift and C; Release excludes both normalized and raw touch diagnostics.
 - Strict-concurrency checking is set to `complete` while Swift language mode remains 5 for a staged migration.
 
 ### Input pipeline
@@ -27,19 +27,19 @@ This is the operational handoff for the local macOS agent. The cloud stage compl
 
 - `GestureEngine` is hardware-independent and Foundation-only.
 - Explicit states: idle, entry candidate, entry confirmed, active, rejected, and multi-touch rejected.
-- A contact first observed inside the entry strips is permanently rejected for that lifecycle.
-- Left births require positive inward X travel; right births require negative inward X travel.
-- Vertical intent must be established within 250 ms; natural diagonal entry is accepted.
-- Entry strip and 8% control corridor are separate.
-- Corridor exit before activation rejects; corridor exit after activation emits cancel and latches rejection until lift.
+- A contact first observed in the trackpad interior (outside both entry strips) is permanently rejected for that lifecycle.
+- Edge-pinned hardware reports little or no measurable inward X travel, so ingress is inferred from edge birth plus outward-motion rejection rather than a positive inward threshold.
+- Vertical intent must be established within 450 ms; natural diagonal entry is accepted.
+- Candidate contacts are limited to a 3% edge corridor; Active contacts retain an 8% control corridor.
+- At least 80% of the pre-activation vertical path must stay in one direction. Candidate/active corridor exit rejects or cancels and latches until lift.
 - Any frame with two or more live contacts cancels an active gesture and latches multi-touch rejection until an empty frame. A two-to-one transition stays rejected.
 - Events are decoupled: began, cumulative-delta changed, ended, cancelled.
-- The 11 required synthetic cases plus an active-corridor case are covered in `GestureEngineTests`.
+- Eighteen gesture tests cover the required matrix, timeout boundary, candidate/active corridor split, directionality, and zero-cross cancellation.
 
 ### Action mapping
 
 - Independent `EdgeAction` settings for left and right: disabled, volume, brightness. Both edges may use the same action.
-- Master, volume, brightness, haptic, HUD, sensitivity, and launch-at-login settings are backed by `UserDefaults`.
+- Master, volume, brightness, haptic, HUD, sensitivity, launch-at-login, and external-DDC settings are backed by `UserDefaults`.
 - Continuous mapping uses `initialValue + cumulativeDeltaY × baseGain × sensitivity`, clamped to `[0,1]`.
 - The input callback never executes an action. `EdgeControlAppModel` opens an action session only after `.began` and a successful initial-value read.
 
@@ -57,6 +57,7 @@ This is the operational handoff for the local macOS agent. The cloud stage compl
 - External DDC is isolated behind `ExternalDDCBackend`; it enumerates non-built-in online displays, owns one legacy I2C connection per responsive display, and implements DDC/CI VCP `0x10` get/set framing.
 - `DisplayBrightnessController` prioritizes the built-in display and falls back to external DDC only when built-in control is unavailable.
 - Reconfiguration refreshes display enumeration. DDC errors do not affect built-in brightness or startup.
+- The external-DDC toggle now persists immediately and is applied when the app model starts.
 
 ### Feedback and UI
 
@@ -65,63 +66,34 @@ This is the operational handoff for the local macOS agent. The cloud stage compl
 - One activation tick only after active control session creation.
 - 5% value detents with 0.8% hysteresis; pure `DetentTracker` tests cover boundary bounce.
 - Cursor association freezes only after Active; restore occurs on end, cancel, action failure, wake, and stop.
-- Custom borderless, non-activating, click-through, floating AppKit `NSPanel` with SwiftUI content, icon, progress, percentage, unavailable message, and fade-out.
+- One persistent borderless, non-activating, click-through `NSPanel` with an observable SwiftUI model (no per-frame `NSHostingView` rebuild).
+- Compact 148×42 single-row normal HUD, 220×42 error state, native macOS 26 Liquid Glass, macOS 13–15 ultra-thin fallback, custom progress capsule, and Reduce Motion-aware presentation.
 - Public `SMAppService.mainApp` launch-at-login controller with rollback to actual service status after errors.
 - Wake monitor ends the session, resets recognition/haptic state, refreshes displays, and reopens the trackpad bridge.
 
 ### Tests, documentation, and release shell
 
-- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, and synthetic trace helper.
+- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `HapticEngineTests`, and synthetic trace helper (29 test methods in current source).
 - MIT license and no third-party source.
 - Runtime privacy/no-network statement and static repository guard.
 - Native-tools-only release build and DMG scripts.
 - DMG layout script positions `EdgeControl.app` left and `Applications` right.
 - Full `LOCAL_VALIDATION_REQUIRED` checklist.
 
-## B. Files not compiled on real macOS
+## B. Validation status
 
-Every code and project file is uncompiled in the cloud stage. Do not assume that a file omitted from the risk notes has been compiled.
+The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-### Highest-risk compile/ABI files
+The current source adds three test methods and changes `GestureConfiguration`, `GestureEngine`, `EdgeControlAppModel`, `HUDController`, the C debug guard, and `package_dmg.sh`. Before another binary is published, rerun:
 
-- `EdgeControl/PrivateFrameworks/ECPrivateAPIBridge.c`
-- `EdgeControl/PrivateFrameworks/ECPrivateAPIBridge.h`
-- `EdgeControl/EdgeControl-Bridging-Header.h`
-- `EdgeControl/Input/TrackpadManager.swift`
-- `EdgeControl/Display/ExternalDDCBackend.swift`
-- `EdgeControl/Display/BuiltInDisplayBackend.swift`
-- `EdgeControl/Feedback/HapticEngine.swift`
-- `EdgeControl/Actions/VolumeController.swift`
-- `EdgeControl/System/CursorController.swift`
-- `EdgeControl/UI/HUDController.swift`
-- `EdgeControl/App/EdgeControlAppModel.swift`
+1. `./Scripts/validate_repository.sh`
+2. `./Scripts/build_release.sh test` (expect 29 tests)
+3. `./Scripts/build_release.sh build`
+4. Physical edge-entry regression for 450ms / 3% / 0.80
+5. HUD visual/accessibility regression on macOS 26 and at least one pre-26 system
+6. Release binary inspection, DMG packaging, install and launch
 
-### Pure/application Swift still requiring Xcode compile
-
-- `EdgeControl/App/EdgeControlApp.swift`
-- `EdgeControl/Input/TouchModels.swift`
-- `EdgeControl/Gesture/EdgeGestureTypes.swift`
-- `EdgeControl/Gesture/GestureEngine.swift`
-- `EdgeControl/Actions/ContinuousValueMapper.swift`
-- `EdgeControl/Actions/ControlErrors.swift`
-- `EdgeControl/Display/BrightnessBackend.swift`
-- `EdgeControl/Display/DisplayBrightnessController.swift`
-- `EdgeControl/Feedback/DetentTracker.swift`
-- `EdgeControl/UI/MenuBarMenuView.swift`
-- `EdgeControl/UI/SettingsView.swift`
-- `EdgeControl/Settings/AppSettings.swift`
-- `EdgeControl/Settings/EdgeAction.swift`
-- `EdgeControl/System/LaunchAtLoginController.swift`
-- `EdgeControl/System/SystemEventMonitor.swift`
-
-### Tests and project metadata still requiring Xcode
-
-- All files in `EdgeControlTests/`.
-- `EdgeControl.xcodeproj/project.pbxproj` and the shared scheme.
-- `Info.plist`, entitlements, and asset catalog.
-- Both shell scripts must be run under macOS Bash with native developer tools.
-
-When the first `xcodebuild` exposes mechanical type/import/availability errors, make the smallest compile correction and retain the existing module boundaries.
+Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
 
 ## C. Private APIs requiring local ABI correction
 
@@ -146,7 +118,7 @@ Current callback assumption:
 
 `int32 callback(device, ECMTFingerABI *, int32 count, double timestamp, int32 frame)`
 
-Correct the following from actual headers/symbol inspection and trace evidence: return types, parameter widths, callback registration function-pointer type, contact stride/alignment, normalized-coordinate field offsets, state semantics, empty-frame behavior, device retention, and start/stop ordering. The current `ECMTFingerABI` is a commonly observed shape, not locally verified fact.
+The 96-byte `ECMTFingerABI` stride and normalized-coordinate fields were verified on macOS 26.5 arm64. Revalidate return types, parameter widths, callback registration, contact stride/alignment/offsets, state semantics, empty-frame behavior, device retention, and start/stop ordering on every other supported macOS/architecture combination.
 
 ### Trackpad actuator
 
@@ -179,7 +151,7 @@ Confirm on every minimum/maximum OS target. If symbol names or result semantics 
 
 ### DDC and IOAVService
 
-The cloud implementation provides the legacy framebuffer transport through `CGDisplayIOServicePort`, `IOFBGetI2CInterfaceCount`, `IOFBCopyI2CInterfaceForBus`, `IOI2CInterfaceOpen`, `IOI2CSendRequest`, and `IOI2CInterfaceClose`.
+The current implementation provides the legacy framebuffer transport through `CGDisplayIOServicePort`, `IOFBGetI2CInterfaceCount`, `IOFBCopyI2CInterfaceForBus`, `IOI2CInterfaceOpen`, `IOI2CSendRequest`, and `IOI2CInterfaceClose`.
 
 Validate the SDK header availability, function return types, I2C addresses, transaction types, `minReplyDelay` units, reply buffer layout, checksums, bus selection, and CGDisplayID association. It may work on Intel and fail on Apple Silicon.
 
@@ -203,10 +175,10 @@ Do not claim external DDC support on a machine/OS combination until VCP `0x10` g
 
 ### Gesture UX
 
-- Default 1.5% entry strip may be too narrow or too wide for real contact-birth quantization.
+- The independently tuned 0.8% left / 1.5% right entry strips may need adjustment on other trackpad models.
 - A physical outside-to-inside contact may first appear farther inside than assumed.
 - Palm rejection performed by macOS may alter birth timing and identifiers.
-- Corridor width and 250 ms deadline require tests across trackpad sizes.
+- The new 3% candidate corridor, 8% active corridor, 450ms deadline, and 0.80 directionality requirement need physical regression across trackpad sizes.
 
 ### Haptic
 
@@ -235,22 +207,22 @@ Do not claim external DDC support on a machine/OS combination until VCP `0x10` g
 
 ### Permission and sandbox
 
-- **ZERO_PERMISSION_GOAL is unverified.** Dynamic touch access or cursor association may behave differently across macOS releases and managed machines.
+- Zero-TCC operation passed on the reference machine, but dynamic touch access or cursor association may behave differently across macOS releases and managed machines.
 - No App Sandbox entitlement is configured. Mac App Store distribution is not a goal.
 
 ### Code signing and release
 
-- Hardened Runtime compatibility with all dynamically loaded paths is unverified.
-- Bundle identifier, team, Developer ID identity, notarization profile, app icon, and release version are placeholders/local work.
+- The ad-hoc Release ran with Hardened Runtime on the reference machine; Developer ID/notarization behavior remains unverified.
+- Bundle identifier, version, and app icon are populated. Team, Developer ID identity, and notarization profile still require owner credentials.
 - DMG Finder layout and Gatekeeper must be tested on another clean Mac.
 
-## E. Required local validation order
+## E. Required regression and release-validation order
 
 Follow this order so one unknown does not contaminate later conclusions.
 
 ### 1. `xcodebuild` compile
 
-Run `./Scripts/validate_repository.sh`, then a clean Xcode build. Fix project syntax, SDK header, imported C pointer, API availability, and strict-concurrency compile errors. Do not enable private haptics or connect DDC debugging yet.
+Run `./Scripts/validate_repository.sh`, then a clean Xcode build. Treat any new SDK, ABI, API-availability, or strict-concurrency diagnostic as a release blocker. Do not enable private haptics or DDC debugging yet.
 
 ### 2. Unit tests
 
@@ -322,38 +294,37 @@ A compiler diagnostic justifies a compile correction. A raw trace justifies an A
 
 Use [Docs/LOCAL_VALIDATION_REQUIRED.md](Docs/LOCAL_VALIDATION_REQUIRED.md) as the executable checklist. At minimum, do not close the handoff until every item below is either checked with recorded evidence or explicitly declared unsupported:
 
-- [ ] Real macOS compilation for all Swift/C/project files
-- [ ] Apple Silicon build and run
+- [x] Real macOS compilation for the 1.1.0 Swift/C/project baseline
+- [x] Apple Silicon build and run
 - [ ] Intel build and run, or Intel support removed transparently
-- [ ] MultitouchSupport framework path and six device symbols
-- [ ] Contact callback signature
-- [ ] Contact struct size/alignment/offsets
-- [ ] Coordinate range and Y direction
-- [ ] Contact phase/lift/identifier behavior
-- [ ] Physical ingress birth distribution
+- [x] MultitouchSupport framework path and required device symbols on macOS 26.5 arm64
+- [x] Contact callback signature on macOS 26.5 arm64
+- [x] Contact struct size/alignment/offsets on macOS 26.5 arm64
+- [x] Coordinate range and Y direction on the reference machine
+- [x] Contact phase/lift/identifier behavior on the reference machine
+- [x] Physical ingress birth distribution on the reference machine
 - [ ] Complete required gesture matrix
-- [ ] Multi-touch latch against system gestures
+- [x] Multi-touch latch against system gestures on the reference machine
 - [ ] CoreAudio device matrix and live output change
-- [ ] DisplayServices symbols/signatures/return semantics
+- [x] DisplayServices symbols/signatures/return semantics on macOS 26.5 arm64
 - [ ] Built-in panel selection under multi-display configurations
-- [ ] Public haptic behavior in LSUIElement
+- [x] Public haptic behavior in LSUIElement on the reference machine
 - [ ] Private actuator signatures, lifetime, and independently tuned pattern, if enabled
-- [ ] Cursor freeze/restore on every end/error/lifecycle path
-- [ ] Sleep/wake reopen and resource reset
+- [x] Cursor freeze/restore on tested end/error/lifecycle paths
+- [x] Sleep/wake reopen and resource reset on the reference machine
 - [ ] DDC legacy transport framing and reply parsing
 - [ ] Apple Silicon IOAV transport or declared unsupported
 - [ ] External-display hot-plug and failure isolation
 - [ ] Clean-account zero-permission goal
-- [ ] Hardened Runtime compatibility
+- [x] Hardened Runtime with ad-hoc signing on the reference machine
 - [ ] Developer ID signing
 - [ ] Notarization and stapling
-- [ ] Final original app icon
-- [ ] DMG Finder layout and drag install
+- [x] Final original app icon
+- [x] DMG Finder layout and drag install for the 1.1.0 baseline
 - [ ] Gatekeeper verification on a second Mac
 - [ ] Release contains no Debug contact logging
-- [ ] Release contains no network/telemetry dependency
+- [x] Release contains no network/telemetry dependency
 
 ## Local work remaining, in one paragraph
 
-The remaining work is intentionally the Mac-only evidence layer: make the first real Xcode compile corrections; pass the included tests; calibrate the MultitouchSupport callback/contact ABI and physical edge thresholds from raw traces; verify CoreAudio, DisplayServices, haptics, cursor behavior, sleep/wake, permissions, and optional DDC on actual hardware; then provide final identity/icon, Developer ID signing, notarization, and a tested drag-to-Applications DMG. The application architecture, recognizer, settings, action coordination, UI, tests, and release scaffolding should remain intact unless those measurements demonstrate a structural defect.
-
+The immediate remaining work is a macOS regression run for the current 29-test source and the stricter 450ms / 3% / 0.80 gesture admission, followed by a fresh Release build and binary-log inspection. External DDC still needs real monitor testing. Public distribution additionally requires owner-supplied Developer ID credentials, notarization, Gatekeeper verification, and replacement of the stale GitHub Release attachments. The existing architecture should remain intact unless those measurements demonstrate a structural defect.

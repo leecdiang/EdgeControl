@@ -33,6 +33,7 @@ final class SettingsTests: XCTestCase {
         settings?.hapticFeedback = false
         settings?.sensitivity = 1.65
         settings?.leftEdgeAction = .disabled
+        settings?.externalDDCEnabled = true
         settings = nil
 
         let restored = AppSettings(defaults: defaults)
@@ -40,6 +41,19 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(restored.hapticFeedback)
         XCTAssertEqual(restored.sensitivity, 1.65, accuracy: 0.000_001)
         XCTAssertEqual(restored.leftEdgeAction, .disabled)
+        XCTAssertTrue(restored.externalDDCEnabled)
+    }
+
+    func testExternalDDCToggleThroughAppModelPersists() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+
+        let settings = AppSettings(defaults: defaults)
+        let model = EdgeControlAppModel(settings: settings)
+        model.setExternalDDCEnabled(true)
+
+        XCTAssertTrue(settings.externalDDCEnabled)
+        XCTAssertTrue(AppSettings(defaults: defaults).externalDDCEnabled)
     }
 
     private func makeDefaults() -> (UserDefaults, String) {
@@ -49,4 +63,3 @@ final class SettingsTests: XCTestCase {
         return (defaults, name)
     }
 }
-

@@ -42,6 +42,20 @@ struct SettingsView: View {
             Form {
                 Toggle("Haptic feedback", isOn: $settings.hapticFeedback)
                 Toggle("Show HUD", isOn: $settings.showHUD)
+                Toggle("Colorful HUD", isOn: $settings.colorfulHUD)
+                Text("Off: system-style neutral HUD. On: tinted volume/brightness colors.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle(
+                    "Lower half only",
+                    isOn: Binding(
+                        get: { settings.lowerHalfOnly },
+                        set: { model.setLowerHalfOnly($0) }
+                    )
+                )
+                Text("Restrict edge control to the lower half of the trackpad (midline = 100%, bottom = 0%).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle(
                     "External display DDC (experimental)",
                     isOn: Binding(
@@ -49,6 +63,9 @@ struct SettingsView: View {
                         set: { model.setExternalDDCEnabled($0) }
                     )
                 )
+                Text("Used only when no controllable built-in display is available.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle(
                     "Launch at login",
                     isOn: Binding(
@@ -57,7 +74,9 @@ struct SettingsView: View {
                     )
                 )
 
-                LabeledContent("Touch input") {
+                HStack(spacing: 0) {
+                    Text("Touch input")
+                    Spacer()
                     touchStatusView
                 }
 
@@ -78,6 +97,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 Divider()
                 Text("Open source · No analytics · No network · No account")
+                Text("By leecdiang")
+                    .font(.callout)
                 Text("Uses undocumented macOS interfaces and is not affiliated with Apple Inc.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

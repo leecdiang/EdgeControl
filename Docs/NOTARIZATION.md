@@ -6,7 +6,7 @@ This document is prepared so that only credentials need to be supplied to produc
 
 - **Signing:** ad-hoc (`codesign --force --deep --sign -`). The validation machine has no Apple Developer ID certificate (`security find-identity -v -p codesigning` returns none).
 - **Notarization:** NOT PERFORMED.
-- **Distribution artifact:** `dist/EdgeControl-1.0.0-macOS.dmg`, signed ad-hoc, verified drag-to-Applications install.
+- **Distribution artifact:** `dist/EdgeControl-1.1.0-macOS.dmg`, signed ad-hoc, verified drag-to-Applications install for the 1.1.0 baseline.
 
 ## Prerequisites (user-supplied, via local keychain only)
 
@@ -30,7 +30,7 @@ cd <repo>
 APP=build/DerivedData/Build/Products/Release/EdgeControl.app
 IDENTITY="Developer ID Application: Your Name (TEAMID)"
 NOTARY_PROFILE="EdgeControl-Notary"
-VERSION=1.0.0
+VERSION=1.1.0
 
 # 1. Build Release
 ./Scripts/build_release.sh build
@@ -78,4 +78,4 @@ codesign --verify --deep --strict --verbose=2 /Applications/EdgeControl.app
 
 ## If no credentials are ever supplied
 
-The ad-hoc `dist/EdgeControl-1.0.0-macOS.dmg` remains the deliverable. Gatekeeper will show "unidentified developer" for the ad-hoc build on other machines — that is expected and acceptable for local distribution.
+The ad-hoc `dist/EdgeControl-1.1.0-macOS.dmg` remains the current baseline deliverable. Gatekeeper will show "unidentified developer" for the ad-hoc build on other machines — that is expected and acceptable for local distribution.

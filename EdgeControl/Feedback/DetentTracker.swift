@@ -5,7 +5,7 @@ struct DetentTracker: Sendable {
     let hysteresis: Double
     private(set) var bucket: Int?
 
-    init(interval: Double = 0.05, hysteresis: Double = 0.008) {
+    init(interval: Double = 0.02, hysteresis: Double = 0.008) {
         precondition(interval > 0)
         precondition(hysteresis >= 0 && hysteresis < interval)
         self.interval = interval

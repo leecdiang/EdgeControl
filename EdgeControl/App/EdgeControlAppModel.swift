@@ -21,7 +21,7 @@ final class EdgeControlAppModel: ObservableObject {
     @Published private(set) var touchStatus: TouchStatus = .stopped
     @Published private(set) var lastError: String?
 
-    private var gestureEngine = GestureEngine()
+    private var gestureEngine: GestureEngine
     private let trackpadManager = TrackpadManager()
     private let volumeController = VolumeController()
     private let brightnessController = DisplayBrightnessController()
@@ -43,6 +43,14 @@ final class EdgeControlAppModel: ObservableObject {
 
     init(settings: AppSettings = AppSettings()) {
         self.settings = settings
+        self.gestureEngine = Self.makeGestureEngine(settings: settings)
+        brightnessController.setExternalDDCEnabled(settings.externalDDCEnabled)
+    }
+
+    private static func makeGestureEngine(settings: AppSettings) -> GestureEngine {
+        var config = GestureConfiguration.default
+        config.lowerHalfOnly = settings.lowerHalfOnly
+        return GestureEngine(configuration: config)
     }
 
     func start() {
@@ -74,21 +82,35 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     func setExternalDDCEnabled(_ enabled: Bool) {
+        settings.externalDDCEnabled = enabled
         brightnessController.setExternalDDCEnabled(enabled)
+    }
+
+    func setLowerHalfOnly(_ enabled: Bool) {
+        settings.lowerHalfOnly = enabled
+        gestureEngine = Self.makeGestureEngine(settings: settings)
+        lastError = nil
     }
 
     func openSettings() {
         if settingsWindow == nil {
+            let hostingView = NSHostingView(rootView: SettingsView(model: self, settings: settings))
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
             window.title = "EdgeControl Settings"
-            window.contentView = NSHostingView(rootView: SettingsView(model: self, settings: settings))
+            window.contentView = hostingView
             window.isReleasedWhenClosed = false
-            window.setContentSize(NSSize(width: 520, height: 420))
+            // Size the window to fit the content exactly, with only the
+            // built-in margins for breathing room.
+            let fitting = hostingView.fittingSize
+            window.setContentSize(
+                NSSize(width: max(fitting.width, 400), height: max(fitting.height, 300))
+            )
+            window.minSize = NSSize(width: 400, height: 300)
             window.center()
             settingsWindow = window
         }
@@ -168,7 +190,7 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func handleWake() {
         finishSession()
-        gestureEngine = GestureEngine(configuration: gestureEngine.configuration)
+        gestureEngine = Self.makeGestureEngine(settings: settings)
         brightnessController.refresh()
         hapticEngine.resetAfterWake()
         do {
@@ -188,8 +210,8 @@ final class EdgeControlAppModel: ObservableObject {
             switch event {
             case let .began(edge):
                 beginSession(edge: edge)
-            case let .changed(edge, deltaY):
-                changeSession(edge: edge, deltaY: deltaY)
+            case let .changed(edge, deltaY, y):
+                changeSession(edge: edge, deltaY: deltaY, y: y)
             case .ended, .cancelled:
                 finishSession()
             }
@@ -225,21 +247,30 @@ final class EdgeControlAppModel: ObservableObject {
         }
     }
 
-    private func changeSession(edge: Edge, deltaY: Double) {
+    private func changeSession(edge: Edge, deltaY: Double, y: Double) {
         guard settings.masterEnabled, let session, session.edge == edge, isEnabled(session.action) else {
             finishSession()
             return
         }
 
-        // Polarity: on this Mac (macOS 26.5) MT normalized y grows with physical
-        // upward motion (y=0 bottom, y=1 top), so an upward swipe yields a
-        // positive deltaY and increases the value — matching volume/brightness
-        // key convention. Verified by live trace 2026-08-16.
-        let target = mapper.targetValue(
-            initialValue: session.initialValue,
-            deltaY: deltaY,
-            sensitivity: settings.sensitivity
-        )
+        let target: Double
+        if settings.lowerHalfOnly {
+            // Lower-half mode: the finger's absolute position within the lower
+            // half sets the value directly — midline (y = 0.5) = 100%, bottom
+            // (y = 0) = 0%. y is normalized per-device, so the midline adapts
+            // to every Mac trackpad automatically.
+            target = min(1.0, max(0.0, y / 0.5))
+        } else {
+            // Polarity: on this Mac (macOS 26.5) MT normalized y grows with physical
+            // upward motion (y=0 bottom, y=1 top), so an upward swipe yields a
+            // positive deltaY and increases the value — matching volume/brightness
+            // key convention. Verified by live trace 2026-08-16.
+            target = mapper.targetValue(
+                initialValue: session.initialValue,
+                deltaY: deltaY,
+                sensitivity: settings.sensitivity
+            )
+        }
         do {
             switch session.action {
             case .volume:
@@ -283,6 +314,7 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func showHUD(action: EdgeAction, value: Double?, message: String?) {
         guard settings.showHUD else { return }
+        hudController.colorfulHUD = settings.colorfulHUD
         let kind: HUDKind = action == .volume ? .volume : .brightness
         hudController.show(HUDPresentation(kind: kind, value: value, message: message))
     }

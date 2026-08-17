@@ -36,7 +36,7 @@ final class GestureEngineTests: XCTestCase {
         trace.contact(x: 0.001, y: 0.50)
         trace.contact(x: 0.001, y: 0.501, after: 0.05)
         trace.contact(x: 0.001, y: 0.499, after: 0.05)
-        trace.contact(x: 0.001, y: 0.50, after: 0.80) // total 0.91s; birth delta 0.90s > 800ms
+        trace.contact(x: 0.001, y: 0.50, after: 0.45) // birth delta 0.55s > 450ms
 
         XCTAssertTrue(trace.events(using: engine).isEmpty)
         XCTAssertEqual(engine.state, .rejected(.entryTimedOut))
@@ -46,8 +46,7 @@ final class GestureEngineTests: XCTestCase {
         let engine = GestureEngine()
         var trace = SyntheticTouchTrace()
         trace.contact(x: 0.001, y: 0.50)
-        trace.contact(x: 0.070, y: 0.501, after: 0.04)
-        trace.contact(x: 0.090, y: 0.502, after: 0.04)
+        trace.contact(x: 0.031, y: 0.501, after: 0.04)
 
         XCTAssertTrue(trace.events(using: engine).isEmpty)
         XCTAssertEqual(engine.state, .rejected(.leftControlCorridorExited))
@@ -58,9 +57,8 @@ final class GestureEngineTests: XCTestCase {
         var trace = SyntheticTouchTrace()
         trace.contact(x: 0.001, y: 0.50)
         trace.contact(x: 0.018, y: 0.503, after: 0.05)
-        // t = 0.01 + 0.05 + 0.80 = 0.86s; birth delta = 0.85s > entryTimeout 0.80s.
-        // (0.75 was too close: 0.81 - 0.01 underflows below the double 0.8.)
-        trace.contact(x: 0.020, y: 0.54, after: 0.80)
+        // t = 0.01 + 0.05 + 0.45 = 0.51s; birth delta = 0.50s > 450ms.
+        trace.contact(x: 0.020, y: 0.54, after: 0.45)
 
         XCTAssertTrue(trace.events(using: engine).isEmpty)
         XCTAssertEqual(engine.state, .rejected(.entryTimedOut))
@@ -68,12 +66,12 @@ final class GestureEngineTests: XCTestCase {
 
     func testVerticalIntentWithinTunedEntryTimeoutActivates() {
         // Regression for the tuned entryTimeout (see Docs/GestureTuning.md):
-        // a slow control slide establishing 1.5% vertical travel at ~0.31s
-        // must activate, while a pause > 600ms must not.
+        // A slow control slide establishing 1.5% vertical travel at ~0.31s
+        // must activate, while a pause beyond 450ms must not.
         var trace = SyntheticTouchTrace()
         trace.contact(x: 0.001, y: 0.50)
         trace.contact(x: 0.018, y: 0.503, after: 0.05)
-        trace.contact(x: 0.020, y: 0.54, after: 0.25) // t = 0.31s < 0.60s
+        trace.contact(x: 0.020, y: 0.54, after: 0.25) // birth delta = 0.30s < 0.45s
 
         XCTAssertEqual(trace.events(using: GestureEngine()), [.began(edge: .left)])
     }
@@ -149,6 +147,38 @@ final class GestureEngineTests: XCTestCase {
         XCTAssertEqual(engine.state, .rejected(.leftControlCorridorExited))
     }
 
+    func testActiveGestureCanUseWiderControlCorridor() {
+        let engine = GestureEngine()
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.001, y: 0.50)
+        trace.contact(x: 0.018, y: 0.53)
+        trace.contact(x: 0.060, y: 0.55)
+
+        let events = trace.events(using: engine)
+        XCTAssertEqual(events.count, 2)
+        guard case .began(edge: .left) = events[0] else {
+            return XCTFail("expected began(left), got \(events[0])")
+        }
+        guard case let .changed(edge: .left, deltaY, _) = events[1] else {
+            return XCTFail("expected changed(left), got \(events[1])")
+        }
+        XCTAssertEqual(deltaY, 0.02, accuracy: 0.0001)
+    }
+
+    func testBorderlineDirectionalityDoesNotActivate() {
+        let engine = GestureEngine()
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.001, y: 0.50)
+        trace.contact(x: 0.001, y: 0.51, after: 0.05)
+        trace.contact(x: 0.001, y: 0.48, after: 0.05)
+        // Directionality is exactly 0.75: up 0.01, down 0.03. The stricter
+        // 0.80 requirement keeps this oscillating contact out of Active.
+        trace.contact(x: 0.001, y: 0.48, after: 0.40)
+
+        XCTAssertTrue(trace.events(using: engine).isEmpty)
+        XCTAssertEqual(engine.state, .rejected(.entryTimedOut))
+    }
+
     func testOscillatingEdgeContactDoesNotActivate() {
         // Palm-like trace (real pattern from live data): born in the left strip,
         // ~450ms of sub-threshold jitter (up 1% then back), then a downward drift.
@@ -162,9 +192,9 @@ final class GestureEngineTests: XCTestCase {
         trace.contact(x: 0.0018, y: 0.493, after: 0.05)   // drift down 0.7%
         trace.contact(x: 0.0020, y: 0.487, after: 0.05)   // drift down 1.3%
         trace.contact(x: 0.0020, y: 0.481, after: 0.05)   // |dy| = 1.9% now
-        // Directionality: up 0.011, down 0.019 -> max/path = 0.019/0.030 = 0.63 < 0.75
-        // Extend past the 800ms deadline so the lifecycle times out.
-        for _ in 0..<12 {
+        // Directionality: up 0.011, down 0.019 -> max/path = 0.019/0.030 = 0.63 < 0.80
+        // Extend past the 450ms deadline so the lifecycle times out.
+        for _ in 0..<5 {
             trace.contact(x: 0.0020, y: 0.481, after: 0.05)
         }
         XCTAssertTrue(trace.events(using: engine).isEmpty)
@@ -183,7 +213,7 @@ final class GestureEngineTests: XCTestCase {
         guard case .began(edge: .left) = events[0] else {
             return XCTFail("expected began(left), got \(events[0])")
         }
-        guard case let .changed(edge: .left, deltaY) = events[1] else {
+        guard case let .changed(edge: .left, deltaY, _) = events[1] else {
             return XCTFail("expected changed(left), got \(events[1])")
         }
         XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
@@ -203,7 +233,7 @@ final class GestureEngineTests: XCTestCase {
         guard case .began(edge: .left) = events[0] else {
             return XCTFail("expected began(left), got \(events[0])")
         }
-        guard case let .changed(edge: .left, deltaY) = events[1] else {
+        guard case let .changed(edge: .left, deltaY, _) = events[1] else {
             return XCTFail("expected changed(left), got \(events[1])")
         }
         XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
@@ -211,5 +241,43 @@ final class GestureEngineTests: XCTestCase {
             return XCTFail("expected cancelled(left), got \(events[2])")
         }
     }
-}
 
+    func testLowerHalfOnlyRejectsBirthAboveMidline() {
+        var config = GestureConfiguration.default
+        config.lowerHalfOnly = true
+        let engine = GestureEngine(configuration: config)
+
+        var trace = SyntheticTouchTrace()
+        // Born in the upper half (y > 0.5): rejected at birth, no events.
+        // No lift: the rejection state must still be latched while the
+        // contact is down (lifting would reset the engine to idle).
+        trace.contact(x: 0.001, y: 0.80)
+        trace.contact(x: 0.005, y: 0.84, after: 0.05)
+
+        XCTAssertTrue(trace.events(using: engine).isEmpty)
+        XCTAssertEqual(engine.state, .rejected(.bornInUpperHalf))
+    }
+
+    func testLowerHalfOnlyAllowsBirthAtOrBelowMidline() {
+        var config = GestureConfiguration.default
+        config.lowerHalfOnly = true
+        let engine = GestureEngine(configuration: config)
+
+        // Born at the midline (y = 0.5) is allowed and activates normally.
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.001, y: 0.50)
+        trace.contact(x: 0.005, y: 0.55, after: 0.05)
+        trace.contact(x: 0.005, y: 0.58, after: 0.05)
+
+        let events = trace.events(using: engine)
+        XCTAssertEqual(events.count, 2)
+        guard case .began(edge: .left) = events[0] else {
+            return XCTFail("expected began(left), got \(events[0])")
+        }
+        guard case let .changed(edge: .left, deltaY, y) = events[1] else {
+            return XCTFail("expected changed(left), got \(events[1])")
+        }
+        XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
+        XCTAssertEqual(y, 0.58, accuracy: 0.0001)
+    }
+}

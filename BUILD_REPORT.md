@@ -1,7 +1,9 @@
 # BUILD_REPORT — EdgeControl 1.1.0
 
 Date: 2026-08-17
-Status: **RELEASE READY (ad-hoc signed)**
+Status: **SOURCE HARDENED; macOS regression build required before the next binary release**
+
+The 1.1.0 binary was validated with the original 26-test baseline. The current source adds DDC persistence, stricter gesture admission (450ms / 3% / 0.80), and a compact persistent Liquid Glass HUD, bringing the suite to 29 test methods. Those post-binary changes have static coverage but still require `xcodebuild test`, HUD visual inspection, and a short physical gesture regression on the validation Mac.
 
 ## Environment
 
@@ -21,8 +23,10 @@ Status: **RELEASE READY (ad-hoc signed)**
 |---|---|
 | Debug build | PASS |
 | Release build | PASS |
-| Unit tests | PASS — 26/26 (GestureEngine 13, Mapping 3, Detent 2, Settings 3, HapticEngine 2, timeout regression, zero-cross reversal) |
-| Release verbose touch logging | OFF (EDGE_DEBUG_LOGGING is Debug-only; verified via binary inspection) |
+| Last binary unit-test run | PASS — 26/26 (GestureEngine 16, Mapping 3, Detent 2, Settings 3, HapticEngine 2) |
+| Current source test suite | 29 methods (GestureEngine 18, Mapping 3, Detent 2, Settings 4, HapticEngine 2); macOS rerun pending |
+| Current source HUD | 148×42 normal / 220×42 error; macOS 26 Liquid Glass + macOS 13–15 fallback; visual regression pending |
+| Release verbose touch logging | Source guard PASS — both Swift and C diagnostics are Debug-only; inspect the next Release binary again |
 | No network/telemetry | PASS (otool/nm: no network frameworks, no analytics symbols) |
 
 ## Hardware validation
@@ -43,7 +47,7 @@ Status: **RELEASE READY (ad-hoc signed)**
 | Two-finger scroll (J) | PASS | Never activates |
 | Two-finger → lift one (K) | PASS | Latched until all fingers lift |
 | Real-use false triggers | PASS | 1–2 min typing/scrolling: 0 activations |
-| Palm-while-typing defense | PASS | Tuned: left strip 0.8%, directionality ratio 0.75, zero-cross reversal cancel (Diang-verified usable) |
+| Palm-while-typing defense | BASELINE PASS / RETEST | 1.1.0 validated left strip 0.8%, ratio 0.75 and zero-cross cancellation; current source uses a 3% candidate corridor, ratio 0.80 and 450ms deadline |
 | CoreAudio volume 25/50/75% | PASS | Exact round-trip (osascript ground truth) |
 | Volume continuous mapping | PASS | Slow/fast/reverse; 0% and 100% clamps, no out-of-bounds |
 | Built-in brightness 25/50/75% | PASS | Exact round-trip via DisplayServices |
@@ -71,7 +75,7 @@ NOT PERFORMED (no credentials). Ad-hoc DMG is the local deliverable.
 
 ## DMG
 
-- `dist/EdgeControl-1.0.0-macOS.dmg` — drag-to-Applications layout verified:
+- `dist/EdgeControl-1.1.0-macOS.dmg` — drag-to-Applications layout verified for the 1.1.0 baseline:
   - `EdgeControl.app` at (145, 175), `Applications` symlink at (410, 175), icon size 104
   - Built with `Scripts/package_dmg.sh` (hdiutil + Finder AppleScript only, no third-party tools)
 - Install flow verified: mount → copy app to /Applications → eject → launch → menu bar item appears → settings persist → relaunch works → gestures work.
@@ -82,3 +86,5 @@ NOT PERFORMED (no credentials). Ad-hoc DMG is the local deliverable.
 - Native macOS OSD (volume/brightness overlay) cannot be triggered via distributed notifications on macOS 26; the app's own HUD provides visual feedback instead.
 - Private trackpad actuator haptics absent on this OS; public haptics are used.
 - External DDC: experimental, off by default, untested (no external display).
+- The current 450ms deadline, 3% candidate corridor, and 0.80 directionality threshold require physical regression before packaging the next DMG.
+- The new compact HUD requires checks on light/dark desktops, Reduce Transparency, Reduce Motion, multiple displays, and the macOS 13–15 fallback.

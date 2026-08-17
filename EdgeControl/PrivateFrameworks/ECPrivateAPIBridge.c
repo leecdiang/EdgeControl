@@ -106,8 +106,8 @@ static int32_t ec_mt_system_callback(
 
     size_t count = contact_count > 0 ? (size_t)contact_count : 0;
 
-    // Temporary ABI probe: dump raw bytes of the callback buffer.
-    // Gated by EDGE_RAW_DUMP=1; removed once the ABI is confirmed.
+    // Debug-only ABI probe: Release compilation excludes this entire block.
+#if defined(EDGE_DEBUG_LOGGING) && EDGE_DEBUG_LOGGING
     const char *dump_enabled = getenv("EDGE_RAW_DUMP");
     if (dump_enabled != NULL && strcmp(dump_enabled, "1") == 0 && count > 0) {
         fprintf(stderr, "[ECProbe] count=%d timestamp=%.3f frame=%d\n",
@@ -125,6 +125,7 @@ static int32_t ec_mt_system_callback(
             fprintf(stderr, "\n");
         }
     }
+#endif
 
     ECTouchContactRaw *translated = NULL;
     if (count > 0) {
