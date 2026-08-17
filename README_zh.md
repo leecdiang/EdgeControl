@@ -68,7 +68,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把 MacBoo
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.1.0-macOS.dmg
+  ./dist/EdgeControl-1.2.0-macOS.dmg
 ```
 
 脚本只使用 macOS 自带工具（`hdiutil`、Finder/AppleScript、`codesign`、`xcrun`）。左侧 `EdgeControl.app`、右侧 `Applications` 软链，随后转换为压缩只读 DMG。已验证布局：App 在 (145,175)、Applications 在 (410,175)、图标 104px。
