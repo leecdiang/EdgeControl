@@ -95,9 +95,9 @@ done
 
 settings_file="$project_root/EdgeControl/Settings/AppSettings.swift"
 required_independent_profile_markers=(
-  "case .precise: return 0.75"
-  "case .standard: return 1.00"
-  "case .fast: return 1.35"
+  "case .precise: return 0.50"
+  "case .standard: return 0.70"
+  "case .fast: return 0.95"
   "case .strong: return 0.600"
   "case .standard: return 0.350"
   "case .light: return 0.200"
