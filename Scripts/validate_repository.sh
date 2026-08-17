@@ -192,8 +192,9 @@ required_hud_markers=(
   "static let compactWidth: CGFloat = 148"
   "static let errorWidth: CGFloat = 220"
   "static let height: CGFloat = 42"
-  ".glassEffect(.regular.tint(tint), in: Capsule())"
-  ".background(.ultraThinMaterial, in: Capsule())"
+  "opaqueBackground"
+  ".compositingGroup()"
+  ".clipShape(Capsule())"
 )
 
 for expected_marker in "${required_hud_markers[@]}"; do
