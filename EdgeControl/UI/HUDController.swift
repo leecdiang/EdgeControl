@@ -38,7 +38,7 @@ private enum HUDLayout {
 private final class HUDViewModel: ObservableObject {
     @Published var presentation = HUDPresentation(kind: .volume, value: 0, message: nil)
     @Published var isPresented = false
-    @Published var colorfulHUD = false
+    @Published var colorStyle: HUDColorStyle = .system
 }
 
 @MainActor
@@ -47,8 +47,8 @@ final class HUDController {
     private let viewModel: HUDViewModel
     private var dismissTask: Task<Void, Never>?
 
-    var colorfulHUD: Bool = false {
-        didSet { viewModel.colorfulHUD = colorfulHUD }
+    var colorStyle: HUDColorStyle = .system {
+        didSet { viewModel.colorStyle = colorStyle }
     }
 
     init() {
@@ -193,7 +193,7 @@ private struct EdgeHUDView: View {
             HStack(spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(model.colorfulHUD ? .orange : .primary)
+                    .foregroundStyle(.orange)
                     .frame(width: 15)
 
                 Text(model.presentation.message ?? "Unavailable")
@@ -213,19 +213,27 @@ private struct EdgeHUDView: View {
     }
 
     private var accentColor: Color {
-        guard model.colorfulHUD else { return .primary }
-        switch model.presentation.kind {
-        case .volume: return .cyan
-        case .brightness: return .yellow
+        switch (model.colorStyle, model.presentation.kind) {
+        case (.system, _):
+            return .primary
+        case (.classic, .volume):
+            return Color(nsColor: NSColor.systemBlue)
+        case (.classic, .brightness):
+            return Color(nsColor: NSColor.systemOrange)
+        case (.aurora, .volume):
+            return Color(nsColor: NSColor.systemPurple)
+        case (.aurora, .brightness):
+            return Color(nsColor: NSColor.systemTeal)
         }
     }
 
     private var glassTint: Color {
-        guard model.colorfulHUD else { return .primary.opacity(0.06) }
+        // Keep the glass neutral in every palette so color is concentrated in
+        // the progress indicator and the system blur remains visually clean.
         if model.presentation.value == nil {
-            return .orange.opacity(0.12)
+            return .orange.opacity(0.045)
         }
-        return accentColor.opacity(0.10)
+        return .primary.opacity(0.035)
     }
 
     private var symbolName: String {

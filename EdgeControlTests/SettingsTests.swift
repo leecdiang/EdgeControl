@@ -14,6 +14,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settings.adjustmentSpeed, .standard)
         XCTAssertEqual(settings.falseTouchProtection, .standard)
         XCTAssertEqual(settings.hapticStrength, .standard)
+        XCTAssertEqual(settings.hudColorStyle, .system)
     }
 
     func testBothEdgesCanUseSameAction() {
@@ -36,6 +37,7 @@ final class SettingsTests: XCTestCase {
         settings?.masterEnabled = false
         settings?.hapticFeedback = false
         settings?.hapticStrength = .strong
+        settings?.hudColorStyle = .aurora
         settings?.adjustmentSpeed = .fast
         settings?.falseTouchProtection = .strong
         settings?.leftEdgeAction = .disabled
@@ -47,6 +49,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(restored.masterEnabled)
         XCTAssertFalse(restored.hapticFeedback)
         XCTAssertEqual(restored.hapticStrength, .strong)
+        XCTAssertEqual(restored.hudColorStyle, .aurora)
         XCTAssertEqual(restored.adjustmentSpeed, .fast)
         XCTAssertEqual(restored.falseTouchProtection, .strong)
         XCTAssertEqual(restored.leftEdgeAction, .disabled)
@@ -180,12 +183,39 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(AppSettings(defaults: defaults).trackpadPreference, .automatic)
     }
 
-    func testUnknownHapticStrengthFallsBackToStandard() {
+    func testUnknownHapticAndHUDStylesFallBackToDefaults() {
         let (defaults, name) = makeDefaults()
         defer { defaults.removePersistentDomain(forName: name) }
         defaults.set("future-strength", forKey: "hapticStrength")
+        defaults.set("future-palette", forKey: "hudColorStyle")
 
-        XCTAssertEqual(AppSettings(defaults: defaults).hapticStrength, .standard)
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertEqual(settings.hapticStrength, .standard)
+        XCTAssertEqual(settings.hudColorStyle, .system)
+    }
+
+    func testLegacyColorfulHUDMigratesToThreeLevelPalette() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(true, forKey: "colorfulHUD")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.hudColorStyle, .classic)
+        XCTAssertEqual(defaults.string(forKey: "hudColorStyle"), HUDColorStyle.classic.rawValue)
+        XCTAssertNil(defaults.object(forKey: "colorfulHUD"))
+
+        let (neutralDefaults, neutralName) = makeDefaults()
+        defer { neutralDefaults.removePersistentDomain(forName: neutralName) }
+        neutralDefaults.set(false, forKey: "colorfulHUD")
+
+        let neutralSettings = AppSettings(defaults: neutralDefaults)
+        XCTAssertEqual(neutralSettings.hudColorStyle, .system)
+        XCTAssertEqual(
+            neutralDefaults.string(forKey: "hudColorStyle"),
+            HUDColorStyle.system.rawValue
+        )
+        XCTAssertNil(neutralDefaults.object(forKey: "colorfulHUD"))
     }
 
     func testExternalTrackpadShapeGuardRejectsPortraitAndInvalidSurfaces() {

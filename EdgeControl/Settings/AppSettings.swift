@@ -106,6 +106,22 @@ enum HapticStrength: String, CaseIterable, Codable, Sendable, Identifiable, Hash
     }
 }
 
+enum HUDColorStyle: String, CaseIterable, Codable, Sendable, Identifiable, Hashable {
+    case system
+    case classic
+    case aurora
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "System"
+        case .classic: return "Classic"
+        case .aurora: return "Aurora"
+        }
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     enum Key {
@@ -117,6 +133,8 @@ final class AppSettings: ObservableObject {
         static let hapticFeedback = "hapticFeedback"
         static let hapticStrength = "hapticStrength"
         static let showHUD = "showHUD"
+        static let hudColorStyle = "hudColorStyle"
+        // Read-only migration key from 1.5.0.
         static let colorfulHUD = "colorfulHUD"
         static let lowerHalfOnly = "lowerHalfOnly"
         static let trackpadPreference = "trackpadPreference"
@@ -138,7 +156,7 @@ final class AppSettings: ObservableObject {
     @Published var hapticFeedback: Bool { didSet { defaults.set(hapticFeedback, forKey: Key.hapticFeedback) } }
     @Published var hapticStrength: HapticStrength { didSet { defaults.set(hapticStrength.rawValue, forKey: Key.hapticStrength) } }
     @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Key.showHUD) } }
-    @Published var colorfulHUD: Bool { didSet { defaults.set(colorfulHUD, forKey: Key.colorfulHUD) } }
+    @Published var hudColorStyle: HUDColorStyle { didSet { defaults.set(hudColorStyle.rawValue, forKey: Key.hudColorStyle) } }
     @Published var lowerHalfOnly: Bool { didSet { defaults.set(lowerHalfOnly, forKey: Key.lowerHalfOnly) } }
     @Published var trackpadPreference: TrackpadPreference { didSet { defaults.set(trackpadPreference.rawValue, forKey: Key.trackpadPreference) } }
     @Published var adjustmentSpeed: AdjustmentSpeed { didSet { defaults.set(adjustmentSpeed.rawValue, forKey: Key.adjustmentSpeed) } }
@@ -166,6 +184,10 @@ final class AppSettings: ObservableObject {
 
         let storedAdjustmentSpeed = persistedValue(Key.adjustmentSpeed) as? String
         let storedFalseTouchProtection = persistedValue(Key.falseTouchProtection) as? String
+        let storedHUDColorStyle = persistedValue(Key.hudColorStyle) as? String
+        let legacyColorfulHUD: Bool? = persistedValue(Key.colorfulHUD) == nil
+            ? nil
+            : defaults.bool(forKey: Key.colorfulHUD)
         let legacySensitivity: Double? = persistedValue(Key.sensitivity) == nil
             ? nil
             : defaults.double(forKey: Key.sensitivity)
@@ -179,7 +201,7 @@ final class AppSettings: ObservableObject {
             Key.hapticFeedback: true,
             Key.hapticStrength: HapticStrength.standard.rawValue,
             Key.showHUD: true,
-            Key.colorfulHUD: false,
+            Key.hudColorStyle: HUDColorStyle.system.rawValue,
             Key.lowerHalfOnly: false,
             Key.trackpadPreference: TrackpadPreference.automatic.rawValue,
             Key.adjustmentSpeed: AdjustmentSpeed.standard.rawValue,
@@ -198,7 +220,17 @@ final class AppSettings: ObservableObject {
             rawValue: defaults.string(forKey: Key.hapticStrength) ?? ""
         ) ?? .standard
         showHUD = defaults.bool(forKey: Key.showHUD)
-        colorfulHUD = defaults.bool(forKey: Key.colorfulHUD)
+        if let storedHUDColorStyle {
+            hudColorStyle = HUDColorStyle(rawValue: storedHUDColorStyle) ?? .system
+            defaults.removeObject(forKey: Key.colorfulHUD)
+        } else if let legacyColorfulHUD {
+            let migratedStyle: HUDColorStyle = legacyColorfulHUD ? .classic : .system
+            hudColorStyle = migratedStyle
+            defaults.set(migratedStyle.rawValue, forKey: Key.hudColorStyle)
+            defaults.removeObject(forKey: Key.colorfulHUD)
+        } else {
+            hudColorStyle = .system
+        }
         lowerHalfOnly = defaults.bool(forKey: Key.lowerHalfOnly)
         trackpadPreference = TrackpadPreference(
             rawValue: defaults.string(forKey: Key.trackpadPreference) ?? ""

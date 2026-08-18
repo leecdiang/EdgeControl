@@ -6,7 +6,7 @@ Checked items have recorded evidence on the macOS 26.5 arm64 reference machine. 
 
 - [x] Open and build the 1.1.0 baseline with Xcode 26.6.
 - [x] Run clean Debug and Release builds for Apple Silicon (1.1.0 baseline).
-- [ ] Rebuild and run all 60 tests for the 1.5.1 source.
+- [ ] Rebuild and run all 61 tests for the 1.6.0 source.
 - [ ] Run a clean Debug build for Intel or an Intel CI runner.
 - [x] Resolve baseline Swift strict-concurrency diagnostics without weakening isolation globally.
 - [x] Confirm the bridging callback converts cleanly to the imported C function-pointer type on Xcode 26.6.
@@ -118,6 +118,16 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 - [ ] Inspect the same clipped `.hudWindow` implementation on macOS 13–15.
 - [ ] Verify 650 ms normal dismissal, 1.5 s error dismissal, continuous value updates, and normal/error width transitions.
 - [ ] Verify Reduce Motion and Reduce Transparency accessibility behavior.
+- [ ] Upgrade once with the former Colorful HUD off and once with it on; confirm migration to System and Classic respectively, then verify Aurora persists after relaunch.
+- [ ] Compare System/Classic/Aurora in light and dark appearance. Require distinct progress fills, neutral glass/text, and adequate light-mode brightness contrast.
+
+## Menu bar and Settings
+
+- [ ] Inspect the 292-point custom menu in light/dark appearance and with larger text; no status, card, quick toggle, warning, Settings, or Quit control may clip.
+- [ ] Confirm left/right edge cards, master, Haptic, HUD, and Login controls mutate the same settings as the full Settings window.
+- [ ] Confirm the window-style menu closes normally when clicking elsewhere and does not steal focus from the foreground app during ordinary open/close use.
+- [ ] Inspect Controls, Feedback, Devices, and About at the 520×430 minimum and after resizing; cards and captions must remain readable without horizontal clipping.
+- [ ] Confirm Settings always reopens the existing window, preserves the selected tab during that process lifetime, and does not create duplicate windows.
 
 ## ZERO_PERMISSION_GOAL
 
@@ -131,7 +141,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 ## Release engineering
 
 - [x] Populate every app-icon slot with original artwork.
-- [x] Populate the bundle identifier, 1.5.1 marketing version, and build number 2.
+- [x] Populate the bundle identifier, 1.6.0 marketing version, and build number 3.
 - [x] Validate the ad-hoc 1.1.0 baseline with Hardened Runtime and private runtime loading.
 - [ ] Sign with Developer ID Application.
 - [ ] Notarize and staple the app/DMG.

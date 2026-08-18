@@ -22,6 +22,6 @@ struct EdgeControlApp: App {
         } label: {
             Label("EdgeControl", systemImage: "slider.vertical.3")
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
     }
 }

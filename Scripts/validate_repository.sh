@@ -21,11 +21,11 @@ required=(
   "LICENSE"
   "THIRD_PARTY_NOTICES.md"
   "HANDOFF_TO_OPENCLAW.md"
-  "OPENCLAW_VALIDATE_1.5.1.md"
-  "RELEASE_NOTES_1.5.1.md"
+  "OPENCLAW_VALIDATE_1.6.0.md"
+  "RELEASE_NOTES_1.6.0.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
-  "Docs/RELEASE_NOTES_1.5.1.md"
-  "Docs/RELEASE_NOTES_1.5.1.zh.md"
+  "Docs/RELEASE_NOTES_1.6.0.md"
+  "Docs/RELEASE_NOTES_1.6.0.zh.md"
   "Docs/STATIC_BUG_AUDIT_1.3.1.md"
   "Docs/STATIC_BUG_AUDIT_1.4.0.md"
 )
@@ -38,15 +38,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.5.1;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.6.0;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.5.1, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.6.0, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 2;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 3;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 2 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 3 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -81,8 +81,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 60 ]]; then
-  echo "Expected at least 60 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 61 ]]; then
+  echo "Expected at least 61 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
@@ -114,11 +114,35 @@ required_independent_profile_markers=(
   "enum HapticStrength"
   "case .light: return 0.04"
   "case .standard, .strong: return 0.02"
+  "enum HUDColorStyle"
+  "case aurora"
+  "legacyColorfulHUD ? .classic : .system"
 )
 
 for expected_marker in "${required_independent_profile_markers[@]}"; do
   if ! grep -Fq "$expected_marker" "$settings_file"; then
     echo "Independent speed/protection preset drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+menu_view="$project_root/EdgeControl/UI/MenuBarMenuView.swift"
+settings_view="$project_root/EdgeControl/UI/SettingsView.swift"
+required_ui_markers=(
+  '.menuBarExtraStyle(.window)'
+  'EdgeActionCard'
+  'QuickToggle'
+  'HUDPalettePreview'
+  'selection: $settings.hudColorStyle'
+  'testLegacyColorfulHUDMigratesToThreeLevelPalette'
+)
+
+for expected_marker in "${required_ui_markers[@]}"; do
+  if ! grep -R -Fq "$expected_marker" \
+    "$project_root/EdgeControl/App/EdgeControlApp.swift" \
+    "$menu_view" "$settings_view" \
+    "$project_root/EdgeControlTests/SettingsTests.swift"; then
+    echo "1.6.0 menu/settings invariant drifted or is missing: $expected_marker" >&2
     exit 1
   fi
 done

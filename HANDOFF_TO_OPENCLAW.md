@@ -1,6 +1,6 @@
 # HANDOFF TO OPENCLAW
 
-This is the operational handoff for EdgeControl 1.5.1, based on the published GitHub 1.5.0 tag. It fixes gradual zero-cross bypass, Strong secondary-pulse lifecycle, and multi-display DDC read/write mismatch, and colocates the haptic controls. The source suite contains 60 test methods. Run `OPENCLAW_VALIDATE_1.5.1.md` before publishing; real haptic/DDC hardware, Intel runtime, Developer ID signing, and notarization remain explicitly unverified for this source revision.
+This is the operational handoff for EdgeControl 1.6.0, built on the 1.5.1 reliability source. It adds a custom frosted menu-bar popover, grouped four-tab Settings, and System/Classic/Aurora HUD palettes while preserving the committed-direction, Strong-pulse, and multi-display DDC fixes. The source suite contains 61 test methods. Run `OPENCLAW_VALIDATE_1.6.0.md` before publishing; UI appearance, real haptic/DDC hardware, Intel runtime, Developer ID signing, and notarization remain explicitly unverified for this source revision.
 
 ## A. What is already implemented
 
@@ -10,7 +10,8 @@ This is the operational handoff for EdgeControl 1.5.1, based on the published Gi
 - macOS application target and hosted XCTest target.
 - Deployment target macOS 13.0; Apple Silicon and Intel use standard Xcode architectures.
 - `LSUIElement=true`; the app is menu-bar-only and has no default Dock icon.
-- SwiftUI `MenuBarExtra` and Settings scene.
+- SwiftUI window-style `MenuBarExtra` with live status, edge-action cards, Haptic/HUD/Login quick toggles, Settings, and Quit.
+- Grouped Settings scene with Controls, Feedback, Devices, and About tabs plus stable 560×470 initial sizing.
 - Empty entitlements file and no TCC usage strings. Zero-TCC behavior was observed on the reference machine and must be rechecked on other OS/hardware combinations.
 - Debug defines `EDGE_DEBUG_LOGGING` for Swift and C; Release excludes both normalized and raw touch diagnostics.
 - Strict-concurrency checking is set to `complete` while Swift language mode remains 5 for a staged migration.
@@ -42,7 +43,7 @@ This is the operational handoff for EdgeControl 1.5.1, based on the published Gi
 ### Action mapping
 
 - Independent `EdgeAction` settings for left and right: disabled, volume, brightness. Both edges may use the same action.
-- Master, volume, brightness, haptic, HUD, adjustment-speed, false-touch-protection, launch-at-login, and external-DDC settings are backed by `UserDefaults`.
+- Master, volume, brightness, haptic, HUD, HUD color style, adjustment-speed, false-touch-protection, launch-at-login, and external-DDC settings are backed by `UserDefaults`.
 - Public CoreGraphics supplies only elapsed time since the latest key-down; no event tap or key value is captured. Strong/Standard/Light protection selects 600/350/200ms plus asymmetric edge-birth strips while every hard recognizer rule remains fixed.
 - Recent typing rejects idle/candidate lifecycles until lift. Active gestures are deliberately uninterrupted.
 - Continuous mapping uses `initialValue + cumulativeDeltaY × baseGain × pinnedSpeedMultiplier`, clamped to `[0,1]`. Precise/Standard/Fast are 0.75×/1.00×/1.35× and never alter activation.
@@ -77,13 +78,14 @@ This is the operational handoff for EdgeControl 1.5.1, based on the published Gi
 - Cursor association freezes only after Active; restore occurs on end, cancel, action failure, wake, and stop.
 - One persistent borderless, non-activating, click-through `NSPanel` with an observable SwiftUI model (no per-frame `NSHostingView` rebuild).
 - Compact 144×40 single-row normal HUD and 212×40 error state, capsule-clipped active `.hudWindow` blur, denser semantic veil, custom progress capsule, and Reduce Motion/Transparency-aware presentation.
+- Three HUD palettes: System is neutral, Classic uses dynamic system blue/orange, and Aurora uses dynamic system purple/teal. Strong color is limited to the progress fill; legacy `colorfulHUD` migrates to System/Classic.
 - Public `SMAppService.mainApp` launch-at-login controller with rollback to actual service status after errors.
 - Wake monitor ends the session, resets recognition/haptic state, refreshes displays, and reopens the trackpad bridge.
 - A 750 ms live-contact callback-silence watchdog resets recognition and, when active, ends the session and restores cursor movement if Bluetooth loss prevents a final touch frame. Resumed frames are discarded until an empty frame or bridge restart, preventing the stranded touch from becoming a fresh edge birth. This does not claim automatic device discovery; connect/disconnect changes require manual rescan or restart.
 
 ### Tests, documentation, and release shell
 
-- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `BrightnessRoutingTests`, `HapticEngineTests`, and synthetic trace helper (60 test methods in current source).
+- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `BrightnessRoutingTests`, `HapticEngineTests`, and synthetic trace helper (61 test methods in current source).
 - MIT license and no third-party source.
 - Runtime privacy/no-network statement and static repository guard.
 - Native-tools-only release build and DMG scripts.
@@ -94,15 +96,15 @@ This is the operational handoff for EdgeControl 1.5.1, based on the published Gi
 
 The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-The current source is the 1.5.1 reliability update on top of published 1.5.0. Before another binary is published, rerun:
+The current source is the 1.6.0 visual update on top of the 1.5.1 reliability work. Before another binary is published, rerun:
 
 1. `./Scripts/validate_repository.sh`
-2. `./Scripts/build_release.sh test` (expect 60 tests)
+2. `./Scripts/build_release.sh test` (expect 61 tests)
 3. `./Scripts/build_release.sh build`
 4. Physical edge-entry regression for 450ms / 3% / 0.80
-5. Three-level haptic and HUD visual/accessibility regression on macOS 26 and at least one earlier supported system
+5. Three-level haptic, three-palette HUD, custom menu, and grouped Settings visual/accessibility regression on macOS 26 and at least one earlier supported system
 6. Lower-half regression at low and high initial values: activation must preserve the current value, and subsequent up/down motion must remain continuous
-7. Complete `OPENCLAW_VALIDATE_1.5.1.md`, including gradual zero crossing, Strong-pulse cancellation, multi-display DDC routing, all haptic profiles, HUD backgrounds, speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
+7. Complete `OPENCLAW_VALIDATE_1.6.0.md`, including legacy palette migration, menu/Settings layout, gradual zero crossing, Strong-pulse cancellation, multi-display DDC routing, all haptic profiles, HUD backgrounds, speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
 8. Release binary inspection, DMG packaging, install and launch
 
 Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
@@ -351,4 +353,4 @@ Use [Docs/LOCAL_VALIDATION_REQUIRED.md](Docs/LOCAL_VALIDATION_REQUIRED.md) as th
 
 ## Local work remaining, in one paragraph
 
-The immediate remaining work is a macOS run of the current 60-test source plus the zero-cross, haptic lifecycle/HUD, DDC routing, speed/protection, clean-account, and built-in-only brightness matrices in `OPENCLAW_VALIDATE_1.5.1.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and physical regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.
+The immediate remaining work is a macOS run of the current 61-test source plus the menu/Settings, palette migration, zero-cross, haptic lifecycle/HUD, DDC routing, speed/protection, clean-account, and built-in-only brightness matrices in `OPENCLAW_VALIDATE_1.6.0.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and physical regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.

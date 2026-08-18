@@ -23,9 +23,9 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 ## Status
 
-The 1.5.0 release was hardware-validated and published on 2026-08-18. Version 1.5.1 is a source-prepared reliability update for zero-cross gestures, Strong-pulse lifecycle, and multi-display DDC routing; run `OPENCLAW_VALIDATE_1.5.1.md` on macOS before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the current evidence boundary.
+Version 1.5.1 preserves the native menu and delivers the zero-cross, Strong-pulse lifecycle, and multi-display DDC reliability fixes. Version 1.6.0 builds on it with a custom frosted menu, grouped Settings, and three HUD color styles; run `OPENCLAW_VALIDATE_1.6.0.md` on macOS before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the current evidence boundary.
 
-The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 60 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 61 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
@@ -44,6 +44,9 @@ The gesture recognizer, typing protection, value mapping, brightness routing, tr
 - Trackpad source selection: Automatic / Built-in trackpad / External Magic Trackpad, with persistent preference, visible active-device status, and manual rescan
 - Pointer freeze only after the gesture reaches `Active`; the system restores the cursor if the app dies
 - Compact 144×40 single-row HUD with a capsule-clipped system blur, denser frosted veil, subtle highlight border, and opaque accessibility fallback
+- System / Classic / Aurora HUD palettes that color the progress fill while preserving neutral, appearance-aware glass and text
+- Custom lightweight menu-bar popover with live trackpad status, edge-action cards, and Haptic/HUD quick controls
+- Grouped four-tab Settings interface with stable sizing and clear Controls, Feedback, Devices, and About sections
 - `LSUIElement` menu-bar app with no Dock icon
 - Synthetic gesture tests; no physical trackpad required for recognizer tests
 - No account, network, analytics, telemetry, or backend
@@ -88,7 +91,7 @@ The script disables code signing for local compilation when no `DEVELOPMENT_TEAM
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.5.1-macOS.dmg
+  ./dist/EdgeControl-1.6.0-macOS.dmg
 ```
 
 The script uses only macOS-provided tools (`hdiutil`, Finder/AppleScript, `codesign`, `xcrun`). It stages `EdgeControl.app` on the left and an `Applications` symlink on the right, then converts to a compressed read-only DMG. Verified layout: App at (145,175), Applications at (410,175), icon size 104.

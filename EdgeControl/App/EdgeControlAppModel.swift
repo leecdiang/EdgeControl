@@ -149,7 +149,7 @@ final class EdgeControlAppModel: ObservableObject {
         if settingsWindow == nil {
             let hostingView = NSHostingView(rootView: SettingsView(model: self, settings: settings))
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
+                contentRect: NSRect(x: 0, y: 0, width: 560, height: 470),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
@@ -157,13 +157,10 @@ final class EdgeControlAppModel: ObservableObject {
             window.title = "EdgeControl Settings"
             window.contentView = hostingView
             window.isReleasedWhenClosed = false
-            // Size the window to fit the content exactly, with only the
-            // built-in margins for breathing room.
-            let fitting = hostingView.fittingSize
-            window.setContentSize(
-                NSSize(width: max(fitting.width, 400), height: max(fitting.height, 300))
-            )
-            window.minSize = NSSize(width: 400, height: 300)
+            window.titlebarAppearsTransparent = true
+            window.isMovableByWindowBackground = true
+            window.setContentSize(NSSize(width: 560, height: 470))
+            window.minSize = NSSize(width: 520, height: 430)
             window.center()
             settingsWindow = window
         }
@@ -450,7 +447,7 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func showHUD(action: EdgeAction, value: Double?, message: String?) {
         guard settings.showHUD else { return }
-        hudController.colorfulHUD = settings.colorfulHUD
+        hudController.colorStyle = settings.hudColorStyle
         let kind: HUDKind = action == .volume ? .volume : .brightness
         hudController.show(HUDPresentation(kind: kind, value: value, message: message))
     }

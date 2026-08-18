@@ -47,7 +47,14 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 - `DetentTracker` is pure logic with hysteresis. Standard/Strong use 2% spacing; Light uses 4% spacing. Standard preserves the prior `.alignment` pattern, while Strong uses the public `.generic` pattern because AppKit exposes no amplitude control. Strong's secondary pulse is a cancellable task owned by `HapticEngine`; gesture end and wake reset invalidate it.
 - `CursorController` uses CoreGraphics cursor/mouse association only after activation.
 - `HUDController` owns one persistent non-activating, click-through floating `NSPanel` and one observable SwiftUI model; touch updates mutate the model rather than rebuilding `NSHostingView`.
-- The normal HUD is a 144×40 single-row capsule and error content expands to 212×40. A capsule-clipped `NSVisualEffectView` supplies active `.hudWindow` blur on macOS 13+, with a 52% semantic veil and tint above it. Both AppKit and SwiftUI clip the backdrop to prevent a rectangular ambient plate. Reduce Transparency switches to an opaque system background and Reduce Motion removes the scale transition.
+- The normal HUD is a 144×40 single-row capsule and error content expands to 212×40. A capsule-clipped `NSVisualEffectView` supplies active `.hudWindow` blur on macOS 13+, with a 52% semantic veil and neutral tint above it. Both AppKit and SwiftUI clip the backdrop to prevent a rectangular ambient plate. System/Classic/Aurora alter only the progress fill strongly; system dynamic colors adapt the two colored palettes to appearance. Reduce Transparency switches to an opaque system background and Reduce Motion removes the scale transition.
+
+### Presentation boundary
+
+- `MenuBarExtra` uses window style so `MenuBarMenuView` can present a 292-point system-material popover. It reads the same `AppSettings` object as the full Settings window; there is no duplicated menu-only state.
+- The popover exposes only high-frequency controls: master enablement, both edge assignments, Haptic, HUD, launch at login, Settings, and Quit. Device warnings reflect `EdgeControlAppModel.touchStatus`/`lastError`.
+- `SettingsView` separates Controls, Feedback, Devices, and About into system-rendered cards. `EdgeControlAppModel` owns one reusable 560×470 `NSWindow`, preventing duplicate Settings windows and content-dependent resizing.
+- `HUDColorStyle` is persisted as a raw value. The old `colorfulHUD` boolean is read only when the new key is absent, mapping false to System and true to Classic.
 
 ## Lifecycle
 

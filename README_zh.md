@@ -23,9 +23,9 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 
 ## 状态
 
-1.5.0 已于 2026-08-18 完成真机验证并发布。1.5.1 是已准备源码的可靠性更新，修复渐进过零、强档尾随脉冲生命周期与多显示器 DDC 路由；发布前须在 macOS 完成 `OPENCLAW_VALIDATE_1.5.1.md`。当前证据边界见 [BUILD_REPORT.md](BUILD_REPORT.md)。
+1.5.1 保留原生菜单，并提供过零、强档脉冲生命周期与多显示器 DDC 可靠性修复。1.6.0 在其基础上新增自定义磨砂菜单、分组式设置及三档 HUD 配色；发布前须在 macOS 完成 `OPENCLAW_VALIDATE_1.6.0.md`。当前证据边界见 [BUILD_REPORT.md](BUILD_REPORT.md)。
 
-手势识别、打字保护、数值映射、亮度路由、触控板选择策略、档位、触觉反馈与设置层由 60 个单元测试方法覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
+手势识别、打字保护、数值映射、亮度路由、触控板选择策略、档位、触觉反馈与设置层由 61 个单元测试方法覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
 
 ## 功能
 
@@ -44,6 +44,9 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 - 触控板来源选择：自动 / 内置触控板 / 外接 Magic Trackpad，选择可持久化，并显示当前设备类型及提供手动重扫
 - 仅在手势进入 `Active` 后冻结指针；应用退出时系统自动恢复指针关联
 - 144×40 单行精简 HUD：系统磨砂层严格裁切在胶囊内，并增加更凝实的雾面遮罩、细高光描边和无透明度辅助模式
+- System / Classic / Aurora 三档 HUD 配色：主要改变进度填充条，玻璃与文字继续保持中性并适配深浅色
+- 自定义轻量菜单栏弹窗：实时触控状态、左右边缘卡片及触觉/HUD 快捷控制
+- 四标签分组式设置：Controls、Feedback、Devices 与 About，窗口尺寸稳定、层级更清晰
 - `LSUIElement` 菜单栏应用，无 Dock 图标
 - 合成手势测试；识别器测试无需真实触控板
 - 无账号、无网络、无分析、无遥测、无后端
@@ -88,7 +91,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.5.1-macOS.dmg
+  ./dist/EdgeControl-1.6.0-macOS.dmg
 ```
 
 脚本只使用 macOS 自带工具（`hdiutil`、Finder/AppleScript、`codesign`、`xcrun`）。左侧 `EdgeControl.app`、右侧 `Applications` 软链，随后转换为压缩只读 DMG。已验证布局：App 在 (145,175)、Applications 在 (410,175)、图标 104px。
