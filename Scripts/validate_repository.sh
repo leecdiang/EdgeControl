@@ -38,15 +38,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.6.0;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.6.1;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.6.0, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.6.1, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 3;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 4;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 3 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 4 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
