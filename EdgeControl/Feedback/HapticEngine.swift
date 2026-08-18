@@ -60,6 +60,8 @@ final class HapticEngine {
     private let privateBackend: HapticBackend
     private var detents = DetentTracker(interval: 0.02)
     private var activeStrength: HapticStrength = .standard
+    private var secondaryPulseTask: Task<Void, Never>?
+    private var pulseGeneration: UInt64 = 0
     var preference: BackendPreference = .publicAPI
 
     /// Minimum interval between detent pulses. 30ms lets a full-range swipe at
@@ -94,10 +96,12 @@ final class HapticEngine {
     }
 
     func endGesture() {
+        cancelSecondaryPulse()
         detents.reset()
     }
 
     func resetAfterWake() {
+        cancelSecondaryPulse()
         publicBackend.reset()
         privateBackend.reset()
         detents.reset()
@@ -126,12 +130,29 @@ final class HapticEngine {
             // The public AppKit API has no amplitude knob and .generic feels
             // close to .alignment, so Strong doubles up: a second firm pulse a
             // few milliseconds later reads as a heavier tick, not a buzz.
-            let secondBackend = backend
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 12_000_000)
-                secondBackend.pulse(pattern)
+            cancelSecondaryPulse()
+            let generation = pulseGeneration
+            secondaryPulseTask = Task { @MainActor [weak self] in
+                do {
+                    try await Task.sleep(nanoseconds: 12_000_000)
+                } catch {
+                    return
+                }
+                guard let self,
+                      self.pulseGeneration == generation,
+                      let currentBackend = self.selectedBackend() else {
+                    return
+                }
+                currentBackend.pulse(pattern)
+                self.secondaryPulseTask = nil
             }
         }
+    }
+
+    private func cancelSecondaryPulse() {
+        pulseGeneration &+= 1
+        secondaryPulseTask?.cancel()
+        secondaryPulseTask = nil
     }
 
     private func selectedBackend() -> HapticBackend? {

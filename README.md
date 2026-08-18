@@ -23,9 +23,9 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 ## Status
 
-The 1.3.0 baseline was hardware-validated on macOS 26.5 (Apple Silicon MacBook Air) on 2026-08-16/17. Version 1.5.0 builds on 1.4.0 with three haptic-strength profiles and a denser, truly frosted compact HUD; run the macOS matrix in `OPENCLAW_VALIDATE_1.5.0.md` before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the earlier per-item matrix.
+The 1.5.0 release was hardware-validated and published on 2026-08-18. Version 1.5.1 is a source-prepared reliability update for zero-cross gestures, Strong-pulse lifecycle, and multi-display DDC routing; run `OPENCLAW_VALIDATE_1.5.1.md` on macOS before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the current evidence boundary.
 
-The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 55 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
+The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 60 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
 ## Features
 
@@ -38,8 +38,8 @@ The gesture recognizer, typing protection, value mapping, brightness routing, tr
 - CoreAudio volume control with default-output re-resolution and unsupported-device handling
 - Built-in display brightness through runtime-loaded DisplayServices
 - Optional, isolated DDC/CI VCP `0x10` external-display backend (experimental, off by default)
-- Per-gesture brightness-backend pinning: External DDC is considered only when explicitly enabled and available; transient built-in enumeration failures are retried without false DDC errors
-- Three-level haptic strength: Light uses sparser subtle ticks, Standard preserves the original 2% feel, and Strong uses a firmer public AppKit pattern
+- Per-gesture brightness-backend pinning: External DDC is considered only when explicitly enabled and available; transient built-in enumeration failures are retried without false DDC errors; multi-display writes reuse the connection that answered the initial read
+- Three-level haptic strength: Light uses sparser subtle ticks, Standard preserves the original 2% feel, and Strong uses a firmer public AppKit pattern with its pending second pulse cancelled at gesture end/reset
 - Optional lower-half start filter: contacts born above the trackpad midline are rejected, while accepted gestures continue to adjust relative to the current value
 - Trackpad source selection: Automatic / Built-in trackpad / External Magic Trackpad, with persistent preference, visible active-device status, and manual rescan
 - Pointer freeze only after the gesture reaches `Active`; the system restores the cursor if the app dies
@@ -88,7 +88,7 @@ The script disables code signing for local compilation when no `DEVELOPMENT_TEAM
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.5.0-macOS.dmg
+  ./dist/EdgeControl-1.5.1-macOS.dmg
 ```
 
 The script uses only macOS-provided tools (`hdiutil`, Finder/AppleScript, `codesign`, `xcrun`). It stages `EdgeControl.app` on the left and an `Applications` symlink on the right, then converts to a compressed read-only DMG. Verified layout: App at (145,175), Applications at (410,175), icon size 104.
@@ -108,7 +108,7 @@ Tuned values (see [Docs/GestureTuning.md](Docs/GestureTuning.md) for evidence):
 | Directionality | 80% | At least 80% of the pre-activation vertical path must remain in one direction |
 | Entry deadline | 450 ms | Keeps measured 256–331ms deliberate entries and rejects the former 620ms dwell-then-push case |
 
-The recognizer transitions through `idle → entryCandidate → entryConfirmed → active`. Interior birth, recent typing, wrong initial direction, timeout, identity changes, corridor exit, and multi-touch produce terminal rejection for the current lifecycle. Typing rejection and `multiTouchRejected` reset only on an empty frame.
+The recognizer transitions through `idle → entryCandidate → entryConfirmed → active`. Interior birth, recent typing, wrong initial direction, timeout, identity changes, corridor exit, and multi-touch produce terminal rejection for the current lifecycle. Active zero-cross protection remains anchored to the direction that caused activation, so a slow reversal cannot hide inside the baseline deadband. Typing rejection and `multiTouchRejected` reset only on an empty frame.
 
 ## Permissions
 

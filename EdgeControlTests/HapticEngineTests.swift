@@ -112,4 +112,32 @@ final class HapticEngineTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2)
     }
+
+    func testEndingGestureCancelsPendingStrongSecondaryPulse() {
+        let backend = RecordingHapticBackend()
+        let engine = makeEngine(backend, now: { 0 })
+        engine.activationTick(initialValue: 0.0, strength: .strong)
+        engine.endGesture()
+
+        let expectation = expectation(description: "no pulse after gesture ends")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            XCTAssertEqual(backend.patterns, [.firm])
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2)
+    }
+
+    func testWakeResetCancelsPendingStrongSecondaryPulse() {
+        let backend = RecordingHapticBackend()
+        let engine = makeEngine(backend, now: { 0 })
+        engine.activationTick(initialValue: 0.0, strength: .strong)
+        engine.resetAfterWake()
+
+        let expectation = expectation(description: "no pulse after wake reset")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            XCTAssertEqual(backend.patterns, [.firm])
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2)
+    }
 }

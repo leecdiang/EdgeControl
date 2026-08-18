@@ -20,7 +20,9 @@ AppKit exposes feedback patterns, not an amplitude parameter. EdgeControl theref
 | Standard | `.alignment` | 2% | Preserves the existing implementation |
 | Strong | `.generic` | 2% | LOCAL_VALIDATION_REQUIRED |
 
-All profiles keep hysteresis `0.008` and the 30ms rate limit. The selected profile is pinned for the gesture. Physical intensity is hardware- and macOS-dependent, so the Light/Strong feel must be checked on both built-in and external Force Touch trackpads before release.
+All profiles keep hysteresis `0.008` and the 30ms rate limit. The selected profile is pinned for the gesture. Strong's second pulse is scheduled 12ms later and cancelled if the gesture ends or wake recovery resets the engine. Physical intensity is hardware- and macOS-dependent, so the Light/Strong feel must be checked on both built-in and external Force Touch trackpads before release.
+
+For 1.5.1, end a Strong gesture immediately after its primary tick and repeat across sleep/wake. No delayed secondary tick may be felt after end/reset; the two cancellation paths also have automated regressions.
 
 ## Private trackpad actuator backend — NOT SUPPORTED on this OS
 

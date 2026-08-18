@@ -1,6 +1,6 @@
 # HANDOFF TO OPENCLAW
 
-This is the operational handoff for EdgeControl 1.5.0. It starts from the GitHub 1.4.0 source and adds three haptic-strength profiles plus a denser, truly frosted compact HUD. The source suite contains 55 test methods. Run `OPENCLAW_VALIDATE_1.5.0.md` before publishing; the new Strong pattern and HUD material require physical validation, and external trackpad hardware, external DDC, Intel runtime, Developer ID signing, and notarization remain explicitly unverified.
+This is the operational handoff for EdgeControl 1.5.1, based on the published GitHub 1.5.0 tag. It fixes gradual zero-cross bypass, Strong secondary-pulse lifecycle, and multi-display DDC read/write mismatch, and colocates the haptic controls. The source suite contains 60 test methods. Run `OPENCLAW_VALIDATE_1.5.1.md` before publishing; real haptic/DDC hardware, Intel runtime, Developer ID signing, and notarization remain explicitly unverified for this source revision.
 
 ## A. What is already implemented
 
@@ -37,7 +37,7 @@ This is the operational handoff for EdgeControl 1.5.0. It starts from the GitHub
 - At least 80% of the pre-activation vertical path must stay in one direction. Candidate/active corridor exit rejects or cancels and latches until lift.
 - Any frame with two or more live contacts cancels an active gesture and latches multi-touch rejection until an empty frame. A two-to-one transition stays rejected.
 - Events are decoupled: began, cumulative-delta changed, ended, cancelled.
-- Twenty-five gesture tests cover the required matrix, timeout boundary, candidate/active corridor split, directionality, lower-half admission, zero-cross cancellation, typing rejection/latching, Active continuity, and asymmetric profile admission.
+- Twenty-six gesture tests cover the required matrix, timeout boundary, candidate/active corridor split, directionality, lower-half admission, committed-direction zero-cross cancellation (including gradual deadband crossing), typing rejection/latching, Active continuity, and asymmetric profile admission.
 
 ### Action mapping
 
@@ -62,6 +62,7 @@ This is the operational handoff for EdgeControl 1.5.0. It starts from the GitHub
 - CoreGraphics enumerates active displays and explicitly selects `CGDisplayIsBuiltin`, rather than assuming `CGMainDisplayID` is the panel.
 - DisplayServices is runtime-loaded and resolves `DisplayServicesGetBrightness` and `DisplayServicesSetBrightness` without a hard private-framework link.
 - External DDC is isolated behind `ExternalDDCBackend`; it enumerates non-built-in online displays, owns one legacy I2C connection per responsive display, and implements DDC/CI VCP `0x10` get/set framing.
+- The initial successful DDC read pins its connection index for subsequent writes in that brightness session, avoiding a read from one monitor followed by a write to the first enumerated monitor.
 - `DisplayBrightnessController` retries built-in discovery at gesture start. DDC fallback requires both explicit enablement and a live connection.
 - `BrightnessControlSession` pins the activation backend. Display reconfiguration and DDC toggle changes end any in-flight brightness session before refreshing; volume gestures remain active.
 - Failed CoreGraphics enumeration preserves the last known built-in ID; a successful external-only list still clears it for clamshell mode.
@@ -72,7 +73,7 @@ This is the operational handoff for EdgeControl 1.5.0. It starts from the GitHub
 - Public AppKit haptic backend.
 - Private actuator backend scaffold, dynamically resolved and disabled by default behind `EDGE_ENABLE_UNVALIDATED_PRIVATE_HAPTIC=1`.
 - One activation tick only after active control session creation.
-- Three haptic profiles: Light uses 4% alignment ticks, Standard preserves 2% alignment ticks, and Strong uses 2% generic ticks; all retain 0.8% hysteresis and rate limiting.
+- Three haptic profiles: Light uses 4% alignment ticks, Standard preserves 2% alignment ticks, and Strong uses 2% generic double pulses; all retain 0.8% hysteresis and rate limiting. The pending Strong secondary pulse is task-owned and cancelled on gesture end or wake reset.
 - Cursor association freezes only after Active; restore occurs on end, cancel, action failure, wake, and stop.
 - One persistent borderless, non-activating, click-through `NSPanel` with an observable SwiftUI model (no per-frame `NSHostingView` rebuild).
 - Compact 144×40 single-row normal HUD and 212×40 error state, capsule-clipped active `.hudWindow` blur, denser semantic veil, custom progress capsule, and Reduce Motion/Transparency-aware presentation.
@@ -82,7 +83,7 @@ This is the operational handoff for EdgeControl 1.5.0. It starts from the GitHub
 
 ### Tests, documentation, and release shell
 
-- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `BrightnessRoutingTests`, `HapticEngineTests`, and synthetic trace helper (52 test methods in current source).
+- `GestureEngineTests`, `MappingTests`, `DetentTests`, `SettingsTests`, `BrightnessRoutingTests`, `HapticEngineTests`, and synthetic trace helper (60 test methods in current source).
 - MIT license and no third-party source.
 - Runtime privacy/no-network statement and static repository guard.
 - Native-tools-only release build and DMG scripts.
@@ -93,15 +94,15 @@ This is the operational handoff for EdgeControl 1.5.0. It starts from the GitHub
 
 The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-The current source adds the 1.5.0 haptic and HUD work on top of the 1.4.0 source. Before another binary is published, rerun:
+The current source is the 1.5.1 reliability update on top of published 1.5.0. Before another binary is published, rerun:
 
 1. `./Scripts/validate_repository.sh`
-2. `./Scripts/build_release.sh test` (expect 55 tests)
+2. `./Scripts/build_release.sh test` (expect 60 tests)
 3. `./Scripts/build_release.sh build`
 4. Physical edge-entry regression for 450ms / 3% / 0.80
 5. Three-level haptic and HUD visual/accessibility regression on macOS 26 and at least one earlier supported system
 6. Lower-half regression at low and high initial values: activation must preserve the current value, and subsequent up/down motion must remain continuous
-7. Complete `OPENCLAW_VALIDATE_1.5.0.md`, including all haptic profiles, HUD backgrounds, speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
+7. Complete `OPENCLAW_VALIDATE_1.5.1.md`, including gradual zero crossing, Strong-pulse cancellation, multi-display DDC routing, all haptic profiles, HUD backgrounds, speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
 8. Release binary inspection, DMG packaging, install and launch
 
 Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
@@ -350,4 +351,4 @@ Use [Docs/LOCAL_VALIDATION_REQUIRED.md](Docs/LOCAL_VALIDATION_REQUIRED.md) as th
 
 ## Local work remaining, in one paragraph
 
-The immediate remaining work is a macOS run of the current 55-test source plus the haptic/HUD, speed/protection, clean-account, and built-in-only brightness matrices in `OPENCLAW_VALIDATE_1.5.0.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and physical regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.
+The immediate remaining work is a macOS run of the current 60-test source plus the zero-cross, haptic lifecycle/HUD, DDC routing, speed/protection, clean-account, and built-in-only brightness matrices in `OPENCLAW_VALIDATE_1.5.1.md`, followed by Release/Universal 2 builds, binary-log inspection, DMG installation, and physical regression. External trackpad and DDC hardware remain separately unverified. The existing architecture should remain intact unless measurements demonstrate a structural defect.

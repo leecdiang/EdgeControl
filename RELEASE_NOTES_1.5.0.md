@@ -18,7 +18,7 @@ Three haptic-strength profiles and a denser, genuinely frosted compact HUD.
 
 ## Validation status
 
-- Repository guards, shell syntax, and diff checks pass; the source suite contains 55 XCTest methods.
+- Repository guards, shell syntax, and diff checks pass; the published source suite contains 56 XCTest methods.
 - Xcode build/tests and physical comparison of all three haptic profiles and the HUD over light/dark content remain required before publishing.
 - AppKit exposes feedback patterns rather than numeric amplitude, so physical feel may vary by trackpad.
 
@@ -44,7 +44,7 @@ Three haptic-strength profiles and a denser, genuinely frosted compact HUD.
 
 ## 验证状态
 
-- 仓库检查、Shell 语法和 diff 检查已通过；源码共 55 项 XCTest。
+- 仓库检查、Shell 语法和 diff 检查已通过；已发布源码共 56 项 XCTest。
 - 发布前仍须在 macOS 完成 Xcode 构建/测试，并分别检查三档触感及 HUD 在明暗背景上的效果。
 - AppKit 只提供反馈模式而非数字振幅，因此不同触控板的体感可能不同。
 

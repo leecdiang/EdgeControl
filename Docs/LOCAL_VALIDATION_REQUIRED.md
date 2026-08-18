@@ -6,7 +6,7 @@ Checked items have recorded evidence on the macOS 26.5 arm64 reference machine. 
 
 - [x] Open and build the 1.1.0 baseline with Xcode 26.6.
 - [x] Run clean Debug and Release builds for Apple Silicon (1.1.0 baseline).
-- [ ] Rebuild and run all 55 tests for the 1.5.0 source.
+- [ ] Rebuild and run all 60 tests for the 1.5.1 source.
 - [ ] Run a clean Debug build for Intel or an Intel CI runner.
 - [x] Resolve baseline Swift strict-concurrency diagnostics without weakening isolation globally.
 - [x] Confirm the bridging callback converts cleanly to the imported C function-pointer type on Xcode 26.6.
@@ -91,6 +91,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 - [x] Confirm detents do not buzz at a boundary on the reference machine (baseline spacing differed).
 - [ ] Confirm Light / Standard / Strong are perceptibly ordered on both built-in and external Magic Trackpad: Light 4% alignment ticks, Standard 2% alignment ticks, Strong 2% generic ticks.
 - [ ] Confirm 2% Standard/Strong detents do not double-trigger from Bluetooth frame jitter and 4% Light detents do not feel too sparse.
+- [ ] End a Strong gesture immediately after a tick and repeat across sleep/wake; no delayed secondary pulse may occur after end/reset.
 - [ ] Do not enable private haptics until the following symbols and signatures are validated: `MTActuatorCreateFromDevice`, `MTActuatorOpen`, `MTActuatorActuate`, `MTActuatorClose`.
 - [ ] Replace placeholder private pattern `1` only with independently measured values; do not copy Verge constants or patterns.
 - [ ] Confirm actuator open/close and sleep/wake lifetime.
@@ -100,6 +101,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 - [ ] Validate legacy `CGDisplayIOServicePort` + `IOFB*` + `IOI2C*` transport on Intel.
 - [ ] Confirm I2C destination/reply addressing, reply delay units, reply format, and checksum handling.
 - [ ] Test VCP `0x10` get/set on at least two DDC-capable monitors.
+- [ ] With two monitors where only the later enumerated monitor answers VCP `0x10`, confirm the read and every write target that same responsive monitor.
 - [ ] Confirm unsupported, HDR/XDR, DisplayLink, docked, mirrored, and hot-plug cases fail independently.
 - [ ] Implement and validate Apple Silicon IOAV transport only after confirming ABI for `IOAVServiceCreateWithService`, `IOAVServiceReadI2C`, and `IOAVServiceWriteI2C`; they are intentionally not called by the current implementation.
 - [ ] Improve CGDisplayID-to-service matching if the legacy framebuffer association is insufficient.
@@ -129,7 +131,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 ## Release engineering
 
 - [x] Populate every app-icon slot with original artwork.
-- [x] Populate the bundle identifier and 1.5.0 source version.
+- [x] Populate the bundle identifier, 1.5.1 marketing version, and build number 2.
 - [x] Validate the ad-hoc 1.1.0 baseline with Hardened Runtime and private runtime loading.
 - [ ] Sign with Developer ID Application.
 - [ ] Notarize and staple the app/DMG.

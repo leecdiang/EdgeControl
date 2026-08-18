@@ -23,6 +23,7 @@ The entry-strip and raw-contact values below come from the reference-machine tra
 | `minimumVerticalMove` | 0.015 | `EdgeGestureTypes.swift` | 1.5% of trackpad height must be covered within the entry deadline for activation ("obvious vertical motion"). |
 | `directionalityRatio` | 0.80 | `EdgeGestureTypes.swift` | At least 80% of the pre-activation vertical path must remain in one direction; deliberate traces measured about 0.9+, palm jitter about 0.5–0.6. |
 | `entryTimeout` | 0.450 s | `EdgeGestureTypes.swift` | See "Entry deadline" below. |
+| Active reversal deadband | 0.005 | `GestureEngine.swift` | Opposite-side displacement beyond 0.5% cancels against the committed activation direction; smaller baseline noise is tolerated. |
 
 ## Independent adjustment speed and false-touch protection
 
@@ -70,6 +71,10 @@ The candidate and active phases deliberately use different widths. A candidate t
 ## Directionality hardening (0.75 → 0.80)
 
 The reference traces separated palm jitter (~0.5–0.6) from deliberate slides (~0.9+) cleanly. Raising the threshold to 0.80 also rejects a borderline 0.75 oscillating path. This requirement applies only before activation; deliberate fine adjustment remains available after the session is Active.
+
+## Active zero-cross cancellation
+
+The direction that satisfies activation is stored for the active lifecycle. A same-side round trip remains adjustable, but displacement more than 0.5% beyond the activation baseline in the opposite direction cancels the gesture. Comparing with the committed direction, rather than only the immediately previous sample, prevents a gradual reversal from crossing first inside the noise deadband and escaping cancellation on its next frame.
 
 ## Haptic detents (UX feel, Diang-verified)
 

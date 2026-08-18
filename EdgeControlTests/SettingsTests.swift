@@ -207,6 +207,29 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(AppSettings(defaults: defaults).externalDDCEnabled)
     }
 
+    func testExternalDDCWritesBackToTheResponsiveConnection() {
+        XCTAssertEqual(
+            ExternalDDCBackend.resolvedConnectionIndex(
+                lastResponsiveIndex: 1,
+                connectionCount: 2
+            ),
+            1
+        )
+        XCTAssertEqual(
+            ExternalDDCBackend.resolvedConnectionIndex(
+                lastResponsiveIndex: nil,
+                connectionCount: 2
+            ),
+            0
+        )
+        XCTAssertNil(
+            ExternalDDCBackend.resolvedConnectionIndex(
+                lastResponsiveIndex: 0,
+                connectionCount: 0
+            )
+        )
+    }
+
     private func makeDefaults() -> (UserDefaults, String) {
         let name = "EdgeControlTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!

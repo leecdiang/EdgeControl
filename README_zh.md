@@ -23,9 +23,9 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 
 ## 状态
 
-1.3.0 基线已于 2026-08-16/17 在 macOS 26.5（Apple Silicon MacBook Air）上完成真机验证。1.5.0 在 1.4.0 基础上新增三档触觉反馈，并把精简 HUD 改为更凝实的真实磨砂效果；发布前须完成 `OPENCLAW_VALIDATE_1.5.0.md` 的 macOS 矩阵。早期逐项证据见 [BUILD_REPORT.md](BUILD_REPORT.md)。
+1.5.0 已于 2026-08-18 完成真机验证并发布。1.5.1 是已准备源码的可靠性更新，修复渐进过零、强档尾随脉冲生命周期与多显示器 DDC 路由；发布前须在 macOS 完成 `OPENCLAW_VALIDATE_1.5.1.md`。当前证据边界见 [BUILD_REPORT.md](BUILD_REPORT.md)。
 
-手势识别、打字保护、数值映射、亮度路由、触控板选择策略、档位、触觉反馈与设置层由 55 个单元测试方法覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
+手势识别、打字保护、数值映射、亮度路由、触控板选择策略、档位、触觉反馈与设置层由 60 个单元测试方法覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
 
 ## 功能
 
@@ -38,8 +38,8 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 - CoreAudio 音量控制（默认输出设备变化自动重解析、不支持设备有处理）
 - 运行时动态加载 DisplayServices 控制内屏亮度
 - 可选、隔离的 DDC/CI VCP `0x10` 外接显示器后端（实验性，默认关闭）
-- 单次手势锁定亮度后端：仅在明确开启且真实可用时考虑 External DDC；内屏瞬时枚举失败会重试，不再误报 DDC 错误
-- 三档触觉反馈：轻档使用更稀疏的轻震，标准档保留原有 2% 手感，强档使用更有力的公开 AppKit 系统反馈
+- 单次手势锁定亮度后端：仅在明确开启且真实可用时考虑 External DDC；内屏瞬时枚举失败会重试；多显示器写入复用初始读取成功的连接
+- 三档触觉反馈：轻档使用更稀疏的轻震，标准档保留原有 2% 手感，强档使用更有力的公开 AppKit 系统反馈；结束/复位时取消尚未触发的第二次脉冲
 - 可选的“仅从下半部分开始”过滤：中线以上出生的触点直接拒绝；通过准入后仍从当前系统数值开始相对调节
 - 触控板来源选择：自动 / 内置触控板 / 外接 Magic Trackpad，选择可持久化，并显示当前设备类型及提供手动重扫
 - 仅在手势进入 `Active` 后冻结指针；应用退出时系统自动恢复指针关联
@@ -88,7 +88,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 ```bash
 ./Scripts/package_dmg.sh \
   ./build/DerivedData/Build/Products/Release/EdgeControl.app \
-  ./dist/EdgeControl-1.5.0-macOS.dmg
+  ./dist/EdgeControl-1.5.1-macOS.dmg
 ```
 
 脚本只使用 macOS 自带工具（`hdiutil`、Finder/AppleScript、`codesign`、`xcrun`）。左侧 `EdgeControl.app`、右侧 `Applications` 软链，随后转换为压缩只读 DMG。已验证布局：App 在 (145,175)、Applications 在 (410,175)、图标 104px。
@@ -108,7 +108,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 | 入口时限 | 450 ms | 保留实测 256–331ms 的刻意滑入，拒绝原先 620ms 的停靠后再发力 |
 | 过零反向取消 | — | 会话漂回起点（净位移变号）时取消，往返/微调不受影响 |
 
-状态机：`idle → entryCandidate → entryConfirmed → active`。内部出生、最近打字、错误初始方向、超时、身份变化、离开走廊、多指都会产生当前生命周期的终态拒绝；打字拒绝与 `multiTouchRejected` 都只在空帧后复位。
+状态机：`idle → entryCandidate → entryConfirmed → active`。内部出生、最近打字、错误初始方向、超时、身份变化、离开走廊、多指都会产生当前生命周期的终态拒绝；激活后的过零保护固定使用触发激活的方向，缓慢反向无法借基线死区绕过取消；打字拒绝与 `multiTouchRejected` 都只在空帧后复位。
 
 ## 权限
 

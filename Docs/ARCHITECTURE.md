@@ -21,7 +21,7 @@ Every additional macOS/architecture target must confirm that those assumptions s
 
 `GestureEngine` imports Foundation only. It accepts `TouchFrame` values and emits `EdgeGestureEvent` values. It does not know about C records, CoreAudio, displays, UI, haptics, or settings.
 
-Eligibility is assigned only on the first non-empty frame of a contact lifecycle. The engine never “rescues” an interior-born contact after it reaches the edge. Multi-touch is a global lifecycle latch. Before activation, candidates must remain in a narrow 3% edge corridor and establish 80%-directional vertical intent within 450ms. Active gestures use the wider 8% control corridor and cancel when they leave it.
+Eligibility is assigned only on the first non-empty frame of a contact lifecycle. The engine never “rescues” an interior-born contact after it reaches the edge. Multi-touch is a global lifecycle latch. Before activation, candidates must remain in a narrow 3% edge corridor and establish 80%-directional vertical intent within 450ms. Active gestures use the wider 8% control corridor and cancel when they leave it. The activation direction is committed in `ActiveContact`; displacement beyond the 0.5% noise deadband on the opposite side of the activation baseline cancels even when the crossing occurred gradually through smaller samples.
 
 `RecentKeyboardActivityGuard` uses public CoreGraphics to query only elapsed time since the latest key-down. It does not capture key codes or text. `EdgeControlAppModel` converts that system fact into a boolean admission input, preserving the Foundation-only recognizer boundary. The independent false-touch profile supplies a fixed 600/350/200ms window and 0.6%/0.8%/1.0% left plus 1.2%/1.5%/1.9% right birth strip. All other recognizer safety thresholds remain invariant. Recent typing may reject only idle/candidate states; the rejection remains latched until an empty frame, and Active gestures ignore it.
 
@@ -37,14 +37,14 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 
 - `VolumeController`: public CoreAudio only; default output device is resolved on every operation.
 - `BuiltInDisplayBackend`: finds an active built-in display using CoreGraphics, then calls runtime-loaded DisplayServices.
-- `ExternalDDCBackend`: enumerates non-built-in online displays and owns isolated DDC handles.
+- `ExternalDDCBackend`: enumerates non-built-in online displays, owns isolated DDC handles, and remembers the connection that successfully returned the initial VCP `0x10` value so writes target the same monitor.
 - `DisplayBrightnessController`: refreshes and prioritizes the built-in display at gesture start. External DDC is eligible only when explicitly enabled and backed by a live connection. A `BrightnessControlSession` pins the selected backend for the gesture, so availability changes cannot silently reroute an in-flight adjustment.
 - `BuiltInDisplayBackend`: distinguishes display-list query failure from a successful list with no built-in panel. Query failure preserves the last known ID; a valid external-only list clears it for clamshell mode.
 
 ### Feedback boundary
 
 - `HapticEngine` chooses between a public AppKit performer and an opt-in private actuator backend.
-- `DetentTracker` is pure logic with hysteresis. Standard/Strong use 2% spacing; Light uses 4% spacing. Standard preserves the prior `.alignment` pattern, while Strong uses the public `.generic` pattern because AppKit exposes no amplitude control.
+- `DetentTracker` is pure logic with hysteresis. Standard/Strong use 2% spacing; Light uses 4% spacing. Standard preserves the prior `.alignment` pattern, while Strong uses the public `.generic` pattern because AppKit exposes no amplitude control. Strong's secondary pulse is a cancellable task owned by `HapticEngine`; gesture end and wake reset invalidate it.
 - `CursorController` uses CoreGraphics cursor/mouse association only after activation.
 - `HUDController` owns one persistent non-activating, click-through floating `NSPanel` and one observable SwiftUI model; touch updates mutate the model rather than rebuilding `NSHostingView`.
 - The normal HUD is a 144×40 single-row capsule and error content expands to 212×40. A capsule-clipped `NSVisualEffectView` supplies active `.hudWindow` blur on macOS 13+, with a 52% semantic veil and tint above it. Both AppKit and SwiftUI clip the backdrop to prevent a rectangular ambient plate. Reduce Transparency switches to an opaque system background and Reduce Motion removes the scale transition.

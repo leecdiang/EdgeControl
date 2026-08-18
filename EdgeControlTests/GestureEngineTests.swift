@@ -242,6 +242,35 @@ final class GestureEngineTests: XCTestCase {
         }
     }
 
+    func testGradualZeroCrossingCannotEscapeThroughDeadband() {
+        // Cross the activation baseline first inside the 0.5% noise deadband,
+        // then continue farther in the opposite direction. The committed
+        // activation direction must still reject the later frame.
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.001, y: 0.50)
+        trace.contact(x: 0.005, y: 0.55, after: 0.05)   // activate upward
+        trace.contact(x: 0.005, y: 0.58, after: 0.05)   // +0.03
+        trace.contact(x: 0.005, y: 0.548, after: 0.05)  // -0.002, deadband
+        trace.contact(x: 0.005, y: 0.52, after: 0.05)   // -0.03, reject
+
+        let events = trace.events(using: GestureEngine())
+        XCTAssertEqual(events.count, 4)
+        guard case .began(edge: .left) = events[0] else {
+            return XCTFail("expected began(left), got \(events[0])")
+        }
+        guard case let .changed(edge: .left, firstDelta) = events[1] else {
+            return XCTFail("expected first changed(left), got \(events[1])")
+        }
+        XCTAssertEqual(firstDelta, 0.03, accuracy: 0.0001)
+        guard case let .changed(edge: .left, deadbandDelta) = events[2] else {
+            return XCTFail("expected deadband changed(left), got \(events[2])")
+        }
+        XCTAssertEqual(deadbandDelta, -0.002, accuracy: 0.0001)
+        guard case .cancelled(edge: .left) = events[3] else {
+            return XCTFail("expected cancelled(left), got \(events[3])")
+        }
+    }
+
     func testRecentTypingRejectsLifecycleUntilLift() {
         let engine = GestureEngine()
         let birth = TouchFrame(

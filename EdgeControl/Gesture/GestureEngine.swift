@@ -6,6 +6,11 @@ import Foundation
 /// birth position. A contact born in the interior can never become eligible
 /// later in the same lifecycle. Feed an empty frame after all fingers lift.
 final class GestureEngine {
+    enum VerticalDirection: Sendable, Equatable {
+        case up
+        case down
+    }
+
     struct Candidate: Sendable, Equatable {
         let contactID: Int
         let edge: Edge
@@ -24,8 +29,7 @@ final class GestureEngine {
         let activationY: Double
         var lastX: Double
         var lastY: Double
-        var maxNetDeltaY: Double
-        var lastNetDeltaY: Double?
+        let committedDirection: VerticalDirection
     }
 
     enum State: Sendable, Equatable {
@@ -244,8 +248,7 @@ final class GestureEngine {
                 activationY: contact.y,
                 lastX: contact.x,
                 lastY: contact.y,
-                maxNetDeltaY: 0,
-                lastNetDeltaY: nil
+                committedDirection: rawDY > 0 ? .up : .down
             )
         )
         return [.began(edge: candidate.edge)]
@@ -271,20 +274,19 @@ final class GestureEngine {
 
         let deltaY = contact.y - active.activationY
         let net = abs(deltaY)
-        active.maxNetDeltaY = max(active.maxNetDeltaY, net)
 
-        // Zero-cross cancellation: a session that drifts back past its starting
-        // value (net changes sign) is an oscillation, not a control gesture —
-        // cancel it at the baseline (net effect ~0). Round-trip gestures and
-        // fine-tuning that stay on one side of the start are unaffected.
-        if active.maxNetDeltaY > 0,
-           let lastNet = active.lastNetDeltaY,
-           lastNet * deltaY < 0,
-           net > 0.005 {
-            state = .rejected(.verticalReversal)
-            return [.cancelled(edge: active.edge)]
+        // Keep the direction that caused activation. Comparing against the
+        // immediately previous sample lets a slow crossing hide inside the
+        // deadband and escape cancellation on a later frame. A committed
+        // direction closes that path while retaining a small baseline
+        // deadband for sensor noise and fine adjustment.
+        if net > 0.005 {
+            let direction: VerticalDirection = deltaY > 0 ? .up : .down
+            if direction != active.committedDirection {
+                state = .rejected(.verticalReversal)
+                return [.cancelled(edge: active.edge)]
+            }
         }
-        active.lastNetDeltaY = deltaY
 
         let moved = contact.x != active.lastX || contact.y != active.lastY
         active.lastX = contact.x

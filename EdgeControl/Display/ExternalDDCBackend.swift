@@ -19,6 +19,7 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
     }
 
     private var connections: [Connection] = []
+    private var selectedConnectionIndex: Int?
 
     /// V1 experimental gate: DDC/CI over I2C is unvalidated on other hardware,
     /// so it is disabled unless explicitly enabled (default false).
@@ -31,6 +32,7 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
     }
 
     func refresh() {
+        selectedConnectionIndex = nil
         connections.removeAll()
         guard enabled else { return }
 
@@ -51,11 +53,13 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
     }
 
     func getBrightness() throws -> Double {
-        for connection in connections {
+        selectedConnectionIndex = nil
+        for (index, connection) in connections.enumerated() {
             var current: UInt16 = 0
             var maximum: UInt16 = 0
             if ec_ddc_get_vcp10(connection.handle, &current, &maximum), maximum > 0 {
                 connection.maximum = maximum
+                selectedConnectionIndex = index
                 return min(1.0, max(0.0, Double(current) / Double(maximum)))
             }
         }
@@ -63,9 +67,13 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
     }
 
     func setBrightness(_ value: Double) throws {
-        guard let connection = connections.first else {
+        guard let index = Self.resolvedConnectionIndex(
+            lastResponsiveIndex: selectedConnectionIndex,
+            connectionCount: connections.count
+        ) else {
             throw ControlError.unavailable("No external DDC display is available.")
         }
+        let connection = connections[index]
 
         if connection.maximum == nil {
             var current: UInt16 = 0
@@ -83,5 +91,21 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
         guard ec_ddc_set_vcp10(connection.handle, rawValue) else {
             throw ControlError.writeFailed("The external display rejected DDC/CI VCP 0x10.")
         }
+    }
+
+    /// A brightness session first reads a responsive monitor, then writes the
+    /// same connection. Falling back to index zero preserves direct-write
+    /// behavior for callers that have not performed an initial read.
+    static func resolvedConnectionIndex(
+        lastResponsiveIndex: Int?,
+        connectionCount: Int
+    ) -> Int? {
+        guard connectionCount > 0 else { return nil }
+        if let lastResponsiveIndex,
+           lastResponsiveIndex >= 0,
+           lastResponsiveIndex < connectionCount {
+            return lastResponsiveIndex
+        }
+        return 0
     }
 }

@@ -52,6 +52,7 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
+                Toggle("Haptic feedback", isOn: $settings.hapticFeedback)
                 Picker("Haptic strength", selection: $settings.hapticStrength) {
                     ForEach(HapticStrength.allCases) { strength in
                         Text(strength.title).tag(strength)
@@ -67,7 +68,6 @@ struct SettingsView: View {
             .tabItem { Label("Controls", systemImage: "slider.vertical.3") }
 
             Form {
-                Toggle("Haptic feedback", isOn: $settings.hapticFeedback)
                 Toggle("Show HUD", isOn: $settings.showHUD)
                 Toggle("Colorful HUD", isOn: $settings.colorfulHUD)
                 Text("Off: system-style neutral HUD. On: tinted volume/brightness colors.")

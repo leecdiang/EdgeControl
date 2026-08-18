@@ -21,11 +21,11 @@ required=(
   "LICENSE"
   "THIRD_PARTY_NOTICES.md"
   "HANDOFF_TO_OPENCLAW.md"
-  "OPENCLAW_VALIDATE_1.5.0.md"
-  "RELEASE_NOTES_1.5.0.md"
+  "OPENCLAW_VALIDATE_1.5.1.md"
+  "RELEASE_NOTES_1.5.1.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
-  "Docs/RELEASE_NOTES_1.5.0.md"
-  "Docs/RELEASE_NOTES_1.5.0.zh.md"
+  "Docs/RELEASE_NOTES_1.5.1.md"
+  "Docs/RELEASE_NOTES_1.5.1.zh.md"
   "Docs/STATIC_BUG_AUDIT_1.3.1.md"
   "Docs/STATIC_BUG_AUDIT_1.4.0.md"
 )
@@ -38,9 +38,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.5.0;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.5.1;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.5.0, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.5.1, found $version_count." >&2
+  exit 1
+fi
+
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 2;' "$project_file" | wc -l | tr -d ' ')"
+if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
+  echo "Expected build number 2 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -75,8 +81,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 55 ]]; then
-  echo "Expected at least 55 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 60 ]]; then
+  echo "Expected at least 60 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
@@ -143,6 +149,21 @@ for expected_marker in "${required_typing_latch_markers[@]}"; do
   fi
 done
 
+required_zero_cross_markers=(
+  "committedDirection"
+  "direction != active.committedDirection"
+  "testGradualZeroCrossingCannotEscapeThroughDeadband"
+)
+
+for expected_marker in "${required_zero_cross_markers[@]}"; do
+  if ! grep -R -Fq "$expected_marker" \
+    "$project_root/EdgeControl/Gesture/GestureEngine.swift" \
+    "$project_root/EdgeControlTests/GestureEngineTests.swift"; then
+    echo "Committed zero-cross guard drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
 if grep -R -n -E 'CGEventTap|addGlobalMonitorForEvents|IOHIDManager' \
   "$project_root/EdgeControl" --include='*.swift' --include='*.c'; then
   echo "Keyboard capture/monitor API found; elapsed-time-only policy violated." >&2
@@ -160,6 +181,21 @@ required_brightness_routing_markers=(
 for expected_marker in "${required_brightness_routing_markers[@]}"; do
   if ! grep -Fq "$expected_marker" "$brightness_controller"; then
     echo "Brightness routing guard drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+ddc_backend="$project_root/EdgeControl/Display/ExternalDDCBackend.swift"
+required_ddc_session_markers=(
+  "selectedConnectionIndex = index"
+  "lastResponsiveIndex: selectedConnectionIndex"
+  "testExternalDDCWritesBackToTheResponsiveConnection"
+)
+
+for expected_marker in "${required_ddc_session_markers[@]}"; do
+  if ! grep -R -Fq "$expected_marker" \
+    "$ddc_backend" "$project_root/EdgeControlTests/SettingsTests.swift"; then
+    echo "DDC responsive-connection pinning drifted or is missing: $expected_marker" >&2
     exit 1
   fi
 done
@@ -205,6 +241,22 @@ required_hud_markers=(
 for expected_marker in "${required_hud_markers[@]}"; do
   if ! grep -Fq "$expected_marker" "$hud_controller"; then
     echo "Compact HUD invariant drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+haptic_engine="$project_root/EdgeControl/Feedback/HapticEngine.swift"
+required_haptic_lifecycle_markers=(
+  "secondaryPulseTask?.cancel()"
+  "pulseGeneration == generation"
+  "testEndingGestureCancelsPendingStrongSecondaryPulse"
+  "testWakeResetCancelsPendingStrongSecondaryPulse"
+)
+
+for expected_marker in "${required_haptic_lifecycle_markers[@]}"; do
+  if ! grep -R -Fq "$expected_marker" \
+    "$haptic_engine" "$project_root/EdgeControlTests/HapticEngineTests.swift"; then
+    echo "Strong haptic lifecycle guard drifted or is missing: $expected_marker" >&2
     exit 1
   fi
 done

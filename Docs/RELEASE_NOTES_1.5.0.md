@@ -19,6 +19,6 @@ Adds three haptic-strength profiles and a denser, genuinely frosted compact HUD.
 
 ## Tests and validation
 
-- Three regressions cover haptic preference persistence/fallback, Standard compatibility, Light detent density, and Strong pattern selection. The source suite now contains 55 XCTest methods.
+- The published source contains 56 XCTest methods covering haptic preference persistence/fallback, Standard compatibility, Light detent density, Strong pattern selection, and the validated Strong double pulse.
 - Source-side repository guards and shell checks pass. Xcode build/tests and physical haptic/HUD inspection remain required on macOS before publishing.
 - AppKit exposes system feedback patterns, not a numeric amplitude. Perceived ordering can vary by hardware; validate built-in and external Force Touch trackpads.
