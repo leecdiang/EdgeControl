@@ -30,7 +30,15 @@ run_tests() {
 
 run_build() {
   xcodebuild "${common_args[@]}" -configuration Release clean build "${signing_args[@]}"
-  echo "Built app: $derived_data/Build/Products/Release/EdgeControl.app"
+  local app_path="$derived_data/Build/Products/Release/EdgeControl.app"
+  if [[ -z "${DEVELOPMENT_TEAM:-}" && -d "$app_path" ]]; then
+    # Full ad-hoc re-sign: without this, the bundle only carries a linker
+    # signature on arm64 (no _CodeSignature/CodeResources, x86_64 slice
+    # unsigned). A complete ad-hoc signature is free and makes the app
+    # verifiable on any Mac.
+    codesign --force --sign - "$app_path"
+  fi
+  echo "Built app: $app_path"
 }
 
 run_archive() {

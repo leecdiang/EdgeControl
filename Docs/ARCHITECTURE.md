@@ -51,7 +51,7 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 
 ### Presentation boundary
 
-- `MenuBarExtra` uses window style so `MenuBarMenuView` can present a 292-point system-material popover. It reads the same `AppSettings` object as the full Settings window; there is no duplicated menu-only state.
+- `MenuBarExtra` uses window style so `MenuBarMenuView` can present a 304-point system-material popover. It reads the same `AppSettings` object as the full Settings window; there is no duplicated menu-only state.
 - The popover exposes only high-frequency controls: master enablement, both edge assignments, Haptic, HUD, launch at login, Settings, and Quit. Device warnings reflect `EdgeControlAppModel.touchStatus`/`lastError`.
 - `SettingsView` separates Controls, Feedback, Devices, and About into system-rendered cards. `EdgeControlAppModel` owns one reusable 560×470 `NSWindow`, preventing duplicate Settings windows and content-dependent resizing.
 - `HUDColorStyle` is persisted as a raw value. The old `colorfulHUD` boolean is read only when the new key is absent, mapping false to System and true to Classic.

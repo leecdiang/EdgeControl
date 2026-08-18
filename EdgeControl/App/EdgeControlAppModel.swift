@@ -41,6 +41,7 @@ final class EdgeControlAppModel: ObservableObject {
     private var hasLiveTouchContacts = false
     private var discardTouchFramesUntilLift = false
     private var touchWatchdogTask: Task<Void, Never>?
+    private var frameGeneration: UInt64 = 0
 
     private lazy var systemEventMonitor = SystemEventMonitor(
         onSleep: { [weak self] in self?.finishSession() },
@@ -138,6 +139,7 @@ final class EdgeControlAppModel: ObservableObject {
         finishSession()
         hapticEngine.resetAfterWake()
         trackpadManager.stop()
+        frameGeneration &+= 1
         hasLiveTouchContacts = false
         discardTouchFramesUntilLift = false
         gestureEngine = Self.makeGestureEngine(settings: settings)
@@ -189,10 +191,11 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     private func startTouchInput() {
+        let generation = frameGeneration
         do {
             try trackpadManager.start(preference: settings.trackpadPreference) { [weak self] frame in
                 Task { @MainActor [weak self] in
-                    self?.consume(frame)
+                    self?.consume(frame, generation: generation)
                 }
             }
             touchStatus = .running(trackpadManager.selectedKind)
@@ -273,9 +276,11 @@ final class EdgeControlAppModel: ObservableObject {
         gestureEngine = Self.makeGestureEngine(settings: settings)
         brightnessController.refresh()
         hapticEngine.resetAfterWake()
+        frameGeneration &+= 1
+        let generation = frameGeneration
         do {
             try trackpadManager.restart(preference: settings.trackpadPreference) { [weak self] frame in
-                Task { @MainActor [weak self] in self?.consume(frame) }
+                Task { @MainActor [weak self] in self?.consume(frame, generation: generation) }
             }
             touchStatus = .running(trackpadManager.selectedKind)
         } catch {
@@ -291,7 +296,8 @@ final class EdgeControlAppModel: ObservableObject {
         brightnessController.refresh()
     }
 
-    private func consume(_ frame: TouchFrame) {
+    private func consume(_ frame: TouchFrame, generation: UInt64) {
+        guard generation == frameGeneration else { return }
         lastTouchFrameUptime = ProcessInfo.processInfo.systemUptime
 
         // After callback silence, a resumed frame may still carry the old

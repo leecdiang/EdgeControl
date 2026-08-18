@@ -6,7 +6,7 @@ Checked items have recorded evidence on the macOS 26.5 arm64 reference machine. 
 
 - [x] Open and build the 1.1.0 baseline with Xcode 26.6.
 - [x] Run clean Debug and Release builds for Apple Silicon (1.1.0 baseline).
-- [ ] Rebuild and run all 61 tests for the 1.6.0 source.
+- [x] Rebuild and run all 67 tests for the 1.6.1 source.
 - [ ] Run a clean Debug build for Intel or an Intel CI runner.
 - [x] Resolve baseline Swift strict-concurrency diagnostics without weakening isolation globally.
 - [x] Confirm the bridging callback converts cleanly to the imported C function-pointer type on Xcode 26.6.
@@ -123,7 +123,7 @@ File: `ECPrivateAPIBridge.c`, symbols `DisplayServicesGetBrightness` and `Displa
 
 ## Menu bar and Settings
 
-- [ ] Inspect the 292-point custom menu in light/dark appearance and with larger text; no status, card, quick toggle, warning, Settings, or Quit control may clip.
+- [ ] Inspect the 304-point custom menu in light/dark appearance and with larger text; no status, card, quick toggle, warning, Settings, or Quit control may clip.
 - [ ] Confirm left/right edge cards, master, Haptic, HUD, and Login controls mutate the same settings as the full Settings window.
 - [ ] Confirm the window-style menu closes normally when clicking elsewhere and does not steal focus from the foreground app during ordinary open/close use.
 - [ ] Inspect Controls, Feedback, Devices, and About at the 520×430 minimum and after resizing; cards and captions must remain readable without horizontal clipping.

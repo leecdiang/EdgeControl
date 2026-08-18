@@ -269,6 +269,92 @@ final class SettingsTests: XCTestCase {
 }
 
 @MainActor
+final class DDCParsingTests: XCTestCase {
+    // Builds a standard DDC/CI Get VCP Feature reply (VCP 0x10):
+    // [0x02, result, 0x10, type, mh, ml, sh, sl, checksum]
+    // with the checksum byte chosen so the XOR of the 9 bytes is zero.
+    private func makeReply(
+        maximum: UInt16,
+        current: UInt16,
+        resultCode: UInt8 = 0x00,
+        leading: [UInt8] = []
+    ) -> [UInt8] {
+        var bytes: [UInt8] = leading + [0x02, resultCode, 0x10, 0x00]
+        bytes.append(UInt8(maximum >> 8))
+        bytes.append(UInt8(maximum & 0xFF))
+        bytes.append(UInt8(current >> 8))
+        bytes.append(UInt8(current & 0xFF))
+        let checksum = bytes.reduce(UInt8(0), ^)
+        bytes.append(checksum)
+        return bytes
+    }
+
+    func testParsesStandardReplyLayout() {
+        let reply = makeReply(maximum: 100, current: 50)
+        var current: UInt16 = 0
+        var maximum: UInt16 = 0
+        XCTAssertTrue(reply.withUnsafeBytes { buffer in
+            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
+        })
+        XCTAssertEqual(maximum, 100)
+        XCTAssertEqual(current, 50)
+    }
+
+    func testParsesReplyWithLeadingDestinationByte() {
+        let reply = makeReply(maximum: 200, current: 75, leading: [0x6F])
+        var current: UInt16 = 0
+        var maximum: UInt16 = 0
+        XCTAssertTrue(reply.withUnsafeBytes { buffer in
+            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
+        })
+        XCTAssertEqual(maximum, 200)
+        XCTAssertEqual(current, 75)
+    }
+
+    func testRejectsNonZeroResultCode() {
+        // result 0x01 = unsupported op code
+        let reply = makeReply(maximum: 100, current: 50, resultCode: 0x01)
+        var current: UInt16 = 0
+        var maximum: UInt16 = 0
+        XCTAssertFalse(reply.withUnsafeBytes { buffer in
+            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
+        })
+    }
+
+    func testRejectsCorruptChecksum() {
+        var reply = makeReply(maximum: 100, current: 50)
+        reply[reply.count - 1] ^= 0x01 // flip one bit in the checksum byte
+        var current: UInt16 = 0
+        var maximum: UInt16 = 0
+        XCTAssertFalse(reply.withUnsafeBytes { buffer in
+            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
+        })
+    }
+
+    func testRejectsWrongVCPCode() {
+        // VCP 0x12 (contrast) instead of 0x10 must not be accepted as brightness.
+        var reply = makeReply(maximum: 100, current: 50)
+        reply[2] = 0x12
+        // Recompute checksum over the mutated message.
+        reply[reply.count - 1] = reply.dropLast().reduce(UInt8(0), ^)
+        var current: UInt16 = 0
+        var maximum: UInt16 = 0
+        XCTAssertFalse(reply.withUnsafeBytes { buffer in
+            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
+        })
+    }
+
+    func testRejectsTruncatedReply() {
+        let reply = Array(makeReply(maximum: 100, current: 50).prefix(5))
+        var current: UInt16 = 0
+        var maximum: UInt16 = 0
+        XCTAssertFalse(reply.withUnsafeBytes { buffer in
+            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
+        })
+    }
+}
+
+@MainActor
 final class BrightnessRoutingTests: XCTestCase {
     func testMissingExternalNeverProducesAnImplicitDDCError() {
         let builtIn = FakeBrightnessBackend(isAvailable: false, value: 0.4)

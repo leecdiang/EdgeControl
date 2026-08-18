@@ -66,6 +66,7 @@ typedef struct ECDDCHandle ECDDCHandle;
 ECDDCHandle *ec_ddc_open(uint32_t display_id);
 void ec_ddc_close(ECDDCHandle *handle);
 bool ec_ddc_get_vcp10(ECDDCHandle *handle, uint16_t *current_value, uint16_t *maximum_value);
+bool ec_ddc_parse_vcp10_reply(const uint8_t *reply, size_t reply_count, uint16_t *current_value, uint16_t *maximum_value);
 bool ec_ddc_set_vcp10(ECDDCHandle *handle, uint16_t value);
 
 #ifdef __cplusplus

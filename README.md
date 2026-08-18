@@ -23,7 +23,7 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 ## Status
 
-Version 1.5.1 preserves the native menu and delivers the zero-cross, Strong-pulse lifecycle, and multi-display DDC reliability fixes. Version 1.6.0 builds on it with a custom frosted menu, grouped Settings, and three HUD color styles; run `OPENCLAW_VALIDATE_1.6.0.md` on macOS before publishing. See [BUILD_REPORT.md](BUILD_REPORT.md) for the current evidence boundary.
+Version 1.5.1 preserves the native menu and delivers the zero-cross, Strong-pulse lifecycle, and multi-display DDC reliability fixes. Version 1.6.0 builds on it with a custom frosted menu, grouped Settings, and three HUD color styles. Version 1.6.1 fixes the experimental DDC reply field offset, adds a complete ad-hoc bundle signature, and updates the docs. See [BUILD_REPORT.md](BUILD_REPORT.md) for the current evidence boundary.
 
 The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 61 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
@@ -61,11 +61,11 @@ The 450ms intent deadline, 3% candidate corridor, 8% Active corridor, 0.80 direc
 
 ## Start in lower half only
 
-With "Start in lower half only" enabled (Settings > System), only contacts born at or below the normalized trackpad midline can become gestures. Contacts born above it are rejected for their entire lifetime, which helps when the upper half tends to catch a resting palm or stray touch. Once accepted, adjustment is still relative to the volume or brightness captured at activation; the finger's entry height is never written directly as a value. At the default gain, 50% of normalized vertical travel is enough to span the full adjustment range.
+With "Start in lower half only" enabled (Settings > Devices), only contacts born at or below the normalized trackpad midline can become gestures. Contacts born above it are rejected for their entire lifetime, which helps when the upper half tends to catch a resting palm or stray touch. Once accepted, adjustment is still relative to the volume or brightness captured at activation; the finger's entry height is never written directly as a value. At the default gain, 50% of normalized vertical travel is enough to span the full adjustment range.
 
 ## External Magic Trackpad (experimental)
 
-Since version 1.3.0, EdgeControl can explicitly select a built-in or external trackpad in Settings > System. Automatic mode preserves the 1.2.x `MTDeviceCreateDefault` path. Explicit selection dynamically resolves `MTDeviceCreateList`, `MTDeviceIsBuiltIn`, and `MTDeviceGetSensorSurfaceDimensions`; external candidates must be non-built-in and report a landscape touch surface. This is designed to reject portrait-oriented devices such as Magic Mouse and must be confirmed on real hardware. If the required private symbols or a matching device are unavailable, the app fails closed with a visible error.
+Since version 1.3.0, EdgeControl can explicitly select a built-in or external trackpad in Settings > Devices. Automatic mode preserves the 1.2.x `MTDeviceCreateDefault` path. Explicit selection dynamically resolves `MTDeviceCreateList`, `MTDeviceIsBuiltIn`, and `MTDeviceGetSensorSurfaceDimensions`; external candidates must be non-built-in and report a landscape touch surface. This is designed to reject portrait-oriented devices such as Magic Mouse and must be confirmed on real hardware. If the required private symbols or a matching device are unavailable, the app fails closed with a visible error.
 
 Connect or disconnect a trackpad, then use "Rescan Trackpads" (or restart the app). Sleep/wake also reopens the selected source. External selection currently chooses the first matching Magic Trackpad and requires hardware validation before this release is published; automatic hot-plug switching and per-device calibration are not claimed.
 
@@ -84,7 +84,7 @@ Private interfaces can vary by OS release and hardware. External DDC support is 
 ./Scripts/build_release.sh build
 ```
 
-The script disables code signing for local compilation when no `DEVELOPMENT_TEAM` is present. Release signing is ad-hoc on this machine (no Developer ID available); see [Docs/NOTARIZATION.md](Docs/NOTARIZATION.md) for the production path.
+The script disables code signing for local compilation when no `DEVELOPMENT_TEAM` is present, then re-signs the built app ad-hoc with a complete bundle signature (`codesign --force --sign -`), so both slices carry an ad-hoc signature and `_CodeSignature/CodeResources` exists. No Developer ID is available on this machine; see [Docs/NOTARIZATION.md](Docs/NOTARIZATION.md) for the production path.
 
 ## Package a drag-to-Applications DMG
 

@@ -23,7 +23,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 
 ## 状态
 
-1.5.1 保留原生菜单，并提供过零、强档脉冲生命周期与多显示器 DDC 可靠性修复。1.6.0 在其基础上新增自定义磨砂菜单、分组式设置及三档 HUD 配色；发布前须在 macOS 完成 `OPENCLAW_VALIDATE_1.6.0.md`。当前证据边界见 [BUILD_REPORT.md](BUILD_REPORT.md)。
+1.5.1 保留原生菜单，并提供过零、强档脉冲生命周期与多显示器 DDC 可靠性修复。1.6.0 在其基础上新增自定义磨砂菜单、分组式设置及三档 HUD 配色。1.6.1 修复实验性 DDC 应答字段偏移、补完整 ad-hoc bundle 签名并同步文档。当前证据边界见 [BUILD_REPORT.md](BUILD_REPORT.md)。
 
 手势识别、打字保护、数值映射、亮度路由、触控板选择策略、档位、触觉反馈与设置层由 61 个单元测试方法覆盖。依赖未公开 macOS ABI 的代码全部通过 `dlopen`/`dlsym` 动态加载，符号缺失时优雅降级（该功能不可用，应用照常运行），而不是启动崩溃。
 
@@ -67,7 +67,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 
 从 1.3.0 起，可在“设置 → System”里明确选择内置或外接触控板。“自动”完整保留 1.2.x 的 `MTDeviceCreateDefault` 路径；显式选择会动态解析 `MTDeviceCreateList`、`MTDeviceIsBuiltIn` 和 `MTDeviceGetSensorSurfaceDimensions`。外接候选必须同时满足“非内置”和“横向触控面”，其设计目标是排除 Magic Mouse 这类纵向设备，仍须用真机确认。所需私有符号或匹配设备不存在时，应用会安全失败并显示错误。
 
-连接或断开触控板后，请点击“Rescan Trackpads”或重启应用；睡眠唤醒时也会重新打开选定来源。目前外接模式选择第一块匹配的 Magic Trackpad，发布前必须完成真机验证；暂不宣称支持自动热插拔切换与逐设备校准。
+连接或断开触控板后，请点击“Rescan Trackpads”或重启应用；睡眠唤醒时也会重新打开选定来源。目前外接模式选择第一块匹配的 Magic Trackpad，尚未在真机完成验证；暂不宣称支持自动热插拔切换与逐设备校准。
 
 ## 环境要求
 
@@ -84,7 +84,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 ./Scripts/build_release.sh build
 ```
 
-本地编译时若没有 `DEVELOPMENT_TEAM`，脚本会关闭代码签名。本机（无 Developer ID 证书）为 ad-hoc 签名；正式发布路径见 [Docs/NOTARIZATION.md](Docs/NOTARIZATION.md)。
+本地编译时若没有 `DEVELOPMENT_TEAM`，脚本会关闭代码签名，随后用 `codesign --force --sign -` 对构建产物做完整 ad-hoc 重签，使两个 slice 都带 ad-hoc 签名并生成 `_CodeSignature/CodeResources`。本机无 Developer ID 证书；正式发布路径见 [Docs/NOTARIZATION.md](Docs/NOTARIZATION.md)。
 
 ## 打包拖拽安装 DMG
 
@@ -115,7 +115,7 @@ EdgeControl 是一个开源、完全离线的 macOS 菜单栏应用：把内置�
 
 ## 权限
 
-1.3.0 基线已验证不需要任何 TCC 权限（无需辅助功能、输入监控、屏幕录制、完全磁盘访问）。1.4.0 只通过公开 CoreGraphics 查询时间且不读取键值，但发布前仍须用干净账户重新确认无权限提示，并在每个目标 macOS 版本复验。
+1.3.0 基线已验证不需要任何 TCC 权限（无需辅助功能、输入监控、屏幕录制、完全磁盘访问）。1.4.0 只通过公开 CoreGraphics 查询时间且不读取键值，但尚未在干净账户与每个目标 macOS 版本上复验无权限提示。
 
 ## 隐私与联网
 

@@ -81,8 +81,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 61 ]]; then
-  echo "Expected at least 61 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 67 ]]; then
+  echo "Expected at least 67 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 

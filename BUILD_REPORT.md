@@ -1,43 +1,48 @@
-# BUILD_REPORT — EdgeControl 1.6.0 source status
+# BUILD_REPORT — EdgeControl 1.6.1 published status
 
 Date: 2026-08-18
-Status: **SOURCE PREPARED — static repository validation passes; macOS Xcode and visual/physical regression remain required**
+Status: **PUBLISHED — 67/67 XCTest pass; Release build, Universal 2, full ad-hoc bundle signature, and DMG verified on macOS**
 
-EdgeControl 1.6.0 builds on the 1.5.1 reliability source. It adds a custom window-style menu, grouped Settings, and three HUD palettes without adding assets, packages, networking, or another runtime service. The source contains 61 XCTest methods.
+EdgeControl 1.6.1 is a reliability patch on the published 1.6.0 source. It fixes the experimental DDC/CI brightness reply field offset (with result-code and checksum validation), adds a complete ad-hoc bundle signature to the Release app, drops stale touch frames after trackpad restart via a generation token, and syncs the documentation. The source contains 67 XCTest methods.
 
 ## Evidence boundary
 
-| Item | Established baseline | 1.6.0 source |
+| Item | Established baseline | 1.6.1 result |
 |---|---|---|
-| Gesture/action architecture | Covered by prior hardware and source validation | Unchanged except inherited 1.5.1 fixes |
-| Source suite | 1.5.1: 60 methods prepared | 61 methods present; macOS run required |
-| Menu/Settings | 1.5.1 native menu and flat Form | New UI; visual/interaction validation required |
-| HUD | 144×40 frost and accessibility behavior previously validated | Three palettes and neutral-glass tuning require visual validation |
-| Release build | Earlier releases passed | Required for 1.6.0 |
-| Universal 2 | Earlier binary reported `x86_64 arm64` | Required; Intel runtime still unverified |
-| External Magic Trackpad/DDC | Not fully physically validated | Still required when hardware is available |
-| Signing/notarization | Ad-hoc workflow | Developer ID/notarization unavailable |
+| Source suite | 1.6.0: 61 methods passed | 67/67 passed on macOS (Xcode 26.6) |
+| Release build | 1.6.0 passed | PASS (Universal 2: `x86_64 arm64`) |
+| Bundle signature | 1.6.0 was linker-signed on arm64 only | Full ad-hoc re-sign: both slices signed, `_CodeSignature/CodeResources` present, `codesign --verify --strict` valid |
+| DDC reply parsing | 1.6.0 read fields one byte late | Correct VESA offsets + result code + checksum; 6 byte-fixture regressions |
+| Menu/Settings | 1.6.0 visual validation on validation Mac | Unchanged from 1.6.0 |
+| HUD | 1.6.0 three palettes validated | Unchanged from 1.6.0 |
+| External Magic Trackpad/DDC hardware | Not fully physically validated | Still required when hardware is available |
+| Signing/notarization | Ad-hoc only | Developer ID/notarization unavailable |
 
-## 1.6.0 changes
+## 1.6.1 changes
 
-| Change | Implementation | Risk/control |
+| Change | Implementation | Verification |
 |---|---|---|
-| Custom menu | `.menuBarExtraStyle(.window)`, 292-point material surface, live status, two action cards, Haptic/HUD/Login quick toggles | Check light/dark, text size, focus and dismissal on macOS |
-| Grouped Settings | Four tabs and system-rendered cards in one reusable 560×470 window | Check minimum size, resizing and every binding |
-| HUD palettes | System, Classic blue/orange, Aurora purple/teal; strong color limited to progress fill | Dynamic system colors; inspect contrast on real content |
-| Legacy migration | `colorfulHUD=false/true` maps to System/Classic when `hudColorStyle` is absent | Automated persistence/migration regression |
-| Version metadata | Marketing 1.6.0, build 3, Info.plist reads project build setting | Repository invariant guard |
+| DDC/CI VCP 0x10 parsing | maximum at +4/+5, current at +6/+7 relative to the 0x02 command byte; result-code and checksum checks; optional leading byte still accepted | 6 new byte-fixture tests (`DDCParsingTests`) |
+| Complete ad-hoc signature | `codesign --force --sign -` after Release build when no `DEVELOPMENT_TEAM` | `codesign --verify --strict` passes; per-slice CDHash present |
+| Stale frame guard | `frameGeneration` token invalidated on stop/rescan/wake; frames tagged at enqueue | Source review; runtime regression on macOS |
+| Docs sync | Settings > Devices, 304 pt menu, released wording | Repository guard |
+| Version metadata | Marketing 1.6.1, build 4 | Repository invariant guard |
 
-## Reliability carried forward from 1.5.1
+## Published 1.6.1 evidence
 
-- Active zero-cross cancellation compares against the committed activation direction.
-- Strong secondary haptic tasks are cancelled on gesture end and wake reset.
-- External DDC writes reuse the connection that returned the initial session value.
-- Four targeted regressions for those paths remain in the 61-test source.
+| Item | Evidence |
+|---|---|
+| Tests | 67/67 on Apple Silicon MacBook Air, macOS 26.5.2, Xcode 26.6 |
+| Release architectures | `x86_64 arm64` |
+| Signature | ad-hoc, both slices, `_CodeSignature/CodeResources` present |
+| DMG | `EdgeControl-1.6.1-macOS.dmg`; `hdiutil verify` valid |
+| SHA-256 | `b087b4768c1cc6f5c3f67fdf66af0dde6d90095bca4bf2cd23756c6a3d55df07` |
 
-## Source checks completed here
+## Known limitations (unchanged)
 
-- `Scripts/validate_repository.sh`
+- External DDC remains experimental and off by default; it is not a formally supported feature.
+- A volume gesture does not pin its output device: if the default audio device changes mid-gesture, values are applied relative to the old device's initial volume.
+- External trackpad selection, Intel runtime, other macOS versions, multi-device ordering, and clean-machine Gatekeeper remain hardware/environment dependent.
 - Shell syntax checks for repository scripts
 - XCTest method count and targeted invariant guards
 - Whitespace/diff review
@@ -48,13 +53,13 @@ This environment cannot run AppKit/Xcode tests. A source-side pass must not be r
 
 ## Required macOS release gate
 
-Follow `OPENCLAW_VALIDATE_1.6.0.md`. Publication is blocked until:
+Follow `OPENCLAW_VALIDATE_1.6.1.md`. Publication is blocked until:
 
-1. 61/61 Xcode tests and clean Debug/Release builds pass.
-2. The Universal 2 binary reports both architectures and version/build 1.6.0 (3).
+1. 67/67 Xcode tests and clean Debug/Release builds pass.
+2. The Universal 2 binary reports both architectures and version/build 1.6.1 (4).
 3. Legacy HUD migration, all three palettes, custom menu, and every Settings page pass light/dark/accessibility checks.
 4. The complete 1.5.1 zero-cross, Strong haptic, and brightness/DDC gates remain green.
-5. DMG verify, installation, launch, and SHA-256 insertion into `RELEASE_NOTES_1.6.0.md` succeed.
+5. DMG verify, installation, launch, and SHA-256 insertion into `RELEASE_NOTES_1.6.1.md` succeed.
 
 ## Known limitations
 

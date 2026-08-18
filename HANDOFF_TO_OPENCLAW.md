@@ -96,16 +96,16 @@ This is the operational handoff for EdgeControl 1.6.0, built on the 1.5.1 reliab
 
 The 1.1.0 baseline passed Debug/Release builds and 26 tests on macOS 26.5 arm64. Raw touch, CoreAudio, built-in brightness, public haptics, cursor freeze, sleep/wake, permissions, icon assets, and DMG installation were exercised there.
 
-The current source is the 1.6.0 visual update on top of the 1.5.1 reliability work. Before another binary is published, rerun:
+The current source is the 1.6.1 reliability patch on top of the published 1.6.0 visual update. Before another binary is published, rerun:
 
 1. `./Scripts/validate_repository.sh`
-2. `./Scripts/build_release.sh test` (expect 61 tests)
+2. `./Scripts/build_release.sh test` (expect 67 tests)
 3. `./Scripts/build_release.sh build`
 4. Physical edge-entry regression for 450ms / 3% / 0.80
 5. Three-level haptic, three-palette HUD, custom menu, and grouped Settings visual/accessibility regression on macOS 26 and at least one earlier supported system
 6. Lower-half regression at low and high initial values: activation must preserve the current value, and subsequent up/down motion must remain continuous
-7. Complete `OPENCLAW_VALIDATE_1.6.0.md`, including legacy palette migration, menu/Settings layout, gradual zero crossing, Strong-pulse cancellation, multi-display DDC routing, all haptic profiles, HUD backgrounds, speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
-8. Release binary inspection, DMG packaging, install and launch
+7. Complete `OPENCLAW_VALIDATE_1.6.1.md`, including legacy palette migration, menu/Settings layout, gradual zero crossing, Strong-pulse cancellation, multi-display DDC routing, all haptic profiles, HUD backgrounds, speed/protection presets, clean-account TCC, and built-in-only brightness after display changes/sleep-wake
+8. Release binary inspection (both slices signed), DMG packaging, install and launch
 
 Still unvalidated: external DDC hardware, Intel, other macOS versions, Developer ID signing/notarization, and Gatekeeper on a second clean Mac.
 

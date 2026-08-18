@@ -761,19 +761,75 @@ bool ec_ddc_get_vcp10(
         return false;
     }
 
-    // Accept the usual DDC/CI reply with optional leading destination byte.
-    for (size_t index = 0; index + 8 < sizeof(reply); index += 1) {
-        if (reply[index] == 0x02 && reply[index + 2] == 0x10) {
-            *maximum_value = (uint16_t)((reply[index + 5] << 8) | reply[index + 6]);
-            *current_value = (uint16_t)((reply[index + 7] << 8) | reply[index + 8]);
-            return *maximum_value > 0;
-        }
-    }
+    return ec_ddc_parse_vcp10_reply(reply, sizeof(reply), current_value, maximum_value);
 #else
     (void)handle;
     (void)current_value;
     (void)maximum_value;
 #endif
+    return false;
+}
+
+// Parses a DDC/CI Get VCP Feature reply for VCP 0x10 (brightness).
+//
+// Reply layout per VESA DDC/CI (relative to the 0x02 command byte):
+//   [0] = 0x02    feature reply op code
+//   [1] = result code   (0x00 = no error, 0x01 = unsupported op code)
+//   [2] = VCP code      (0x10 for brightness)
+//   [3] = type code
+//   [4] = maximum value high byte (mh)
+//   [5] = maximum value low byte  (ml)
+//   [6] = current value high byte (sh)
+//   [7] = current value low byte  (sl)
+//   [8] = checksum
+//
+// A leading address/destination byte (0x6F) may precede the 0x02 byte on
+// some I2C transports, so the reply is scanned for the command marker.
+bool ec_ddc_parse_vcp10_reply(
+    const uint8_t *reply,
+    size_t reply_count,
+    uint16_t *current_value,
+    uint16_t *maximum_value
+) {
+    if (reply == NULL || current_value == NULL || maximum_value == NULL) {
+        return false;
+    }
+    // Need 9 bytes after the command byte: result, VCP code, type, mh, ml, sh, sl, checksum.
+    for (size_t index = 0; index + 9 <= reply_count; index += 1) {
+        if (reply[index] != 0x02 || reply[index + 2] != 0x10) {
+            continue;
+        }
+        if (reply[index + 1] != 0x00) {
+            // Result code is not "no error": unsupported or rejected feature.
+            continue;
+        }
+
+        uint16_t maximum = (uint16_t)((reply[index + 4] << 8) | reply[index + 5]);
+        uint16_t current = (uint16_t)((reply[index + 6] << 8) | reply[index + 7]);
+
+        // DDC/CI checksum: XOR of all message bytes (including the checksum
+        // byte itself) equals zero. Accept both plain and address-prefixed
+        // forms so a stray leading destination byte cannot invalidate a good reply.
+        uint8_t plain_xor = 0;
+        for (size_t offset = 0; offset < 9; offset += 1) {
+            plain_xor ^= reply[index + offset];
+        }
+        bool checksum_ok = (plain_xor == 0);
+        if (!checksum_ok && index > 0) {
+            uint8_t prefixed_xor = 0x6F;
+            for (size_t offset = 0; offset < 9; offset += 1) {
+                prefixed_xor ^= reply[index + offset];
+            }
+            checksum_ok = (prefixed_xor == 0);
+        }
+        if (!checksum_ok) {
+            continue;
+        }
+
+        *maximum_value = maximum;
+        *current_value = current;
+        return maximum > 0;
+    }
     return false;
 }
 
