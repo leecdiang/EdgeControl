@@ -150,6 +150,36 @@ final class EdgeControlAppModel: ObservableObject {
     func openSettings() {
         if settingsWindow == nil {
             let hostingView = NSHostingView(rootView: SettingsView(model: self, settings: settings))
+            hostingView.translatesAutoresizingMaskIntoConstraints = false
+            hostingView.wantsLayer = true
+            hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+
+            // Frosted backdrop, built exactly like the menu bar popover: a real
+            // NSVisualEffectView behind the SwiftUI content. Putting the effect
+            // inside SwiftUI's .background does not paint reliably in a fully
+            // transparent titled window, so it is the window's base content view.
+            let glass = NSVisualEffectView()
+            glass.material = .popover
+            glass.blendingMode = .behindWindow
+            glass.state = .active
+            glass.wantsLayer = true
+            glass.translatesAutoresizingMaskIntoConstraints = false
+
+            let container = NSView()
+            container.wantsLayer = true
+            container.addSubview(glass)
+            container.addSubview(hostingView)
+            NSLayoutConstraint.activate([
+                glass.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                glass.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                glass.topAnchor.constraint(equalTo: container.topAnchor),
+                glass.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                hostingView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                hostingView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                hostingView.topAnchor.constraint(equalTo: container.topAnchor),
+                hostingView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            ])
+
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 560, height: 470),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -157,11 +187,8 @@ final class EdgeControlAppModel: ObservableObject {
                 defer: false
             )
             window.title = "EdgeControl Settings"
-            window.contentView = hostingView
+            window.contentView = container
             window.isReleasedWhenClosed = false
-            // The settings window uses the same frosted-glass look as the menu
-            // bar popover: a transparent title bar over a full-window material,
-            // drawn by EdgeSettingsGlass inside SettingsView.
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.isOpaque = false

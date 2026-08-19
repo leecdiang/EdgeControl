@@ -58,17 +58,17 @@ enum FalseTouchProtection: String, CaseIterable, Codable, Sendable, Identifiable
 
     var leftEntryStripWidth: Double {
         switch self {
-        case .strong: return 0.007
-        case .standard: return 0.009
-        case .light: return 0.012
+        case .strong: return 0.010
+        case .standard: return 0.012
+        case .light: return 0.015
         }
     }
 
     var rightEntryStripWidth: Double {
         switch self {
-        case .strong: return 0.014
-        case .standard: return 0.017
-        case .light: return 0.021
+        case .strong: return 0.018
+        case .standard: return 0.022
+        case .light: return 0.026
         }
     }
 

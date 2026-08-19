@@ -225,10 +225,10 @@ private struct EdgeHUDView: View {
         case (.aurora, .brightness):
             return Color(nsColor: NSColor.systemTeal)
         case (.morandi, .volume):
-            // Dusty slate blue.
+            // Soft baby blue.
             return Color(
                 nsColor: NSColor(
-                    srgbRed: 0.435, green: 0.525, blue: 0.651, alpha: 1
+                    srgbRed: 0.639, green: 0.757, blue: 0.871, alpha: 1
                 )
             )
         case (.morandi, .brightness):

@@ -22,10 +22,10 @@ struct SettingsView: View {
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
         // The window uses .fullSizeContentView, so keep the tab bar clear of
-        // the traffic lights while the glass fills the whole window.
+        // the traffic lights; the frosted glass is the window's own content
+        // view (see EdgeControlAppModel.openSettings).
         .padding(.top, 26)
         .frame(minWidth: 520, minHeight: 430)
-        .background(EdgeSettingsGlass())
     }
 
     private var controlsPage: some View {
@@ -324,7 +324,7 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.7.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.7.1"
     }
 
     @ViewBuilder
@@ -460,7 +460,7 @@ private struct HUDPalettePreview: View {
         case (.morandi, .volume):
             return Color(
                 nsColor: NSColor(
-                    srgbRed: 0.435, green: 0.525, blue: 0.651, alpha: 1
+                    srgbRed: 0.639, green: 0.757, blue: 0.871, alpha: 1
                 )
             )
         case (.morandi, .brightness):
@@ -477,30 +477,5 @@ private extension View {
     func settingsCaption() -> some View {
         font(.system(size: 10.5))
             .foregroundStyle(.secondary)
-    }
-}
-
-/// Full-window frosted backdrop for the settings window, matching the
-/// material of the menu bar popover. The window itself is transparent and
-/// non-opaque (see EdgeControlAppModel.openSettings), so this view samples
-/// the desktop behind the window instead of a solid background.
-private struct EdgeSettingsGlass: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .popover
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.wantsLayer = true
-        view.layer?.masksToBounds = true
-        view.layer?.cornerCurve = .continuous
-        view.layer?.cornerRadius = 12
-        return view
-    }
-
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = .popover
-        nsView.blendingMode = .behindWindow
-        nsView.state = .active
-        nsView.needsLayout = true
     }
 }

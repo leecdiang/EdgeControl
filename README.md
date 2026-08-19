@@ -36,7 +36,7 @@ This is not a plain "touch the edge, then move" gesture: the contact must be **b
 
 ## Status
 
-Version 1.5.1 preserves the native menu and delivers the zero-cross, Strong-pulse lifecycle, and multi-display DDC reliability fixes. Version 1.6.0 builds on it with a custom frosted menu, grouped Settings, and three HUD color styles. Version 1.6.1 fixes the experimental DDC reply field offset, adds a complete ad-hoc bundle signature, and updates the docs. Version 1.7.0 frosts the Settings window to match the menu-bar popover, widens the edge entry strips slightly, adds the Morandi HUD palette, and ships a Homebrew cask. See [BUILD_REPORT.md](BUILD_REPORT.md) for the current evidence boundary.
+Version 1.5.1 preserves the native menu and delivers the zero-cross, Strong-pulse lifecycle, and multi-display DDC reliability fixes. Version 1.6.0 builds on it with a custom frosted menu, grouped Settings, and three HUD color styles. Version 1.6.1 fixes the experimental DDC reply field offset, adds a complete ad-hoc bundle signature, and updates the docs. Version 1.7.0 frosts the Settings window to match the menu-bar popover, widens the edge entry strips slightly, adds the Morandi HUD palette, and ships a Homebrew cask. Version 1.7.1 fixes the frosted window rendering, widens the strips further, and lightens the Morandi volume color. See [BUILD_REPORT.md](BUILD_REPORT.md) for the current evidence boundary.
 
 The gesture recognizer, typing protection, value mapping, brightness routing, trackpad-selection policy, detent, haptic, and settings layers are covered by 68 unit-test methods. Code that depends on undocumented macOS ABIs is dynamically loaded (`dlopen`/`dlsym`), fails closed, and treats missing symbols as feature unavailability rather than fatal errors.
 
@@ -70,7 +70,7 @@ The gesture recognizer, typing protection, value mapping, brightness routing, tr
 
 Version 1.4.0 queries Quartz only for the elapsed time since the last key-down event; it does not install a key-event tap, inspect key values, or store keyboard activity. Recent typing blocks only idle or pre-activation edge contacts. A blocked contact stays rejected until every finger lifts, while an already active volume or brightness gesture continues normally.
 
-Adjustment speed and false-touch protection are independent. Speed changes only the post-activation value gain. Protection selects the typing window and physical edge-birth range: Strong uses 600ms and 0.7%/1.4% left/right strips, Standard uses 350ms and 0.9%/1.7%, and Light uses 200ms and 1.2%/2.1%. The asymmetric ranges preserve the measured left/right hardware behavior.
+Adjustment speed and false-touch protection are independent. Speed changes only the post-activation value gain. Protection selects the typing window and physical edge-birth range: Strong uses 600ms and 1.0%/1.8% left/right strips, Standard uses 350ms and 1.2%/2.2%, and Light uses 200ms and 1.5%/2.6%. The asymmetric ranges preserve the measured left/right hardware behavior.
 
 The 450ms intent deadline, 3% candidate corridor, 8% Active corridor, 0.80 directionality, vertical-intent threshold, interior-birth rejection, and multi-touch latch never weaken with the selected profile. Existing continuous-sensitivity preferences migrate to the nearest three-level adjustment-speed preset.
 
@@ -117,8 +117,8 @@ Tuned values (see [Docs/GestureTuning.md](Docs/GestureTuning.md) for evidence):
 
 | Parameter | Value | Notes |
 | --- | ---: | --- |
-| Left entry strip | 0.9% | Birth must land here; interior births are permanently rejected |
-| Right entry strip | 1.7% | Wider to match right-edge birth positions observed on the reference machine |
+| Left entry strip | 1.2% | Birth must land here; interior births are permanently rejected |
+| Right entry strip | 2.2% | Wider to match right-edge birth positions observed on the reference machine |
 | Pre-activation corridor | 3% from the candidate edge | Prevents a horizontal swipe from travelling inward and becoming eligible later |
 | Active control corridor | 8% from the active edge | Preserves comfortable control room; leaving it cancels the gesture |
 | Minimum inward travel | 0.0 | Edge-pinned contacts report x pinned at the edge; inward character is enforced by birth-in-strip + outward-motion rejection |

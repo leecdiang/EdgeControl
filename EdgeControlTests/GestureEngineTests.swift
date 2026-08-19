@@ -349,10 +349,10 @@ final class GestureEngineTests: XCTestCase {
 
     func testFalseTouchProfilesChangeLeftBirthAdmission() {
         var strongTrace = SyntheticTouchTrace()
-        // x = 0.008 sits just outside the Strong strip (0.007) but inside the
-        // Standard strip (0.009): Strong must reject it, Standard must accept.
-        strongTrace.contact(x: 0.008, y: 0.50)
-        strongTrace.contact(x: 0.011, y: 0.53, after: 0.05)
+        // x = 0.011 sits just outside the Strong strip (0.010) but inside the
+        // Standard strip (0.012): Strong must reject it, Standard must accept.
+        strongTrace.contact(x: 0.011, y: 0.50)
+        strongTrace.contact(x: 0.014, y: 0.53, after: 0.05)
         let strongEngine = GestureEngine(
             configuration: FalseTouchProtection.strong.gestureConfiguration
         )
@@ -360,8 +360,8 @@ final class GestureEngineTests: XCTestCase {
         XCTAssertEqual(strongEngine.state, .rejected(.bornInInterior))
 
         var standardTrace = SyntheticTouchTrace()
-        standardTrace.contact(x: 0.008, y: 0.50)
-        standardTrace.contact(x: 0.011, y: 0.53, after: 0.05)
+        standardTrace.contact(x: 0.011, y: 0.50)
+        standardTrace.contact(x: 0.014, y: 0.53, after: 0.05)
         XCTAssertEqual(
             standardTrace.events(
                 using: GestureEngine(
@@ -371,11 +371,11 @@ final class GestureEngineTests: XCTestCase {
             [.began(edge: .left)]
         )
 
-        // x = 0.011 sits just outside the Standard strip (0.009) but inside
-        // the Light strip (0.012): Standard must reject it, Light must accept.
+        // x = 0.013 sits just outside the Standard strip (0.012) but inside
+        // the Light strip (0.015): Standard must reject it, Light must accept.
         var lightTrace = SyntheticTouchTrace()
-        lightTrace.contact(x: 0.011, y: 0.50)
-        lightTrace.contact(x: 0.014, y: 0.53, after: 0.05)
+        lightTrace.contact(x: 0.013, y: 0.50)
+        lightTrace.contact(x: 0.016, y: 0.53, after: 0.05)
         XCTAssertEqual(
             lightTrace.events(
                 using: GestureEngine(
@@ -388,10 +388,10 @@ final class GestureEngineTests: XCTestCase {
 
     func testFalseTouchProfilesPreserveAsymmetricRightBirthRange() {
         var strongTrace = SyntheticTouchTrace()
-        // x = 0.985 sits just outside the Strong strip (1.4%) but inside the
-        // Standard strip (1.7%): Strong must reject it, Standard must accept.
-        strongTrace.contact(x: 0.985, y: 0.50)
-        strongTrace.contact(x: 0.979, y: 0.47, after: 0.05)
+        // x = 0.981 sits just outside the Strong strip (1.8%) but inside the
+        // Standard strip (2.2%): Strong must reject it, Standard must accept.
+        strongTrace.contact(x: 0.981, y: 0.50)
+        strongTrace.contact(x: 0.975, y: 0.47, after: 0.05)
         let strongEngine = GestureEngine(
             configuration: FalseTouchProtection.strong.gestureConfiguration
         )
@@ -399,8 +399,8 @@ final class GestureEngineTests: XCTestCase {
         XCTAssertEqual(strongEngine.state, .rejected(.bornInInterior))
 
         var standardTrace = SyntheticTouchTrace()
-        standardTrace.contact(x: 0.985, y: 0.50)
-        standardTrace.contact(x: 0.979, y: 0.47, after: 0.05)
+        standardTrace.contact(x: 0.981, y: 0.50)
+        standardTrace.contact(x: 0.975, y: 0.47, after: 0.05)
         XCTAssertEqual(
             standardTrace.events(
                 using: GestureEngine(
