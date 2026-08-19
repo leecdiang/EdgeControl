@@ -58,17 +58,17 @@ enum FalseTouchProtection: String, CaseIterable, Codable, Sendable, Identifiable
 
     var leftEntryStripWidth: Double {
         switch self {
-        case .strong: return 0.006
-        case .standard: return 0.008
-        case .light: return 0.010
+        case .strong: return 0.007
+        case .standard: return 0.009
+        case .light: return 0.012
         }
     }
 
     var rightEntryStripWidth: Double {
         switch self {
-        case .strong: return 0.012
-        case .standard: return 0.015
-        case .light: return 0.019
+        case .strong: return 0.014
+        case .standard: return 0.017
+        case .light: return 0.021
         }
     }
 
@@ -110,6 +110,7 @@ enum HUDColorStyle: String, CaseIterable, Codable, Sendable, Identifiable, Hasha
     case system
     case classic
     case aurora
+    case morandi
 
     var id: String { rawValue }
 
@@ -118,6 +119,7 @@ enum HUDColorStyle: String, CaseIterable, Codable, Sendable, Identifiable, Hasha
         case .system: return "System"
         case .classic: return "Classic"
         case .aurora: return "Aurora"
+        case .morandi: return "Morandi"
         }
     }
 }

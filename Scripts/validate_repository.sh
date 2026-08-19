@@ -22,10 +22,14 @@ required=(
   "THIRD_PARTY_NOTICES.md"
   "HANDOFF_TO_OPENCLAW.md"
   "OPENCLAW_VALIDATE_1.6.0.md"
+  "OPENCLAW_VALIDATE_1.7.0.md"
   "RELEASE_NOTES_1.6.0.md"
+  "RELEASE_NOTES_1.7.0.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
   "Docs/RELEASE_NOTES_1.6.0.md"
   "Docs/RELEASE_NOTES_1.6.0.zh.md"
+  "Docs/RELEASE_NOTES_1.7.0.md"
+  "Docs/RELEASE_NOTES_1.7.0.zh.md"
   "Docs/STATIC_BUG_AUDIT_1.3.1.md"
   "Docs/STATIC_BUG_AUDIT_1.4.0.md"
 )
@@ -38,15 +42,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.6.1;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.7.0;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.6.1, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.7.0, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 4;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 5;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 4 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 5 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -81,8 +85,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 67 ]]; then
-  echo "Expected at least 67 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 68 ]]; then
+  echo "Expected at least 68 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
@@ -108,14 +112,15 @@ required_independent_profile_markers=(
   "case .strong: return 0.600"
   "case .standard: return 0.350"
   "case .light: return 0.200"
-  "case .strong: return 0.006"
-  "case .light: return 0.019"
+  "case .strong: return 0.007"
+  "case .light: return 0.021"
   "migrated(fromLegacySensitivity"
   "enum HapticStrength"
   "case .light: return 0.04"
   "case .standard, .strong: return 0.02"
   "enum HUDColorStyle"
   "case aurora"
+  "case morandi"
   "legacyColorfulHUD ? .classic : .system"
 )
 
@@ -134,12 +139,16 @@ required_ui_markers=(
   'QuickToggle'
   'HUDPalettePreview'
   'selection: $settings.hudColorStyle'
+  'EdgeSettingsGlass'
+  '.fullSizeContentView'
   'testLegacyColorfulHUDMigratesToThreeLevelPalette'
+  'testMorandiPaletteIsSelectableAndPersists'
 )
 
 for expected_marker in "${required_ui_markers[@]}"; do
   if ! grep -R -Fq "$expected_marker" \
     "$project_root/EdgeControl/App/EdgeControlApp.swift" \
+    "$project_root/EdgeControl/App/EdgeControlAppModel.swift" \
     "$menu_view" "$settings_view" \
     "$project_root/EdgeControlTests/SettingsTests.swift"; then
     echo "1.6.0 menu/settings invariant drifted or is missing: $expected_marker" >&2
@@ -260,6 +269,7 @@ required_hud_markers=(
   "view.material = .hudWindow"
   "Color(nsColor: .windowBackgroundColor).opacity(0.52)"
   ".clipShape(Capsule())"
+  "case (.morandi, .volume)"
 )
 
 for expected_marker in "${required_hud_markers[@]}"; do

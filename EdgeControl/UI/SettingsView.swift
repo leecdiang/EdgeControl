@@ -21,8 +21,11 @@ struct SettingsView: View {
             aboutPage
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .padding(.top, 8)
+        // The window uses .fullSizeContentView, so keep the tab bar clear of
+        // the traffic lights while the glass fills the whole window.
+        .padding(.top, 26)
         .frame(minWidth: 520, minHeight: 430)
+        .background(EdgeSettingsGlass())
     }
 
     private var controlsPage: some View {
@@ -146,7 +149,7 @@ struct SettingsView: View {
                     HUDPalettePreview(style: settings.hudColorStyle)
                         .opacity(settings.showHUD ? 1 : 0.45)
 
-                    Text("System stays neutral; Classic uses blue and amber; Aurora uses violet and teal.")
+                    Text("System stays neutral; Classic uses blue and amber; Aurora uses violet and teal; Morandi uses muted slate blues.")
                         .settingsCaption()
                 }
             }
@@ -321,7 +324,7 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.6.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.7.0"
     }
 
     @ViewBuilder
@@ -368,11 +371,11 @@ private struct SettingsCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: NSColor.controlBackgroundColor).opacity(0.78))
+                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.40))
         }
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.primary.opacity(0.07), lineWidth: 0.6)
+                .strokeBorder(.primary.opacity(0.08), lineWidth: 0.6)
         }
     }
 }
@@ -454,6 +457,18 @@ private struct HUDPalettePreview: View {
         case (.classic, .brightness): return Color(nsColor: NSColor.systemOrange)
         case (.aurora, .volume): return Color(nsColor: NSColor.systemPurple)
         case (.aurora, .brightness): return Color(nsColor: NSColor.systemTeal)
+        case (.morandi, .volume):
+            return Color(
+                nsColor: NSColor(
+                    srgbRed: 0.435, green: 0.525, blue: 0.651, alpha: 1
+                )
+            )
+        case (.morandi, .brightness):
+            return Color(
+                nsColor: NSColor(
+                    srgbRed: 0.624, green: 0.690, blue: 0.769, alpha: 1
+                )
+            )
         }
     }
 }
@@ -462,5 +477,30 @@ private extension View {
     func settingsCaption() -> some View {
         font(.system(size: 10.5))
             .foregroundStyle(.secondary)
+    }
+}
+
+/// Full-window frosted backdrop for the settings window, matching the
+/// material of the menu bar popover. The window itself is transparent and
+/// non-opaque (see EdgeControlAppModel.openSettings), so this view samples
+/// the desktop behind the window instead of a solid background.
+private struct EdgeSettingsGlass: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .popover
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.masksToBounds = true
+        view.layer?.cornerCurve = .continuous
+        view.layer?.cornerRadius = 12
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = .popover
+        nsView.blendingMode = .behindWindow
+        nsView.state = .active
+        nsView.needsLayout = true
     }
 }

@@ -76,12 +76,12 @@ final class SettingsTests: XCTestCase {
         let strong = FalseTouchProtection.strong.gestureConfiguration
         let standard = FalseTouchProtection.standard.gestureConfiguration
         let light = FalseTouchProtection.light.gestureConfiguration
-        XCTAssertEqual(strong.leftEntryStripWidth, 0.006)
-        XCTAssertEqual(standard.leftEntryStripWidth, 0.008)
-        XCTAssertEqual(light.leftEntryStripWidth, 0.010)
-        XCTAssertEqual(strong.rightEntryStripWidth, 0.012)
-        XCTAssertEqual(standard.rightEntryStripWidth, 0.015)
-        XCTAssertEqual(light.rightEntryStripWidth, 0.019)
+        XCTAssertEqual(strong.leftEntryStripWidth, 0.007)
+        XCTAssertEqual(standard.leftEntryStripWidth, 0.009)
+        XCTAssertEqual(light.leftEntryStripWidth, 0.012)
+        XCTAssertEqual(strong.rightEntryStripWidth, 0.014)
+        XCTAssertEqual(standard.rightEntryStripWidth, 0.017)
+        XCTAssertEqual(light.rightEntryStripWidth, 0.021)
 
         // Hard safety rules must never drift between user-facing profiles.
         for configuration in [strong, standard, light] {
@@ -216,6 +216,16 @@ final class SettingsTests: XCTestCase {
             HUDColorStyle.system.rawValue
         )
         XCTAssertNil(neutralDefaults.object(forKey: "colorfulHUD"))
+    }
+
+    func testMorandiPaletteIsSelectableAndPersists() {
+        let (defaults, name) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(HUDColorStyle.morandi.rawValue, forKey: "hudColorStyle")
+
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertEqual(settings.hudColorStyle, .morandi)
+        XCTAssertEqual(defaults.string(forKey: "hudColorStyle"), "morandi")
     }
 
     func testExternalTrackpadShapeGuardRejectsPortraitAndInvalidSurfaces() {
