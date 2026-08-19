@@ -1,10 +1,15 @@
 # EdgeControl 1.7.1
 
-A follow-up polish release on top of 1.7.0: it fixes the frosted Settings window (the glass now renders as the window's real background instead of showing through as transparent), widens the edge entry strips further, and lightens the Morandi volume color to a soft baby blue.
+A follow-up polish release on top of 1.7.0: it fixes the frosted Settings window (the glass now renders as the window's real background instead of showing through as transparent), widens the edge entry strips further, lightens the Morandi volume color to a soft baby blue, and polishes the Settings window UI with a borderless tab row and layered frosted cards.
 
 ## Fixed
 
 - **Frosted Settings window renders correctly.** The 1.7.0 window could show a fully transparent background because the visual effect lived inside SwiftUI's `.background`, which does not paint reliably in a transparent titled window. The glass is now the window's actual base content view (an `NSVisualEffectView` with `popover` material behind the SwiftUI content), matching the menu-bar popover.
+
+## Added
+
+- **Borderless settings tab row.** The four tabs (Controls / Feedback / Devices / About) are now independent capsule buttons in their own top area with a stable gap above the content cards — no enclosing segmented border or divider lines, so the tabs no longer appear to straddle a line. Keyboard navigation stays native: each tab is focusable, Tab moves between tabs, Space activates. Content cards keep their scroll state when switching.
+- **Layered frosted cards.** Settings cards sit one step above the window glass (more solid fill, fine border, soft shadow) so the background keeps its real behind-window blur while cards read as a distinct layer. Reduce Transparency switches cards to a near-opaque fill.
 
 ## Changed
 
@@ -28,4 +33,4 @@ A follow-up polish release on top of 1.7.0: it fixes the frosted Settings window
 - If the default audio output device changes mid-gesture, volume changes can still be applied relative to the old device's initial value.
 - External Magic Trackpad selection, Intel runtime, other macOS versions, and clean-machine Gatekeeper remain hardware/environment dependent.
 
-SHA-256: `e584594553e20770994246368599e5b25102d305ddfeebef173337d8224959b8`
+SHA-256: `ec2bd1a4c29ce3dcc3bd964139b461a0b1013724f55eebe0d3a90d5643b68177`

@@ -4,29 +4,120 @@ import SwiftUI
 
 @MainActor
 struct SettingsView: View {
+    private enum SettingsTab: String, CaseIterable, Identifiable {
+        case controls
+        case feedback
+        case devices
+        case about
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .controls: return "Controls"
+            case .feedback: return "Feedback"
+            case .devices: return "Devices"
+            case .about: return "About"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .controls: return "slider.vertical.3"
+            case .feedback: return "waveform"
+            case .devices: return "trackpad"
+            case .about: return "info.circle"
+            }
+        }
+    }
+
     @ObservedObject var model: EdgeControlAppModel
     @ObservedObject var settings: AppSettings
+    @State private var selectedTab: SettingsTab = .controls
+    @FocusState private var focusedTab: SettingsTab?
 
     var body: some View {
-        TabView {
-            controlsPage
-                .tabItem { Label("Controls", systemImage: "slider.vertical.3") }
+        VStack(spacing: 0) {
+            tabBar
+                .padding(.horizontal, 18)
+                // Keep the tab row clear of the traffic lights (the window
+                // uses .fullSizeContentView) and give it its own top area.
+                .padding(.top, 30)
+                // A fixed, stable gap between the tab row and the content
+                // cards: no divider touches the card edges.
+                .padding(.bottom, 14)
 
-            feedbackPage
-                .tabItem { Label("Feedback", systemImage: "waveform") }
-
-            devicesPage
-                .tabItem { Label("Devices", systemImage: "trackpad") }
-
-            aboutPage
-                .tabItem { Label("About", systemImage: "info.circle") }
+            content
         }
-        // The window uses .fullSizeContentView, so keep the tab bar clear of
-        // the traffic lights; the frosted glass is the window's own content
-        // view (see EdgeControlAppModel.openSettings).
-        .padding(.top, 26)
         .frame(minWidth: 520, minHeight: 430)
     }
+
+    /// Borderless tab row: four independent buttons with a capsule highlight
+    /// on the selected one. Unlike a segmented control it has no enclosing
+    /// border or inter-segment divider lines, so the tabs read as separate
+    /// controls floating on the glass instead of labels straddling a line.
+    /// Keyboard navigation stays native: Tab to focus a tab, arrow keys to
+    /// move between tabs, Space to activate, VoiceOver sees per-tab labels.
+    private var tabBar: some View {
+        HStack(spacing: 5) {
+            ForEach(SettingsTab.allCases) { tab in
+                tabButton(tab)
+            }
+        }
+    }
+
+    private func tabButton(_ tab: SettingsTab) -> some View {
+        let isSelected = selectedTab == tab
+        return Button {
+            selectedTab = tab
+        } label: {
+            Label(tab.title, systemImage: tab.systemImage)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: 27)
+                .background {
+                    if isSelected {
+                        Capsule()
+                            .fill(Color.primary.opacity(0.10))
+                    }
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        // Native keyboard interaction: each tab is focusable, Tab moves
+        // between tabs, Space activates. Arrow-key tab switching is left to
+        // the system's focus engine (Full Keyboard Access) to avoid
+        // auto-triggering moves when the window gains focus.
+        .focusable()
+        .focused($focusedTab, equals: tab)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel(Text(tab.title))
+    }
+
+    /// All pages stay alive in a ZStack so each page keeps its scroll state,
+    /// mirroring TabView behavior; only the selected page is interactive.
+    private var content: some View {
+        ZStack {
+            controlsPage
+                .opacity(selectedTab == .controls ? 1 : 0)
+                .allowsHitTesting(selectedTab == .controls)
+                .accessibilityHidden(selectedTab != .controls)
+            feedbackPage
+                .opacity(selectedTab == .feedback ? 1 : 0)
+                .allowsHitTesting(selectedTab == .feedback)
+                .accessibilityHidden(selectedTab != .feedback)
+            devicesPage
+                .opacity(selectedTab == .devices ? 1 : 0)
+                .allowsHitTesting(selectedTab == .devices)
+                .accessibilityHidden(selectedTab != .devices)
+            aboutPage
+                .opacity(selectedTab == .about ? 1 : 0)
+                .allowsHitTesting(selectedTab == .about)
+                .accessibilityHidden(selectedTab != .about)
+        }
+    }
+
 
     private var controlsPage: some View {
         settingsScrollView {
@@ -348,6 +439,7 @@ private struct SettingsCard<Content: View>: View {
     let title: String
     let systemImage: String
     private let content: Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(
         title: String,
@@ -371,12 +463,20 @@ private struct SettingsCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.40))
+                // Slightly more solid than the window glass so cards read as a
+                // distinct layer; near-opaque when Reduce Transparency is on.
+                .fill(
+                    Color(nsColor: .windowBackgroundColor)
+                        .opacity(reduceTransparency ? 0.92 : 0.50)
+                )
         }
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.primary.opacity(0.08), lineWidth: 0.6)
+                .strokeBorder(.primary.opacity(0.10), lineWidth: 0.6)
         }
+        // A soft shadow lifts the cards off the glass for depth without
+        // adding any decorative gradient or glow.
+        .shadow(color: .black.opacity(reduceTransparency ? 0.05 : 0.12), radius: 7, y: 2)
     }
 }
 
