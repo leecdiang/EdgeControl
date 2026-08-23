@@ -32,11 +32,17 @@ run_build() {
   xcodebuild "${common_args[@]}" -configuration Release clean build "${signing_args[@]}"
   local app_path="$derived_data/Build/Products/Release/EdgeControl.app"
   if [[ -z "${DEVELOPMENT_TEAM:-}" && -d "$app_path" ]]; then
-    # Full ad-hoc re-sign: without this, the bundle only carries a linker
-    # signature on arm64 (no _CodeSignature/CodeResources, x86_64 slice
-    # unsigned). A complete ad-hoc signature is free and makes the app
-    # verifiable on any Mac.
+    # Sparkle contains nested frameworks, XPC services, and helper apps. Sign
+    # innermost bundles first, then the framework and host app, so macOS can
+    # validate the complete embedded bundle after installation.
+    while IFS= read -r nested_path; do
+      codesign --force --deep --sign - "$nested_path"
+    done < <(find "$app_path/Contents/Frameworks" -type d \( -name '*.app' -o -name '*.xpc' \) -print | sort -r)
+    while IFS= read -r nested_path; do
+      codesign --force --sign - "$nested_path"
+    done < <(find "$app_path/Contents/Frameworks" -type d -name '*.framework' -print | sort -r)
     codesign --force --sign - "$app_path"
+    codesign --verify --deep --strict "$app_path"
   fi
   echo "Built app: $app_path"
 }

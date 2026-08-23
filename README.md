@@ -64,13 +64,13 @@ The gesture recognizer, typing protection, value mapping, brightness routing, tr
 - Homebrew cask install (`brew install --cask leecdiang/edgecontrol/edgecontrol`)
 - `LSUIElement` menu-bar app with no Dock icon
 - Synthetic gesture tests; no physical trackpad required for recognizer tests
-- No account, network, analytics, telemetry, or backend
+- No account, analytics, telemetry, or backend; networking is limited to the optional GitHub update feed
 
 ## Recent typing protection
 
 Version 1.4.0 queries Quartz only for the elapsed time since the last key-down event; it does not install a key-event tap, inspect key values, or store keyboard activity. Recent typing blocks only idle or pre-activation edge contacts. A blocked contact stays rejected until every finger lifts, while an already active volume or brightness gesture continues normally.
 
-Adjustment speed and false-touch protection are independent. Speed changes only the post-activation value gain. Protection selects the typing window and physical edge-birth range: Strong uses 600ms and 1.0%/1.8% left/right strips, Standard uses 350ms and 1.2%/2.2%, and Light uses 200ms and 1.5%/2.6%. The asymmetric ranges preserve the measured left/right hardware behavior.
+Adjustment speed and false-touch protection are independent. Speed changes only the post-activation value gain. Protection selects the typing window and physical edge-birth range: Strong uses 600ms and 0.6%/1.2% left/right strips, Standard uses 350ms and 0.8%/1.5%, and Light uses 200ms and 1.0%/1.9%. The asymmetric ranges preserve the measured left/right hardware behavior.
 
 The 450ms intent deadline, 3% candidate corridor, 8% Active corridor, 0.80 directionality, vertical-intent threshold, interior-birth rejection, and multi-touch latch never weaken with the selected profile. Existing continuous-sensitivity preferences migrate to the nearest three-level adjustment-speed preset.
 
@@ -117,8 +117,8 @@ Tuned values (see [Docs/GestureTuning.md](Docs/GestureTuning.md) for evidence):
 
 | Parameter | Value | Notes |
 | --- | ---: | --- |
-| Left entry strip | 1.2% | Birth must land here; interior births are permanently rejected |
-| Right entry strip | 2.2% | Wider to match right-edge birth positions observed on the reference machine |
+| Left entry strip | 0.8% | Birth must land here; interior births are permanently rejected |
+| Right entry strip | 1.5% | Wider to match right-edge birth positions observed on the reference machine |
 | Pre-activation corridor | 3% from the candidate edge | Prevents a horizontal swipe from travelling inward and becoming eligible later |
 | Active control corridor | 8% from the active edge | Preserves comfortable control room; leaving it cancels the gesture |
 | Minimum inward travel | 0.0 | Edge-pinned contacts report x pinned at the edge; inward character is enforced by birth-in-strip + outward-motion rejection |
@@ -134,7 +134,7 @@ The 1.3.0 baseline required no TCC permissions (no Accessibility, Input Monitori
 
 ## Privacy and networking
 
-EdgeControl has no networking code, telemetry, analytics, account system, cloud service, or backend. It does not intentionally persist touch traces. Debug builds can print raw/normalized contact diagnostics because `EDGE_DEBUG_LOGGING` is defined for both Swift and C in the Debug configuration. Release compilation excludes those diagnostic paths.
+EdgeControl has no account system, telemetry, analytics, cloud service, or backend. Networking is limited to the optional GitHub-hosted Sparkle update feed; it does not intentionally persist touch traces. Debug builds can print raw/normalized contact diagnostics because `EDGE_DEBUG_LOGGING` is defined for both Swift and C in the Debug configuration. Release compilation excludes those diagnostic paths.
 
 ## Private APIs and distribution
 

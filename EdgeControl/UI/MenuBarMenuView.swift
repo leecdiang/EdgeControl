@@ -83,6 +83,21 @@ private struct MenuBarSettingsContent: View {
                 .buttonStyle(.plain)
 
                 Button {
+                    model.checkForUpdates()
+                } label: {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 12, weight: .medium))
+                        .frame(width: 34, height: 30)
+                        .background {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(.primary.opacity(0.045))
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Check for Updates")
+
+                Button {
                     NSApp.terminate(nil)
                 } label: {
                     Image(systemName: "power")

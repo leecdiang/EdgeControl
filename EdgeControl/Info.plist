@@ -24,5 +24,13 @@
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>SUFeedURL</key>
+    <string>https://github.com/leecdiang/EdgeControl/releases/latest/download/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUPublicEDKey</key>
+    <string>bFsvGIPNVLZ28AGnscMPAkDU7ZMKNEX9SLPumOIrzIo=</string>
+    <key>SUScheduledCheckInterval</key>
+    <real>86400</real>
 </dict>
 </plist>

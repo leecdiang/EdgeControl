@@ -26,14 +26,14 @@ enum GestureRejectReason: String, Sendable, Equatable {
 }
 
 struct GestureConfiguration: Sendable, Equatable {
-    /// Left strip is 1.2%: a middle value between the original 1.5% and the
-    /// 0.3% palm-blocking value. Deliberate left-edge births measure x ≈ 0.0-0.0018
-    /// on this machine; resting-palm births during typing measure x ≈ 0.007-0.010.
-    /// Hardware-tuned on macOS 26.5 (MacBook Air).
-    var leftEntryStripWidth: Double = 0.012
+    /// Left strip is 0.8%: the 1.4.0 anti-mistouch baseline, below the measured
+    /// palm zone (resting-palm births during typing measure x ≈ 0.007-0.010)
+    /// while keeping ~4x headroom over deliberate left-edge births (x ≈ 0.0-0.0018).
+    /// Hardware-tuned on macOS 26.5 (MacBook Air). See Docs/GestureTuning.md.
+    var leftEntryStripWidth: Double = 0.008
     /// Right-edge births measure x ≈ 0.985-1.0 on this machine, so the right
     /// strip stays wider.
-    var rightEntryStripWidth: Double = 0.022
+    var rightEntryStripWidth: Double = 0.015
     /// Before activation, keep the contact close to the physical edge. This is
     /// deliberately narrower than controlCorridor so an ordinary horizontal
     /// swipe cannot travel deep into the pad and become eligible later.

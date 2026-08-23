@@ -13,6 +13,7 @@ required=(
   "EdgeControl/Display/BuiltInDisplayBackend.swift"
   "EdgeControl/Display/ExternalDDCBackend.swift"
   "EdgeControl/System/RecentKeyboardActivityGuard.swift"
+  "EdgeControl/System/UpdateController.swift"
   "EdgeControl/Feedback/HapticEngine.swift"
   "EdgeControl/UI/HUDController.swift"
   "EdgeControlTests/GestureEngineTests.swift"
@@ -27,6 +28,7 @@ required=(
   "RELEASE_NOTES_1.6.0.md"
   "RELEASE_NOTES_1.7.0.md"
   "RELEASE_NOTES_1.7.1.md"
+  "RELEASE_NOTES_1.7.2.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
   "Docs/RELEASE_NOTES_1.6.0.md"
   "Docs/RELEASE_NOTES_1.6.0.zh.md"
@@ -46,15 +48,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.7.1;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.7.2;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.7.1, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.7.2, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 6;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 7;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 6 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 7 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -116,8 +118,8 @@ required_independent_profile_markers=(
   "case .strong: return 0.600"
   "case .standard: return 0.350"
   "case .light: return 0.200"
-  "case .strong: return 0.010"
-  "case .light: return 0.026"
+  "case .strong: return 0.006"
+  "case .light: return 0.019"
   "migrated(fromLegacySensitivity"
   "enum HapticStrength"
   "case .light: return 0.04"
@@ -131,6 +133,13 @@ required_independent_profile_markers=(
 for expected_marker in "${required_independent_profile_markers[@]}"; do
   if ! grep -Fq "$expected_marker" "$settings_file"; then
     echo "Independent speed/protection preset drifted or is missing: $expected_marker" >&2
+    exit 1
+  fi
+done
+
+for expected_marker in "SUPublicEDKey" "SUFeedURL" "<true/>"; do
+  if ! grep -Fq "$expected_marker" "$project_root/EdgeControl/Info.plist"; then
+    echo "Sparkle update configuration is missing: $expected_marker" >&2
     exit 1
   fi
 done

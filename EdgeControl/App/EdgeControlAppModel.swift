@@ -33,6 +33,7 @@ final class EdgeControlAppModel: ObservableObject {
     private let cursorController = CursorController()
     private let hudController = HUDController()
     private let launchAtLoginController = LaunchAtLoginController()
+    private let updateController = UpdateController()
     private let keyboardActivityGuard: RecentKeyboardActivityGuard
     private let mapper = ContinuousValueMapper()
     private var session: ControlSession?
@@ -86,6 +87,10 @@ final class EdgeControlAppModel: ObservableObject {
         touchWatchdogTask = nil
         touchStatus = .stopped
         hasStarted = false
+    }
+
+    func checkForUpdates() {
+        updateController.checkForUpdates()
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
