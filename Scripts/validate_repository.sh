@@ -16,6 +16,8 @@ required=(
   "EdgeControl/System/UpdateController.swift"
   "EdgeControl/Feedback/HapticEngine.swift"
   "EdgeControl/UI/HUDController.swift"
+  "EdgeControl/UI/EdgeUITheme.swift"
+  "EdgeControl/System/SingleInstanceCoordinator.swift"
   "EdgeControlTests/GestureEngineTests.swift"
   ".github/workflows/ci.yml"
   "README.md"
@@ -29,6 +31,8 @@ required=(
   "RELEASE_NOTES_1.7.0.md"
   "RELEASE_NOTES_1.7.1.md"
   "RELEASE_NOTES_1.7.2.md"
+  "RELEASE_NOTES_1.7.3.md"
+  "VALIDATION_1.7.3.md"
   "Docs/LOCAL_VALIDATION_REQUIRED.md"
   "Docs/RELEASE_NOTES_1.6.0.md"
   "Docs/RELEASE_NOTES_1.6.0.zh.md"
@@ -48,15 +52,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.7.2;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.7.3;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.7.2, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.7.3, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 7;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 8;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 7 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 8 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -91,8 +95,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 68 ]]; then
-  echo "Expected at least 68 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 76 ]]; then
+  echo "Expected at least 76 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
@@ -274,19 +278,21 @@ if ! grep -Fq '#if defined(EDGE_DEBUG_LOGGING) && EDGE_DEBUG_LOGGING' \
 fi
 
 hud_controller="$project_root/EdgeControl/UI/HUDController.swift"
+hud_theme="$project_root/EdgeControl/UI/EdgeUITheme.swift"
 required_hud_markers=(
   "static let compactWidth: CGFloat = 144"
   "static let errorWidth: CGFloat = 212"
   "static let height: CGFloat = 40"
   "CapsuleVisualEffect"
   "view.material = .hudWindow"
-  "Color(nsColor: .windowBackgroundColor).opacity(0.52)"
+  "EdgeUITheme.hudNeutralVeilOpacity"
+  "HUDPalette.accent"
   ".clipShape(Capsule())"
   "case (.morandi, .volume)"
 )
 
 for expected_marker in "${required_hud_markers[@]}"; do
-  if ! grep -Fq "$expected_marker" "$hud_controller"; then
+  if ! grep -Fq "$expected_marker" "$hud_controller" "$hud_theme"; then
     echo "Compact HUD invariant drifted or is missing: $expected_marker" >&2
     exit 1
   fi

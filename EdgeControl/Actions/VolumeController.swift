@@ -1,9 +1,42 @@
 import CoreAudio
 import Foundation
 
-final class VolumeController {
+protocol VolumeBackend: AnyObject {
+    func currentOutputDevice() throws -> AudioDeviceID
+    func readVolume(on device: AudioDeviceID) throws -> Double
+    func writeVolume(_ value: Double, on device: AudioDeviceID) throws
+}
+
+final class VolumeControlSession {
+    let initialValue: Double
+    let pinnedDeviceID: AudioDeviceID
+    private let backend: VolumeBackend
+
+    init(backend: VolumeBackend) throws {
+        self.backend = backend
+        pinnedDeviceID = try backend.currentOutputDevice()
+        initialValue = try backend.readVolume(on: pinnedDeviceID)
+    }
+
+    func setVolume(_ value: Double) throws {
+        try backend.writeVolume(value, on: pinnedDeviceID)
+    }
+}
+
+final class VolumeController: VolumeBackend {
     func getVolume() throws -> Double {
-        let device = try currentOutputDevice()
+        try readVolume(on: currentOutputDevice())
+    }
+
+    func setVolume(_ value: Double) throws {
+        try writeVolume(value, on: currentOutputDevice())
+    }
+
+    func beginSession() throws -> VolumeControlSession {
+        try VolumeControlSession(backend: self)
+    }
+
+    func readVolume(on device: AudioDeviceID) throws -> Double {
         let elements = volumeElements(on: device, requireSettable: false)
         guard !elements.isEmpty else {
             throw ControlError.unavailable("Volume is unavailable for the current output device.")
@@ -20,8 +53,7 @@ final class VolumeController {
         return Double(values.reduce(0, +) / Float(values.count))
     }
 
-    func setVolume(_ value: Double) throws {
-        let device = try currentOutputDevice()
+    func writeVolume(_ value: Double, on device: AudioDeviceID) throws {
         let elements = volumeElements(on: device, requireSettable: true)
         guard !elements.isEmpty else {
             throw ControlError.unavailable("This HDMI, USB, or digital output does not expose software volume control.")
@@ -93,7 +125,7 @@ final class VolumeController {
         return !volumeElements(on: device, requireSettable: true).isEmpty
     }
 
-    private func currentOutputDevice() throws -> AudioDeviceID {
+    func currentOutputDevice() throws -> AudioDeviceID {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -184,4 +216,3 @@ final class VolumeController {
         return value
     }
 }
-

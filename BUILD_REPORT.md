@@ -1,69 +1,55 @@
-# BUILD_REPORT — EdgeControl 1.6.1 published status
+# BUILD_REPORT - EdgeControl 1.7.3
 
-Date: 2026-08-18
-Status: **PUBLISHED — 67/67 XCTest pass; Release build, Universal 2, full ad-hoc bundle signature, and DMG verified on macOS**
+Date: 2026-08-30
+Status: **RELEASE-READY - 76/76 XCTest pass; repository validation, Universal 2 Release build, and deep ad-hoc signature verification pass**
 
-EdgeControl 1.6.1 is a reliability patch on the published 1.6.0 source. It fixes the experimental DDC/CI brightness reply field offset (with result-code and checksum validation), adds a complete ad-hoc bundle signature to the Release app, drops stale touch frames after trackpad restart via a generation token, and syncs the documentation. The source contains 67 XCTest methods.
+EdgeControl 1.7.3 is a focused stability and reliability update based on 1.7.2. It does not change gesture entry parameters, private API bridge contracts, haptic semantics, built-in brightness routing, or the experimental DDC policy.
+
+## Evidence summary
+
+| Item | 1.7.3 result |
+|---|---|
+| Version/build | `1.7.3 (8)` |
+| Tests | 76/76 XCTest methods pass on the local Apple Silicon validation Mac |
+| Repository guard | PASS |
+| Release build | PASS; Universal 2 (`arm64`, `x86_64`) |
+| Bundle signature | PASS; full ad-hoc bundle signature, `codesign --verify --deep --strict` |
+| Single instance | Ten rapid launches and a second app copy with the same Bundle ID leave one primary process |
+| Volume session | Device pinning, default-device switch, disappearance, and next-session behavior pass with a fake backend |
+| Packages | DMG, ZIP, and signed Sparkle appcast checks recorded in `VALIDATION_1.7.3.md` |
+
+## Release assets
+
+| Asset | Size | SHA-256 |
+|---|---:|---|
+| `EdgeControl-1.7.3-macOS.dmg` | 4,319,100 bytes | `52f70ba2f019313f3116270a1b5d8ef96d3b6344ad7d88a381a670fdf0d6abcb` |
+| `EdgeControl-1.7.3-macOS.zip` | 4,422,022 bytes | `45055b6eb3e7a69381c563642da5cde570e8a202179a6946a0ea5674bbd507b8` |
+| `appcast.xml` | 2,168 bytes | `6f678dbe2b88dbd363e3faeab0961ae20f3e2c0a56dfc2b4094b1bd0576d8ab1` |
+
+## Changes
+
+| Area | Change | Evidence |
+|---|---|---|
+| HUD lifecycle | Continuous updates reuse one presentation and avoid repeated resize, position, and order-front work | Lifecycle regression test and local runtime counters |
+| UI theme | Shared palette definitions; HUD neutral veil `0.64`; Settings neutral scrim `0.24` | Unit coverage for palette mapping; visual constants guarded by repository validation |
+| Single instance | User-level advisory `flock`; duplicate instances exit without taking ownership of services | Coordinator tests, rapid-launch test, and two-copy runtime test |
+| Volume gesture | Output device is pinned for the lifetime of the gesture; disappearance fails the session closed | Fake-backend session tests |
+| Version metadata | Marketing version `1.7.3`, build `8` | Repository version guard |
+
+## Validation environment
+
+| Item | Value |
+|---|---|
+| Hardware | MacBook Air, Apple Silicon (arm64) |
+| macOS | 26.5 |
+| Xcode | 26.6 |
+| Deployment target | macOS 13+ |
+| Signing | ad-hoc; no Developer ID certificate or notarization |
 
 ## Evidence boundary
 
-| Item | Established baseline | 1.6.1 result |
-|---|---|---|
-| Source suite | 1.6.0: 61 methods passed | 67/67 passed on macOS (Xcode 26.6) |
-| Release build | 1.6.0 passed | PASS (Universal 2: `x86_64 arm64`) |
-| Bundle signature | 1.6.0 was linker-signed on arm64 only | Full ad-hoc re-sign: both slices signed, `_CodeSignature/CodeResources` present, `codesign --verify --strict` valid |
-| DDC reply parsing | 1.6.0 read fields one byte late | Correct VESA offsets + result code + checksum; 6 byte-fixture regressions |
-| Menu/Settings | 1.6.0 visual validation on validation Mac | Unchanged from 1.6.0 |
-| HUD | 1.6.0 three palettes validated | Unchanged from 1.6.0 |
-| External Magic Trackpad/DDC hardware | Not fully physically validated | Still required when hardware is available |
-| Signing/notarization | Ad-hoc only | Developer ID/notarization unavailable |
-
-## 1.6.1 changes
-
-| Change | Implementation | Verification |
-|---|---|---|
-| DDC/CI VCP 0x10 parsing | maximum at +4/+5, current at +6/+7 relative to the 0x02 command byte; result-code and checksum checks; optional leading byte still accepted | 6 new byte-fixture tests (`DDCParsingTests`) |
-| Complete ad-hoc signature | `codesign --force --sign -` after Release build when no `DEVELOPMENT_TEAM` | `codesign --verify --strict` passes; per-slice CDHash present |
-| Stale frame guard | `frameGeneration` token invalidated on stop/rescan/wake; frames tagged at enqueue | Source review; runtime regression on macOS |
-| Docs sync | Settings > Devices, 304 pt menu, released wording | Repository guard |
-| Version metadata | Marketing 1.6.1, build 4 | Repository invariant guard |
-
-## Published 1.6.1 evidence
-
-| Item | Evidence |
-|---|---|
-| Tests | 67/67 on Apple Silicon MacBook Air, macOS 26.5.2, Xcode 26.6 |
-| Release architectures | `x86_64 arm64` |
-| Signature | ad-hoc, both slices, `_CodeSignature/CodeResources` present |
-| DMG | `EdgeControl-1.6.1-macOS.dmg`; `hdiutil verify` valid |
-| SHA-256 | `b087b4768c1cc6f5c3f67fdf66af0dde6d90095bca4bf2cd23756c6a3d55df07` |
-
-## Known limitations (unchanged)
-
-- External DDC remains experimental and off by default; it is not a formally supported feature.
-- A volume gesture does not pin its output device: if the default audio device changes mid-gesture, values are applied relative to the old device's initial volume.
-- External trackpad selection, Intel runtime, other macOS versions, multi-device ordering, and clean-machine Gatekeeper remain hardware/environment dependent.
-- Shell syntax checks for repository scripts
-- XCTest method count and targeted invariant guards
-- Whitespace/diff review
-- Network/telemetry static guard
-- Source archive integrity check
-
-This environment cannot run AppKit/Xcode tests. A source-side pass must not be represented as a compiled macOS pass.
-
-## Required macOS release gate
-
-Follow `OPENCLAW_VALIDATE_1.6.1.md`. Publication is blocked until:
-
-1. 67/67 Xcode tests and clean Debug/Release builds pass.
-2. The Universal 2 binary reports both architectures and version/build 1.6.1 (4).
-3. Legacy HUD migration, all three palettes, custom menu, and every Settings page pass light/dark/accessibility checks.
-4. The complete 1.5.1 zero-cross, Strong haptic, and brightness/DDC gates remain green.
-5. DMG verify, installation, launch, and SHA-256 insertion into `RELEASE_NOTES_1.6.1.md` succeed.
-
-## Known limitations
-
-- Raw multitouch, DisplayServices, and legacy DDC depend on undocumented/private macOS interfaces and must fail closed when unavailable.
-- External DDC is experimental and off by default. Legacy I2C transport may not cover every Apple Silicon monitor/dock path.
-- External trackpad selection, Intel runtime, other macOS versions, multi-device ordering, Developer ID signing, notarization, and clean-machine Gatekeeper remain environment dependent.
-- AppKit exposes feedback patterns rather than numeric haptic amplitude; real-device feel still requires physical validation.
+- HUD and Settings light/dark appearance, Reduce Transparency, Launch at Login races, Sparkle relaunch, and sleep/wake still require workflow validation.
+- Physical audio-device switching was not tested; the session contract is covered with a fake backend.
+- External DDC remains experimental and off by default; external-display hardware behavior is not claimed.
+- External trackpad, Intel runtime, other macOS versions, and clean-machine Gatekeeper behavior remain unverified.
+- Private MultitouchSupport, DisplayServices, and DDC interfaces remain undocumented dependencies and must fail closed when unavailable.

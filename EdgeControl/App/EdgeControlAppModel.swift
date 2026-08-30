@@ -17,6 +17,7 @@ final class EdgeControlAppModel: ObservableObject {
         let initialValue: Double
         let speedMultiplier: Double
         let hapticStrength: HapticStrength
+        let volumeSession: VolumeControlSession?
         let brightnessSession: BrightnessControlSession?
     }
 
@@ -35,6 +36,7 @@ final class EdgeControlAppModel: ObservableObject {
     private let launchAtLoginController = LaunchAtLoginController()
     private let updateController = UpdateController()
     private let keyboardActivityGuard: RecentKeyboardActivityGuard
+    private var settingsCancellables = Set<AnyCancellable>()
     private let mapper = ContinuousValueMapper()
     private var session: ControlSession?
     private var hasStarted = false
@@ -59,6 +61,13 @@ final class EdgeControlAppModel: ObservableObject {
         self.keyboardActivityGuard = keyboardActivityGuard
         self.gestureEngine = Self.makeGestureEngine(settings: settings)
         brightnessController.setExternalDDCEnabled(settings.externalDDCEnabled)
+        hudController.setColorStyle(settings.hudColorStyle)
+        settings.$hudColorStyle
+            .removeDuplicates()
+            .sink { [weak self] style in
+                self?.hudController.setColorStyle(style)
+            }
+            .store(in: &settingsCancellables)
     }
 
     private static func makeGestureEngine(settings: AppSettings) -> GestureEngine {
@@ -173,12 +182,19 @@ final class EdgeControlAppModel: ObservableObject {
             let container = NSView()
             container.wantsLayer = true
             container.addSubview(glass)
+            let scrim = AppearanceAwareNeutralScrimView()
+            scrim.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(scrim)
             container.addSubview(hostingView)
             NSLayoutConstraint.activate([
                 glass.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                 glass.trailingAnchor.constraint(equalTo: container.trailingAnchor),
                 glass.topAnchor.constraint(equalTo: container.topAnchor),
                 glass.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+                scrim.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                scrim.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                scrim.topAnchor.constraint(equalTo: container.topAnchor),
+                scrim.bottomAnchor.constraint(equalTo: container.bottomAnchor),
                 hostingView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                 hostingView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
                 hostingView.topAnchor.constraint(equalTo: container.topAnchor),
@@ -332,6 +348,7 @@ final class EdgeControlAppModel: ObservableObject {
         // gesture from the built-in panel to DDC (or the reverse).
         finishBrightnessSessionIfNeeded()
         brightnessController.refresh()
+        hudController.refreshPositionIfNeeded()
     }
 
     private func consume(_ frame: TouchFrame, generation: UInt64) {
@@ -381,14 +398,18 @@ final class EdgeControlAppModel: ObservableObject {
 
         do {
             let initialValue: Double
+            let volumeSession: VolumeControlSession?
             let brightnessSession: BrightnessControlSession?
             switch action {
             case .volume:
-                initialValue = try volumeController.getVolume()
+                let started = try volumeController.beginSession()
+                initialValue = started.initialValue
+                volumeSession = started
                 brightnessSession = nil
             case .brightness:
                 let started = try brightnessController.beginSession()
                 initialValue = started.initialValue
+                volumeSession = nil
                 brightnessSession = started
             case .disabled:
                 return
@@ -403,6 +424,7 @@ final class EdgeControlAppModel: ObservableObject {
                 speedMultiplier: settings.adjustmentSpeed.gainMultiplier,
                 // Keep the tactile character stable for the whole gesture.
                 hapticStrength: settings.hapticStrength,
+                volumeSession: volumeSession,
                 brightnessSession: brightnessSession
             )
             if settings.hapticFeedback {
@@ -442,7 +464,10 @@ final class EdgeControlAppModel: ObservableObject {
                 #if EDGE_DEBUG_LOGGING
                 print("[EdgeControl][Volume] set target=\(String(format: "%.3f", target)) deltaY=\(String(format: "%.4f", deltaY))")
                 #endif
-                try volumeController.setVolume(target)
+                guard let volumeSession = session.volumeSession else {
+                    throw ControlError.unavailable("Volume session is unavailable.")
+                }
+                try volumeSession.setVolume(target)
             case .brightness:
                 #if EDGE_DEBUG_LOGGING
                 print("[EdgeControl][Brightness] set target=\(String(format: "%.3f", target)) deltaY=\(String(format: "%.4f", deltaY))")
@@ -491,8 +516,26 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func showHUD(action: EdgeAction, value: Double?, message: String?) {
         guard settings.showHUD else { return }
-        hudController.colorStyle = settings.hudColorStyle
         let kind: HUDKind = action == .volume ? .volume : .brightness
         hudController.show(HUDPresentation(kind: kind, value: value, message: message))
+    }
+}
+
+private final class AppearanceAwareNeutralScrimView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateBackgroundColor()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackgroundColor()
+    }
+
+    private func updateBackgroundColor() {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(
+            EdgeUITheme.settingsNeutralScrimOpacity
+        ).cgColor
     }
 }

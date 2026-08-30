@@ -1,26 +1,71 @@
+import AppKit
 import Foundation
 import SwiftUI
+
+@MainActor
+private final class AppModelStore: ObservableObject {
+    let model: EdgeControlAppModel?
+
+    init(createModel: Bool) {
+        model = createModel ? EdgeControlAppModel() : nil
+    }
+}
 
 @main
 @MainActor
 struct EdgeControlApp: App {
-    @StateObject private var model: EdgeControlAppModel
+    @StateObject private var store: AppModelStore
+    private let instanceCoordinator: SingleInstanceCoordinator?
 
     init() {
-        let model = EdgeControlAppModel()
-        _model = StateObject(wrappedValue: model)
+        let isHostedUnitTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        let createModel: Bool
+        if isHostedUnitTest {
+            instanceCoordinator = nil
+            createModel = true
+        } else {
+            let coordinator = SingleInstanceCoordinator()
+            let result = coordinator.acquire()
+            instanceCoordinator = coordinator
+
+            switch result {
+            case .primary:
+                createModel = true
+            case .duplicate:
+                createModel = false
+            case .failed:
+                // If lock infrastructure is unavailable, avoid creating a second
+                // service owner when LaunchServices can still see the primary.
+                let existing = NSRunningApplication.runningApplications(
+                    withBundleIdentifier: coordinator.bundleIdentifier
+                ).filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+                createModel = existing.isEmpty
+            }
+        }
+
+        let store = AppModelStore(createModel: createModel)
+        _store = StateObject(wrappedValue: store)
         // Hosted unit tests must remain independent of real trackpad hardware.
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
-            model.start()
+        if createModel, !isHostedUnitTest {
+            store.model?.start()
+        }
+        if !createModel {
+            DispatchQueue.main.async {
+                NSApplication.shared.terminate(nil)
+            }
         }
     }
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarMenuView()
-                .environmentObject(model)
+            if let model = store.model {
+                MenuBarMenuView()
+                    .environmentObject(model)
+            }
         } label: {
-            Label("EdgeControl", systemImage: "slider.vertical.3")
+            if store.model != nil {
+                Label("EdgeControl", systemImage: "slider.vertical.3")
+            }
         }
         .menuBarExtraStyle(.window)
     }

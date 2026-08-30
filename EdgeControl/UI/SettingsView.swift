@@ -415,7 +415,7 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.7.1"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development"
     }
 
     @ViewBuilder
@@ -541,7 +541,7 @@ private struct HUDPalettePreview: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(.primary.opacity(0.12))
                 Capsule()
-                    .fill(accentColor(for: kind).opacity(0.90))
+                    .fill(HUDPalette.accent(style: style, kind: kind).opacity(0.90))
                     .frame(width: 34)
             }
             .frame(width: 52, height: 5)
@@ -550,27 +550,6 @@ private struct HUDPalettePreview: View {
         .accessibilityLabel(Text("\(title) color preview"))
     }
 
-    private func accentColor(for kind: HUDKind) -> Color {
-        switch (style, kind) {
-        case (.system, _): return .primary
-        case (.classic, .volume): return Color(nsColor: NSColor.systemBlue)
-        case (.classic, .brightness): return Color(nsColor: NSColor.systemOrange)
-        case (.aurora, .volume): return Color(nsColor: NSColor.systemPurple)
-        case (.aurora, .brightness): return Color(nsColor: NSColor.systemTeal)
-        case (.morandi, .volume):
-            return Color(
-                nsColor: NSColor(
-                    srgbRed: 0.639, green: 0.757, blue: 0.871, alpha: 1
-                )
-            )
-        case (.morandi, .brightness):
-            return Color(
-                nsColor: NSColor(
-                    srgbRed: 0.624, green: 0.690, blue: 0.769, alpha: 1
-                )
-            )
-        }
-    }
 }
 
 private extension View {

@@ -1,3 +1,5 @@
+import AppKit
+import CoreAudio
 import CoreGraphics
 import XCTest
 @testable import EdgeControl
@@ -270,11 +272,169 @@ final class SettingsTests: XCTestCase {
         )
     }
 
+    func testHUDContinuousUpdatesRemainOnePresentation() {
+        var lifecycle = HUDPresentationLifecycle()
+        let size = NSSize(width: 176, height: 72)
+
+        let first = lifecycle.plan(size: size, screenID: 1)
+        XCTAssertTrue(first.isNewPresentation)
+        XCTAssertTrue(first.shouldResize)
+        XCTAssertTrue(first.shouldPosition)
+        XCTAssertTrue(first.shouldOrderFront)
+
+        for _ in 0..<100 {
+            let update = lifecycle.plan(size: size, screenID: 1)
+            XCTAssertFalse(update.isNewPresentation)
+            XCTAssertFalse(update.shouldResize)
+            XCTAssertFalse(update.shouldPosition)
+            XCTAssertFalse(update.shouldOrderFront)
+        }
+
+        XCTAssertEqual(lifecycle.presentCount, 1)
+        XCTAssertEqual(lifecycle.updateCount, 100)
+        lifecycle.markHidden()
+        XCTAssertEqual(lifecycle.dismissCount, 1)
+    }
+
+    func testHUDPaletteComponentsCoverEveryStyleAndKind() {
+        for style in HUDColorStyle.allCases {
+            for kind in [HUDKind.volume, .brightness] {
+                if style == .system {
+                    XCTAssertNil(HUDPalette.accentComponents(style: style, kind: kind))
+                } else {
+                    XCTAssertNotNil(HUDPalette.accentComponents(style: style, kind: kind))
+                }
+            }
+        }
+        XCTAssertEqual(
+            HUDPalette.accentComponents(style: .morandi, kind: .volume),
+            HUDPalette.AccentComponents(red: 0.639, green: 0.757, blue: 0.871)
+        )
+    }
+
+    func testSingleInstanceFirstAcquireSucceedsAndCompetingAcquireFails() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EdgeControlTests-\(UUID().uuidString)", isDirectory: true)
+        let lockURL = directory.appendingPathComponent("instance.lock")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let first = SingleInstanceCoordinator(
+            lockURL: lockURL,
+            bundleIdentifier: "org.edgecontrol.tests",
+            retryBudget: 0
+        )
+        let second = SingleInstanceCoordinator(
+            lockURL: lockURL,
+            bundleIdentifier: "org.edgecontrol.tests",
+            retryBudget: 0
+        )
+
+        XCTAssertEqual(first.acquire(), .primary)
+        XCTAssertEqual(second.acquire(), .duplicate)
+        first.release()
+        XCTAssertEqual(second.acquire(), .primary)
+        second.release()
+    }
+
+    func testSingleInstanceLockFileCanRemainWithoutOwnership() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EdgeControlTests-\(UUID().uuidString)", isDirectory: true)
+        let lockURL = directory.appendingPathComponent("instance.lock")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: lockURL.path, contents: Data())
+
+        let coordinator = SingleInstanceCoordinator(lockURL: lockURL, retryBudget: 0)
+        XCTAssertEqual(coordinator.acquire(), .primary)
+        coordinator.release()
+    }
+
+    func testSingleInstanceFilesystemErrorIsNotReportedAsDuplicate() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EdgeControlTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        FileManager.default.createFile(atPath: directory.path, contents: Data())
+
+        let coordinator = SingleInstanceCoordinator(
+            lockURL: directory.appendingPathComponent("instance.lock"),
+            retryBudget: 0
+        )
+        guard case .failed(.directoryCreationFailed) = coordinator.acquire() else {
+            return XCTFail("Expected a directory creation failure")
+        }
+    }
+
+    func testVolumeSessionPinsDeviceAcrossDefaultSwitch() throws {
+        let backend = FakeVolumeBackend(defaultDevice: 1, values: [1: 0.25, 2: 0.80])
+        let session = try VolumeControlSession(backend: backend)
+        backend.defaultDevice = 2
+
+        try session.setVolume(0.40)
+        try session.setVolume(0.55)
+
+        XCTAssertEqual(session.pinnedDeviceID, 1)
+        XCTAssertEqual(backend.writtenDevices, [1, 1])
+        XCTAssertEqual(backend.values[2] ?? -1, 0.80, accuracy: 0.000_001)
+    }
+
+    func testVolumeSessionFailsWhenPinnedDeviceDisappears() throws {
+        let backend = FakeVolumeBackend(defaultDevice: 1, values: [1: 0.25, 2: 0.80])
+        let session = try VolumeControlSession(backend: backend)
+        backend.available.remove(1)
+
+        XCTAssertThrowsError(try session.setVolume(0.40)) { error in
+            XCTAssertEqual(error as? ControlError, .unavailable("Pinned output device is unavailable."))
+        }
+        XCTAssertTrue(backend.writtenDevices.isEmpty)
+    }
+
+    func testNewVolumeSessionUsesNewDefaultDeviceAfterPreviousSessionEnds() throws {
+        let backend = FakeVolumeBackend(defaultDevice: 1, values: [1: 0.25, 2: 0.80])
+        _ = try VolumeControlSession(backend: backend)
+        backend.defaultDevice = 2
+
+        let next = try VolumeControlSession(backend: backend)
+        XCTAssertEqual(next.pinnedDeviceID, 2)
+        XCTAssertEqual(next.initialValue, 0.80, accuracy: 0.000_001)
+    }
+
     private func makeDefaults() -> (UserDefaults, String) {
         let name = "EdgeControlTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defaults.removePersistentDomain(forName: name)
         return (defaults, name)
+    }
+}
+
+private final class FakeVolumeBackend: VolumeBackend {
+    var defaultDevice: AudioDeviceID
+    var values: [AudioDeviceID: Double]
+    var available: Set<AudioDeviceID>
+    private(set) var writtenDevices: [AudioDeviceID] = []
+
+    init(defaultDevice: AudioDeviceID, values: [AudioDeviceID: Double]) {
+        self.defaultDevice = defaultDevice
+        self.values = values
+        self.available = Set(values.keys)
+    }
+
+    func currentOutputDevice() throws -> AudioDeviceID {
+        defaultDevice
+    }
+
+    func readVolume(on device: AudioDeviceID) throws -> Double {
+        guard available.contains(device), let value = values[device] else {
+            throw ControlError.unavailable("Pinned output device is unavailable.")
+        }
+        return value
+    }
+
+    func writeVolume(_ value: Double, on device: AudioDeviceID) throws {
+        guard available.contains(device), values[device] != nil else {
+            throw ControlError.unavailable("Pinned output device is unavailable.")
+        }
+        values[device] = value
+        writtenDevices.append(device)
     }
 }
 

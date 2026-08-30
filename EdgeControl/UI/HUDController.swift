@@ -34,6 +34,54 @@ private enum HUDLayout {
     )
 }
 
+struct HUDPresentationPlan: Equatable, Sendable {
+    let isNewPresentation: Bool
+    let shouldResize: Bool
+    let shouldPosition: Bool
+    let shouldOrderFront: Bool
+}
+
+struct HUDPresentationLifecycle: Equatable, Sendable {
+    private(set) var isVisible = false
+    private(set) var currentSize: NSSize?
+    private(set) var currentScreenID: UInt64?
+    private(set) var presentCount = 0
+    private(set) var updateCount = 0
+    private(set) var dismissCount = 0
+
+    mutating func plan(size: NSSize, screenID: UInt64?) -> HUDPresentationPlan {
+        let isNewPresentation = !isVisible
+        let shouldResize = currentSize != size
+        let shouldPosition = isNewPresentation || shouldResize || currentScreenID != screenID
+
+        if isNewPresentation {
+            presentCount += 1
+        } else {
+            updateCount += 1
+        }
+        isVisible = true
+        currentSize = size
+        currentScreenID = screenID
+
+        return HUDPresentationPlan(
+            isNewPresentation: isNewPresentation,
+            shouldResize: shouldResize,
+            shouldPosition: shouldPosition,
+            shouldOrderFront: isNewPresentation
+        )
+    }
+
+    mutating func markHidden() {
+        guard isVisible else { return }
+        isVisible = false
+        dismissCount += 1
+    }
+
+    mutating func updateScreenID(_ screenID: UInt64?) {
+        currentScreenID = screenID
+    }
+}
+
 @MainActor
 private final class HUDViewModel: ObservableObject {
     @Published var presentation = HUDPresentation(kind: .volume, value: 0, message: nil)
@@ -46,9 +94,26 @@ final class HUDController {
     private let panel: NSPanel
     private let viewModel: HUDViewModel
     private var dismissTask: Task<Void, Never>?
+    private var lifecycle = HUDPresentationLifecycle()
 
-    var colorStyle: HUDColorStyle = .system {
-        didSet { viewModel.colorStyle = colorStyle }
+    private(set) var colorStyle: HUDColorStyle = .system
+    private(set) var debugMetrics = HUDDebugMetrics()
+
+    struct HUDDebugMetrics: Equatable, Sendable {
+        var presentCount = 0
+        var updateCount = 0
+        var dismissCount = 0
+        var orderFrontCount = 0
+        var positionCount = 0
+        var resizeCount = 0
+    }
+
+    func setColorStyle(_ style: HUDColorStyle) {
+        guard colorStyle != style else { return }
+        colorStyle = style
+        withTransaction(Transaction(animation: nil)) {
+            viewModel.colorStyle = style
+        }
     }
 
     init() {
@@ -86,21 +151,43 @@ final class HUDController {
 
     func show(_ presentation: HUDPresentation) {
         dismissTask?.cancel()
-        let wasVisible = panel.isVisible
-        if !wasVisible {
-            viewModel.isPresented = false
-        }
-        viewModel.presentation = presentation
-        panel.setContentSize(HUDLayout.size(for: presentation))
-        positionPanel()
-        panel.orderFrontRegardless()
+        let requiredSize = HUDLayout.size(for: presentation)
+        let activeScreen = currentScreen()
+        let plan = lifecycle.plan(size: requiredSize, screenID: activeScreen.id)
 
-        if wasVisible {
-            viewModel.isPresented = true
-        } else {
+        withTransaction(Transaction(animation: nil)) {
+            viewModel.presentation = presentation
+            if plan.isNewPresentation {
+                viewModel.isPresented = false
+            }
+        }
+
+        if plan.isNewPresentation {
+            panel.appearance = NSApp.effectiveAppearance
+        }
+        if plan.shouldResize {
+            panel.setContentSize(requiredSize)
+            debugMetrics.resizeCount += 1
+        }
+        if plan.shouldPosition {
+            positionPanel(on: activeScreen.screen)
+            debugMetrics.positionCount += 1
+        }
+        if plan.shouldOrderFront {
+            panel.orderFrontRegardless()
+            debugMetrics.orderFrontCount += 1
+        }
+
+        debugMetrics.presentCount = lifecycle.presentCount
+        debugMetrics.updateCount = lifecycle.updateCount
+        if plan.isNewPresentation {
             Task { @MainActor [weak viewModel] in
                 await Task.yield()
                 viewModel?.isPresented = true
+            }
+        } else {
+            withTransaction(Transaction(animation: nil)) {
+                viewModel.isPresented = true
             }
         }
 
@@ -114,7 +201,9 @@ final class HUDController {
                 return
             }
             guard let self else { return }
-            self.viewModel.isPresented = false
+            withTransaction(Transaction(animation: nil)) {
+                self.viewModel.isPresented = false
+            }
             do {
                 try await Task.sleep(nanoseconds: 180_000_000)
             } catch {
@@ -122,18 +211,39 @@ final class HUDController {
             }
             guard !Task.isCancelled else { return }
             self.panel.orderOut(nil)
+            self.lifecycle.markHidden()
+            self.debugMetrics.dismissCount = self.lifecycle.dismissCount
         }
     }
 
     func hideImmediately() {
         dismissTask?.cancel()
-        viewModel.isPresented = false
+        withTransaction(Transaction(animation: nil)) {
+            viewModel.isPresented = false
+        }
         panel.orderOut(nil)
+        lifecycle.markHidden()
+        debugMetrics.dismissCount = lifecycle.dismissCount
     }
 
-    private func positionPanel() {
+    func refreshPositionIfNeeded() {
+        guard lifecycle.isVisible else { return }
+        let activeScreen = currentScreen()
+        guard activeScreen.id != lifecycle.currentScreenID else { return }
+        lifecycle.updateScreenID(activeScreen.id)
+        positionPanel(on: activeScreen.screen)
+        debugMetrics.positionCount += 1
+    }
+
+    private func currentScreen() -> (screen: NSScreen?, id: UInt64?) {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main
+        let numberKey = NSDeviceDescriptionKey("NSScreenNumber")
+        let id = (screen?.deviceDescription[numberKey] as? NSNumber)?.uint64Value
+        return (screen, id)
+    }
+
+    private func positionPanel(on screen: NSScreen?) {
         guard let visibleFrame = screen?.visibleFrame else { return }
         let origin = NSPoint(
             x: visibleFrame.midX - panel.frame.width / 2,
@@ -213,41 +323,13 @@ private struct EdgeHUDView: View {
     }
 
     private var accentColor: Color {
-        switch (model.colorStyle, model.presentation.kind) {
-        case (.system, _):
-            return .primary
-        case (.classic, .volume):
-            return Color(nsColor: NSColor.systemBlue)
-        case (.classic, .brightness):
-            return Color(nsColor: NSColor.systemOrange)
-        case (.aurora, .volume):
-            return Color(nsColor: NSColor.systemPurple)
-        case (.aurora, .brightness):
-            return Color(nsColor: NSColor.systemTeal)
-        case (.morandi, .volume):
-            // Soft baby blue.
-            return Color(
-                nsColor: NSColor(
-                    srgbRed: 0.639, green: 0.757, blue: 0.871, alpha: 1
-                )
-            )
-        case (.morandi, .brightness):
-            // Misty light blue.
-            return Color(
-                nsColor: NSColor(
-                    srgbRed: 0.624, green: 0.690, blue: 0.769, alpha: 1
-                )
-            )
-        }
+        HUDPalette.accent(style: model.colorStyle, kind: model.presentation.kind)
     }
 
     private var glassTint: Color {
         // Keep the glass neutral in every palette so color is concentrated in
         // the progress indicator and the system blur remains visually clean.
-        if model.presentation.value == nil {
-            return .orange.opacity(0.045)
-        }
-        return .primary.opacity(0.035)
+        HUDPalette.glassTint(for: model.presentation)
     }
 
     private var symbolName: String {
@@ -310,7 +392,7 @@ private struct EdgeHUDGlassModifier: ViewModifier {
                         ZStack {
                             CapsuleVisualEffect()
                             Capsule()
-                                .fill(Color(nsColor: .windowBackgroundColor).opacity(0.52))
+                                .fill(Color(nsColor: .windowBackgroundColor).opacity(EdgeUITheme.hudNeutralVeilOpacity))
                             Capsule()
                                 .fill(tint)
                         }

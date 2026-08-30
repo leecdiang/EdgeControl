@@ -7,6 +7,7 @@ struct MenuBarMenuView: View {
 
     var body: some View {
         MenuBarSettingsContent(model: model, settings: model.settings)
+            .tint(EdgeUITheme.controlAccent)
     }
 }
 
@@ -260,7 +261,7 @@ private struct QuickToggle: View {
             HStack(spacing: 6) {
                 Image(systemName: systemImage)
                     .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(isOn ? EdgeUITheme.controlAccent : Color.secondary)
                 Text(title)
                     .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(isOn ? Color.primary : Color.secondary)
@@ -271,7 +272,7 @@ private struct QuickToggle: View {
             .frame(maxWidth: .infinity, minHeight: 28)
             .background {
                 Capsule()
-                    .fill(isOn ? Color.accentColor.opacity(0.085) : Color.primary.opacity(0.035))
+                    .fill(isOn ? EdgeUITheme.controlAccent.opacity(0.085) : Color.primary.opacity(0.035))
             }
             .overlay {
                 Capsule()
