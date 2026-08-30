@@ -34,7 +34,7 @@
 ### Known limitations
 
 - External DDC remains experimental and off by default.
-- Physical audio-device switching, Launch at Login races, Sparkle relaunch, sleep/wake, and the full light/dark visual matrix still require local hardware or workflow validation.
+- Physical audio-device switching, Sparkle relaunch, sleep/wake, and the full light/dark visual matrix still require local hardware or workflow validation.
 - External trackpads, Intel runtime, other macOS versions, and clean-machine Gatekeeper behavior remain unverified.
 - This build is ad-hoc signed. No Developer ID signature or notarization is claimed.
 
@@ -70,6 +70,6 @@
 ### 已知限制
 
 - 外接显示器 DDC 仍为实验功能，默认关闭。
-- 物理音频设备切换、登录项并发启动、Sparkle 重启、睡眠唤醒，以及完整的浅色/深色视觉矩阵仍需本地硬件或流程验证。
+- 物理音频设备切换、Sparkle 重启、睡眠唤醒，以及完整的浅色/深色视觉矩阵仍需本地硬件或流程验证。
 - 外接触控板、Intel、其他 macOS 版本和全新机器上的 Gatekeeper 行为尚未验证。
 - 本版本使用 ad-hoc 签名，不宣称 Developer ID 签名或公证。
