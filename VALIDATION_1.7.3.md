@@ -30,7 +30,7 @@
 | ZIP creation | PASS | `EdgeControl-1.7.3-macOS.zip`, 4,422,022 bytes; archive test reports no errors |
 | Sparkle appcast | PASS | Version 8 / short version 1.7.3 / macOS 13.0 / EdDSA enclosure and feed signatures; v1.7.2 URL preserved |
 | Local asset hashes | PASS | DMG `52f70ba2...d6abcb`; ZIP `45055b6e...507b8`; appcast `6f678dbe...d8ab1` |
-| Published asset hash check | POST-PUBLISH | Compare downloaded GitHub Release assets with the local hashes above |
+| Published asset hash check | PASS | Downloaded DMG, ZIP, and appcast match local SHA-256 values; GitHub asset digests match |
 
 ## UI
 

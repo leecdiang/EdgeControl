@@ -1,7 +1,7 @@
 # BUILD_REPORT - EdgeControl 1.7.3
 
 Date: 2026-08-30
-Status: **RELEASE-READY - 76/76 XCTest pass; repository validation, Universal 2 Release build, and deep ad-hoc signature verification pass**
+Status: **PUBLISHED - 76/76 XCTest pass; repository validation, Universal 2 Release build, deep ad-hoc signature verification, and published asset hash verification pass**
 
 EdgeControl 1.7.3 is a focused stability and reliability update based on 1.7.2. It does not change gesture entry parameters, private API bridge contracts, haptic semantics, built-in brightness routing, or the experimental DDC policy.
 
@@ -16,7 +16,7 @@ EdgeControl 1.7.3 is a focused stability and reliability update based on 1.7.2. 
 | Bundle signature | PASS; full ad-hoc bundle signature, `codesign --verify --deep --strict` |
 | Single instance | Ten rapid launches and a second app copy with the same Bundle ID leave one primary process |
 | Volume session | Device pinning, default-device switch, disappearance, and next-session behavior pass with a fake backend |
-| Packages | DMG, ZIP, and signed Sparkle appcast checks recorded in `VALIDATION_1.7.3.md` |
+| Packages | DMG, ZIP, and signed Sparkle appcast published; downloaded asset hashes match local artifacts |
 
 ## Release assets
 
