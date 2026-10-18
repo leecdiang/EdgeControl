@@ -12,7 +12,9 @@ final class UpdateController: NSObject {
             userDriverDelegate: nil
         )
         super.init()
-        controller.updater.automaticallyChecksForUpdates = true
+        // Do not force automatic checks on: the user can turn them off, and
+        // Sparkle stores that choice. SUEnableAutomaticChecks in Info.plist
+        // only supplies the first-launch default.
         controller.startUpdater()
     }
 

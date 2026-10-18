@@ -328,6 +328,21 @@ struct SettingsView: View {
                     .labelsHidden()
                     .toggleStyle(.switch)
                 }
+
+                if model.launchAtLoginNeedsApproval {
+                    HStack(spacing: 8) {
+                        Text("Approve EdgeControl under System Settings > General > Login Items.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 8)
+                        Button("Open Login Items") {
+                            model.openLoginItemsSettings()
+                        }
+                        .controlSize(.small)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
+                }
             }
 
             if let error = model.lastError {

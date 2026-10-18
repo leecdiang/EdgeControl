@@ -24,6 +24,7 @@ final class EdgeControlAppModel: ObservableObject {
     let settings: AppSettings
     @Published private(set) var touchStatus: TouchStatus = .stopped
     @Published private(set) var lastError: String?
+    @Published private(set) var launchAtLoginNeedsApproval = false
 
     private var gestureEngine: GestureEngine
     private let trackpadManager = TrackpadManager()
@@ -50,7 +51,8 @@ final class EdgeControlAppModel: ObservableObject {
         onSleep: { [weak self] in self?.finishSession() },
         onWake: { [weak self] in self?.handleWake() },
         onDisplaysChanged: { [weak self] in self?.handleDisplaysChanged() },
-        onTerminate: { [weak self] in self?.stop() }
+        onTerminate: { [weak self] in self?.stop() },
+        onActivate: { [weak self] in self?.refreshLaunchAtLoginState() }
     )
 
     init(
@@ -80,7 +82,7 @@ final class EdgeControlAppModel: ObservableObject {
         guard !hasStarted else { return }
         hasStarted = true
         _ = systemEventMonitor
-        settings.launchAtLogin = launchAtLoginController.isEnabled
+        refreshLaunchAtLoginState()
         runVolumeProbeIfRequested()
         runBrightnessProbeIfRequested()
         startTouchWatchdog()
@@ -105,11 +107,31 @@ final class EdgeControlAppModel: ObservableObject {
     func setLaunchAtLogin(_ enabled: Bool) {
         do {
             try launchAtLoginController.setEnabled(enabled)
-            settings.launchAtLogin = launchAtLoginController.isEnabled
-            lastError = nil
+            refreshLaunchAtLoginState()
+            lastError = launchAtLoginNeedsApproval
+                ? "Approve EdgeControl under System Settings > General > Login Items to finish enabling launch at login."
+                : nil
         } catch {
-            settings.launchAtLogin = launchAtLoginController.isEnabled
+            refreshLaunchAtLoginState()
             lastError = error.localizedDescription
+        }
+    }
+
+    func openLoginItemsSettings() {
+        launchAtLoginController.openSystemSettings()
+    }
+
+    /// SMAppService state can change while the app runs (the user may revoke or
+    /// grant approval in System Settings), so re-read it on activation instead
+    /// of trusting the persisted mirror in AppSettings.
+    func refreshLaunchAtLoginState() {
+        let enabled = launchAtLoginController.isEnabled
+        let needsApproval = launchAtLoginController.requiresApproval
+        if settings.launchAtLogin != enabled {
+            settings.launchAtLogin = enabled
+        }
+        if launchAtLoginNeedsApproval != needsApproval {
+            launchAtLoginNeedsApproval = needsApproval
         }
     }
 

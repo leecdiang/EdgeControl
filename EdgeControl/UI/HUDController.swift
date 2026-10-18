@@ -45,14 +45,24 @@ struct HUDPresentationLifecycle: Equatable, Sendable {
     private(set) var isVisible = false
     private(set) var currentSize: NSSize?
     private(set) var currentScreenID: UInt64?
+    private(set) var currentScreenFrame: NSRect?
     private(set) var presentCount = 0
     private(set) var updateCount = 0
     private(set) var dismissCount = 0
 
-    mutating func plan(size: NSSize, screenID: UInt64?) -> HUDPresentationPlan {
+    mutating func plan(
+        size: NSSize,
+        screenID: UInt64?,
+        screenFrame: NSRect? = nil
+    ) -> HUDPresentationPlan {
         let isNewPresentation = !isVisible
         let shouldResize = currentSize != size
-        let shouldPosition = isNewPresentation || shouldResize || currentScreenID != screenID
+        // Screen IDs survive resolution and arrangement changes, so the usable
+        // frame must participate in placement too.
+        let shouldPosition = isNewPresentation
+            || shouldResize
+            || currentScreenID != screenID
+            || currentScreenFrame != screenFrame
 
         if isNewPresentation {
             presentCount += 1
@@ -62,6 +72,7 @@ struct HUDPresentationLifecycle: Equatable, Sendable {
         isVisible = true
         currentSize = size
         currentScreenID = screenID
+        currentScreenFrame = screenFrame
 
         return HUDPresentationPlan(
             isNewPresentation: isNewPresentation,
@@ -79,6 +90,11 @@ struct HUDPresentationLifecycle: Equatable, Sendable {
 
     mutating func updateScreenID(_ screenID: UInt64?) {
         currentScreenID = screenID
+    }
+
+    mutating func updateScreenFrame(_ frame: NSRect?, screenID: UInt64?) {
+        currentScreenID = screenID
+        currentScreenFrame = frame
     }
 }
 
@@ -153,7 +169,11 @@ final class HUDController {
         dismissTask?.cancel()
         let requiredSize = HUDLayout.size(for: presentation)
         let activeScreen = currentScreen()
-        let plan = lifecycle.plan(size: requiredSize, screenID: activeScreen.id)
+        let plan = lifecycle.plan(
+            size: requiredSize,
+            screenID: activeScreen.id,
+            screenFrame: activeScreen.screen?.visibleFrame
+        )
 
         withTransaction(Transaction(animation: nil)) {
             viewModel.presentation = presentation
@@ -229,8 +249,12 @@ final class HUDController {
     func refreshPositionIfNeeded() {
         guard lifecycle.isVisible else { return }
         let activeScreen = currentScreen()
-        guard activeScreen.id != lifecycle.currentScreenID else { return }
-        lifecycle.updateScreenID(activeScreen.id)
+        let frame = activeScreen.screen?.visibleFrame
+        guard activeScreen.id != lifecycle.currentScreenID
+            || frame != lifecycle.currentScreenFrame else {
+            return
+        }
+        lifecycle.updateScreenFrame(frame, screenID: activeScreen.id)
         positionPanel(on: activeScreen.screen)
         debugMetrics.positionCount += 1
     }

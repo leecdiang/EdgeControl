@@ -1,55 +1,51 @@
-# BUILD_REPORT - EdgeControl 1.7.3
+# BUILD_REPORT - EdgeControl 1.7.4
 
-Date: 2026-08-30
-Status: **PUBLISHED - 76/76 XCTest pass; repository validation, Universal 2 Release build, deep ad-hoc signature verification, and published asset hash verification pass**
+Date: 2026-10-18
+Status: **RELEASE CANDIDATE - 76/76 XCTest pass; repository validation, Universal 2 Release build, and deep ad-hoc signature verification pass**
 
-EdgeControl 1.7.3 is a focused stability and reliability update based on 1.7.2. It does not change gesture entry parameters, private API bridge contracts, haptic semantics, built-in brightness routing, or the experimental DDC policy.
+EdgeControl 1.7.4 is a reliability update based on 1.7.3. It fixes login-item approval handling, stale login-item state, HUD placement after display changes, and forced automatic update checks. It does not change gesture entry parameters, private API bridge contracts, haptic semantics, built-in brightness routing, or the experimental DDC policy.
 
 ## Evidence summary
 
-| Item | 1.7.3 result |
+| Item | 1.7.4 result |
 |---|---|
-| Version/build | `1.7.3 (8)` |
+| Version/build | `1.7.4 (9)` |
 | Tests | 76/76 XCTest methods pass on the local Apple Silicon validation Mac |
 | Repository guard | PASS |
 | Release build | PASS; Universal 2 (`arm64`, `x86_64`) |
 | Bundle signature | PASS; full ad-hoc bundle signature, `codesign --verify --deep --strict` |
-| Single instance | Ten rapid launches and a second app copy with the same Bundle ID leave one primary process |
-| Volume session | Device pinning, default-device switch, disappearance, and next-session behavior pass with a fake backend |
-| Packages | DMG, ZIP, and signed Sparkle appcast published; downloaded asset hashes match local artifacts |
 
 ## Release assets
 
 | Asset | Size | SHA-256 |
 |---|---:|---|
-| `EdgeControl-1.7.3-macOS.dmg` | 4,319,100 bytes | `52f70ba2f019313f3116270a1b5d8ef96d3b6344ad7d88a381a670fdf0d6abcb` |
-| `EdgeControl-1.7.3-macOS.zip` | 4,422,022 bytes | `45055b6eb3e7a69381c563642da5cde570e8a202179a6946a0ea5674bbd507b8` |
-| `appcast.xml` | 2,168 bytes | `6f678dbe2b88dbd363e3faeab0961ae20f3e2c0a56dfc2b4094b1bd0576d8ab1` |
+| `EdgeControl-1.7.4-macOS.dmg` | 4,322,423 bytes | `7236cc9efdf0ad4c23e291c19d3ae0bd95014db8e8403ac11ead2720cc32015a` |
+| `EdgeControl-1.7.4-macOS.zip` | 4,355,678 bytes | `d21829151dc8aa413984f9d0134c91b7ef60ea4f61444106d738ce0ed0e7c779` |
+| `appcast.xml` | 2,963 bytes | `7a4ad9eb447331de313e6ad7cf89929fa23fd8eba67564b75742cf1b4457342e` |
 
 ## Changes
 
 | Area | Change | Evidence |
 |---|---|---|
-| HUD lifecycle | Continuous updates reuse one presentation and avoid repeated resize, position, and order-front work | Lifecycle regression test and local runtime counters |
-| UI theme | Shared palette definitions; HUD neutral veil `0.64`; Settings neutral scrim `0.24` | Unit coverage for palette mapping; visual constants guarded by repository validation |
-| Single instance | User-level advisory `flock`; duplicate instances exit without taking ownership of services | Coordinator tests, rapid-launch test, and two-copy runtime test |
-| Volume gesture | Output device is pinned for the lifetime of the gesture; disappearance fails the session closed | Fake-backend session tests |
-| Version metadata | Marketing version `1.7.3`, build `8` | Repository version guard |
+| Login item | `.requiresApproval` is treated as registered; the switch no longer snaps back and `unregister()` works from that state | SDK status semantics and code review |
+| Login item state | Status is re-read on `didBecomeActiveNotification`; Settings offers a direct Login Items action | Code review |
+| HUD placement | The lifecycle tracks `visibleFrame` and repositions when it changes on the same display | Lifecycle unit coverage plus code review |
+| Updates | The updater no longer forces `automaticallyChecksForUpdates` on each launch | Code review |
+| Version metadata | Marketing version `1.7.4`, build `9` | Repository version guard |
 
 ## Validation environment
 
 | Item | Value |
 |---|---|
 | Hardware | MacBook Air, Apple Silicon (arm64) |
-| macOS | 26.5 |
-| Xcode | 26.6 |
+| macOS | 27.0.1 (26A434) |
+| Xcode | 27.1 (27A9275) |
 | Deployment target | macOS 13+ |
 | Signing | ad-hoc; no Developer ID certificate or notarization |
 
 ## Evidence boundary
 
-- HUD and Settings light/dark appearance, Reduce Transparency, Launch at Login races, Sparkle relaunch, and sleep/wake still require workflow validation.
-- Physical audio-device switching was not tested; the session contract is covered with a fake backend.
+- Launch at Login approval flow, HUD behavior across real resolution changes, Sparkle relaunch, and sleep/wake still require workflow or hardware validation.
 - External DDC remains experimental and off by default; external-display hardware behavior is not claimed.
 - External trackpad, Intel runtime, other macOS versions, and clean-machine Gatekeeper behavior remain unverified.
 - Private MultitouchSupport, DisplayServices, and DDC interfaces remain undocumented dependencies and must fail closed when unavailable.
