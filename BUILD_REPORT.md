@@ -1,7 +1,7 @@
 # BUILD_REPORT - EdgeControl 1.7.4
 
 Date: 2026-10-18
-Status: **RELEASE CANDIDATE - 76/76 XCTest pass; repository validation, Universal 2 Release build, and deep ad-hoc signature verification pass**
+Status: **PUBLISHED - 76/76 XCTest pass; repository validation, Universal 2 Release build, deep ad-hoc signature verification, and published asset hash verification pass**
 
 EdgeControl 1.7.4 is a reliability update based on 1.7.3. It fixes login-item approval handling, stale login-item state, HUD placement after display changes, and forced automatic update checks. It does not change gesture entry parameters, private API bridge contracts, haptic semantics, built-in brightness routing, or the experimental DDC policy.
 

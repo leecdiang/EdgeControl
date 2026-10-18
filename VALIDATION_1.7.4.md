@@ -29,6 +29,8 @@
 | ZIP creation | PASS | `EdgeControl-1.7.4-macOS.zip`, 4,355,678 bytes; archive test reports no errors |
 | Sparkle appcast | PASS | Version 9 / short version 1.7.4 / macOS 13.0 / EdDSA enclosure; v1.7.2 and v1.7.3 entries preserved |
 | Local asset hashes | PASS | DMG `7236cc9e…2015a`; ZIP `d2182915…0e7c779`; appcast `7a4ad9eb…457342e` |
+| Published asset hash check | PASS | Downloaded DMG, ZIP, and appcast match local SHA-256 values; GitHub asset digests match |
+| Homebrew cask | PASS | `homebrew-edgecontrol` cask bumped to 1.7.4 with the DMG SHA-256 |
 
 ## Fixed in this release
 
