@@ -7,8 +7,8 @@ run_id="$1"
 signer="$2"
 [[ "$run_id" =~ ^[0-9]+$ && -x "$signer" ]] || exit 2
 repo="leecdiang/EdgeControl"
-version="1.7.5"
-build="11"
+version="1.7.6"
+build="12"
 tag="v$version"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 project_root="$(cd "$script_dir/.." && pwd)"
@@ -16,13 +16,15 @@ mkdir -p "$project_root/build"
 release_dir="$(mktemp -d "$project_root/build/release-$version.XXXXXX")"
 echo "Release evidence and installation backup: $release_dir"
 # Retain staging, downloaded bytes, and the old installation for recovery.
-gh run view "$run_id" --repo "$repo" --json conclusion,headSha,workflowName > "$release_dir/run.json"
+gh api "repos/$repo/actions/runs/$run_id" > "$release_dir/run.json"
 commit="$(python3 - "$release_dir/run.json" <<'PY'
 import json,sys
 r=json.load(open(sys.argv[1]))
-assert r['conclusion']=='success' and r['workflowName']=='CI', r
-assert len(r['headSha'])==40
-print(r['headSha'])
+assert r['conclusion']=='success' and r['status']=='completed'
+assert r['path']=='.github/workflows/ci.yml' and r['event']=='push'
+assert r['head_repository']['full_name']=='leecdiang/EdgeControl'
+assert r['head_sha']=='f9c3e8a642cd83783fc0403c85f58769b9aafd2e', 'Unexpected candidate commit'
+print(r['head_sha'])
 PY
 )"
 gh run download "$run_id" --repo "$repo" --name "EdgeControl-candidate-$commit" --dir "$release_dir/candidate"
@@ -51,7 +53,7 @@ signature="$("$signer" -p "$archive")"
 public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")"
 xcrun swift -sdk "$(xcrun --show-sdk-path)" -module-cache-path "$release_dir/module-cache" "$script_dir/verify_update.swift" "$archive" "$public_key" "$signature"
 mkdir "$release_dir/previous"
-gh release download v1.7.4 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
+gh release download v1.7.5 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
 python3 - "$release_dir" "$version" "$build" "$signature" <<'PY'
 import sys, pathlib, datetime, email.utils, xml.etree.ElementTree as ET
 root,version,build,sig=sys.argv[1:];root=pathlib.Path(root)
@@ -62,13 +64,19 @@ assert channel is not None
 item=ET.Element('item');ET.SubElement(item,'title').text=f'EdgeControl {version}'
 ET.SubElement(item,'pubDate').text=email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc))
 ET.SubElement(item,f'{{{ns}}}minimumSystemVersion').text='13.0'
-ET.SubElement(item,'description').text='Brightness write deduplication, horizontal jitter filtering, invalid input rejection, empty-display handling, and haptic cooldown recovery.'
+ET.SubElement(item,'description').text='Bounded touch input, immediate pause cleanup, preserved audio balance, finite audio validation, corrected DDC replies, and explicit automatic-update preferences.'
 archive=root/f'assets/EdgeControl-{version}-macOS.zip'
 ET.SubElement(item,'enclosure',{'url':f'https://github.com/leecdiang/EdgeControl/releases/download/v{version}/{archive.name}','length':str(archive.stat().st_size),'type':'application/octet-stream',f'{{{ns}}}version':build,f'{{{ns}}}shortVersionString':version,f'{{{ns}}}edSignature':sig})
 channel.insert(0,item);tree.write(root/'assets/appcast.xml',encoding='utf-8',xml_declaration=True)
 PY
 # Resolve release notes from the exact tested commit.
 gh api "repos/$repo/contents/RELEASE_NOTES_$version.md?ref=$commit" --jq .content | base64 --decode > "$release_dir/notes.md"
+python3 - "$release_dir/notes.md" <<'PYNOTES'
+import pathlib,sys
+p=pathlib.Path(sys.argv[1])
+s=p.read_text().replace('This is a PR candidate; no new public release is created by the CI installer. ', '')
+p.write_text(s)
+PYNOTES
 (cd "$release_dir/assets" && shasum -a 256 ./* > "$release_dir/SHA256SUMS")
 # An existing tag is deliberately not overwritten. Resume an interrupted draft manually.
 gh api "repos/$repo/git/refs" --method POST -f "ref=refs/tags/$tag" -f "sha=$commit" > "$release_dir/tag.json"
