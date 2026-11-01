@@ -77,3 +77,11 @@ Wake and close/open recovery passed on the reference machine. Display hot-plug, 
 Callback receipt time uses system uptime independently of the private device timestamp. TrackpadManager synchronously forwards copied values through its serial processing queue into a locked 32-frame mailbox. Only one MainActor drain task is scheduled. Overflow flags a discontinuity, while frames older than 150ms are rejected before recognition or controller access; both paths require a fresh lift. These changes bound queued work and stop replay after a main-thread delay. Synchronous OS device calls themselves are not interruptible by this guard; moving those calls to a separate session executor remains a possible future latency improvement.
 
 Master/action disablement and edge reassignment synchronously end affected control sessions, restore cursor association, and require lift. HUD and haptic toggles immediately cancel their corresponding feedback. Sparkle owns persistence of automatic checks; About displays and changes that preference without storing a second value in AppSettings.
+
+### Haptic continuity (1.7.7)
+
+Detents remain the primary trigger. A moving value also requests feedback after 120ms (Standard/Strong) or 180ms (Light) when net displacement since the last feedback request reaches a quarter detent (0.5% / 1%). This is a request policy, not a hardware delivery guarantee. Jitter does not accumulate and a stationary value creates no periodic timer. Both endpoints request one tick on arrival.
+
+A cooldown crossing retains only the latest value and schedules one cancellable deadline. Returning inside the threshold, ending/disabling the gesture, starting another gesture, or waking cancels it. Feedback older than 100ms of actual value movement is dropped. Strong secondary feedback is dropped if delayed beyond 42ms from the primary request, and its actual request time participates in the next primary cooldown. Public AppKit performers are acquired per request; private actuator calls remain opt-in and unvalidated.
+
+Release debug logging in OSLog category Haptics distinguishes below-threshold, cooldown, stale, unavailable, and requested outcomes; it does not record touch coordinates. AppKit provides no actuator-delivery acknowledgement.

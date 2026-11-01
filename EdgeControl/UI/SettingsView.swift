@@ -192,7 +192,7 @@ struct SettingsView: View {
     private var feedbackPage: some View {
         settingsScrollView {
             SettingsCard(title: "Haptics", systemImage: "waveform") {
-                SettingsRow(title: "Haptic feedback", detail: "Acknowledge activation and value detents.") {
+                SettingsRow(title: "Haptic feedback", detail: "Acknowledge activation, value detents, and steady adjustment.") {
                     Toggle("Haptic feedback", isOn: $settings.hapticFeedback)
                         .labelsHidden()
                         .toggleStyle(.switch)

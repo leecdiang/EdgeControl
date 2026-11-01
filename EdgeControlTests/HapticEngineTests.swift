@@ -19,7 +19,8 @@ final class HapticEngineTests: XCTestCase {
         HapticEngine(
             publicBackend: backend,
             privateBackend: RecordingHapticBackend(),
-            now: now
+            now: now,
+            automaticallySchedule: false
         )
     }
 
@@ -197,6 +198,172 @@ final class HapticEngineTests: XCTestCase {
         time = 0.041
         engine.valueChanged(to: 0.551)
         XCTAssertEqual(backend.pulses, 2, "unavailable hardware must not advance the bucket or cooldown")
+    }
+
+    func testSlowContinuousMovementGetsFeedbackInsideOneDetent() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.121
+        engine.valueChanged(to: 0.506)
+        time = 0.242
+        engine.valueChanged(to: 0.512)
+        XCTAssertEqual(backend.pulses, 3)
+    }
+
+    func testLightContinuityRequiresMoreProgressAndTime() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5, strength: .light)
+        time = 0.13
+        engine.valueChanged(to: 0.511, strength: .light)
+        XCTAssertEqual(backend.pulses, 1)
+        time = 0.181
+        engine.valueChanged(to: 0.512, strength: .light)
+        XCTAssertEqual(backend.pulses, 2)
+    }
+
+    func testLongStationaryHoldAndTinyJitterDoNotGenerateContinuityPulses() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.51)
+        for index in 1...100 {
+            time = Double(index) * 0.05
+            engine.valueChanged(to: index.isMultiple(of: 2) ? 0.511 : 0.509)
+            engine.flushPendingFeedback()
+        }
+        XCTAssertEqual(backend.pulses, 1)
+    }
+
+    func testCooldownRequestFlushesWithoutAnotherMovement() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.01
+        engine.valueChanged(to: 0.55)
+        time = 0.031
+        engine.flushPendingFeedback()
+        XCTAssertEqual(backend.pulses, 2)
+        engine.flushPendingFeedback()
+        XCTAssertEqual(backend.pulses, 2)
+    }
+
+    func testPendingRequestsCoalesceToLatestValue() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        for index in 1...20 {
+            time = Double(index) * 0.001
+            engine.valueChanged(to: 0.55 + Double(index) * 0.01)
+        }
+        time = 0.031
+        engine.flushPendingFeedback()
+        XCTAssertEqual(backend.pulses, 2)
+        time = 0.07
+        engine.valueChanged(to: 0.751)
+        XCTAssertEqual(backend.pulses, 2, "latest position, not the first pending position, must commit")
+    }
+
+    func testReturnInsideDetentCancelsPendingTimer() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.01; engine.valueChanged(to: 0.55)
+        time = 0.02; engine.valueChanged(to: 0.501)
+        time = 0.04; engine.flushPendingFeedback()
+        XCTAssertEqual(backend.pulses, 1)
+    }
+
+    func testGestureEndAndWakeDiscardPendingTimer() {
+        for wake in [false, true] {
+            let backend = RecordingHapticBackend()
+            var time = 0.0
+            let engine = makeEngine(backend, now: { time })
+            engine.activationTick(initialValue: 0.5)
+            time = 0.01; engine.valueChanged(to: 0.55)
+            if wake { engine.resetAfterWake() } else { engine.endGesture() }
+            time = 0.04; engine.flushPendingFeedback()
+            XCTAssertEqual(backend.pulses, 1)
+        }
+    }
+
+    func testBlockedMainThreadDoesNotReplayStalePendingFeedback() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.01; engine.valueChanged(to: 0.55)
+        time = 0.2; engine.flushPendingFeedback()
+        XCTAssertEqual(backend.pulses, 1)
+        time = 0.21; engine.valueChanged(to: 0.551)
+        XCTAssertEqual(backend.pulses, 2)
+    }
+
+    func testBothEndpointsPulseOnceEvenWithoutBucketCrossing() {
+        for pair in [(0.98, 1.0), (0.01, 0.0)] {
+            let backend = RecordingHapticBackend()
+            var time = 0.0
+            let engine = makeEngine(backend, now: { time })
+            engine.activationTick(initialValue: pair.0)
+            time = 0.04; engine.valueChanged(to: pair.1)
+            time = 0.2; engine.valueChanged(to: pair.1)
+            XCTAssertEqual(backend.pulses, 2)
+        }
+    }
+
+    func testInvalidValuesCannotCrashOrConsumeFeedback() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        for value in [Double.nan, .infinity, -.infinity] {
+            engine.valueChanged(to: value)
+            engine.activationTick(initialValue: value)
+        }
+        XCTAssertEqual(backend.pulses, 1)
+        time = 0.04; engine.valueChanged(to: 0.55)
+        XCTAssertEqual(backend.pulses, 2)
+    }
+
+    func testNewActivationInvalidatesPreviousPendingFeedback() {
+        let backend = RecordingHapticBackend()
+        var time = 0.0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.01; engine.valueChanged(to: 0.55)
+        time = 0.02; engine.activationTick(initialValue: 0.3)
+        time = 0.04; engine.flushPendingFeedback()
+        XCTAssertEqual(backend.pulses, 2)
+    }
+
+    func testActualSchedulerDeliversOnePendingPulse() async throws {
+        let backend = RecordingHapticBackend()
+        let engine = HapticEngine(publicBackend: backend,
+                                  privateBackend: RecordingHapticBackend())
+        engine.pulseCooldown = 0.05
+        engine.activationTick(initialValue: 0.5)
+        engine.valueChanged(to: 0.55)
+        XCTAssertEqual(backend.pulses, 1)
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(backend.pulses, 2)
+        engine.endGesture()
+    }
+
+    func testActualSchedulerDoesNotPulseAfterRelease() async throws {
+        let backend = RecordingHapticBackend()
+        let engine = HapticEngine(publicBackend: backend,
+                                  privateBackend: RecordingHapticBackend())
+        engine.activationTick(initialValue: 0.5)
+        engine.valueChanged(to: 0.55)
+        engine.endGesture()
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(backend.pulses, 1)
     }
 
 }
