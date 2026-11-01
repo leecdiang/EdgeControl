@@ -448,4 +448,39 @@ final class GestureEngineTests: XCTestCase {
         }
         XCTAssertEqual(deltaY, 0.03, accuracy: 0.0001)
     }
+    func testHorizontalJitterDoesNotEmitValueChangesButExitStillCancels() {
+        let engine = GestureEngine()
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.995, y: 0.50)
+        trace.contact(x: 0.983, y: 0.53)
+        for index in 0..<120 {
+            trace.contact(x: index.isMultiple(of: 2) ? 0.984 : 0.983, y: 0.53)
+        }
+        XCTAssertEqual(trace.events(using: engine), [.began(edge: .right)])
+        let outside = TouchContact(id: 1, x: 0.5, y: 0.53, timestamp: 2, phase: .moved)
+        XCTAssertEqual(engine.process(TouchFrame(contacts: [outside], timestamp: 2)), [.cancelled(edge: .right)])
+    }
+
+    func testInvalidContactCancelsAndRequiresLiftBeforeReentry() {
+        for invalid in [Double.nan, .infinity, -.infinity] {
+            let engine = GestureEngine()
+            var trace = SyntheticTouchTrace()
+            trace.contact(x: 0.995, y: 0.50)
+            trace.contact(x: 0.983, y: 0.53)
+            trace.contact(x: 0.983, y: invalid)
+            trace.contact(x: 0.983, y: 0.60)
+            XCTAssertEqual(trace.events(using: engine), [.began(edge: .right), .cancelled(edge: .right)])
+            XCTAssertEqual(engine.state, .rejected(.invalidInput))
+            _ = engine.process(TouchFrame(contacts: [], timestamp: 1))
+            XCTAssertEqual(engine.state, .idle)
+        }
+    }
+
+    func testInvalidFrameTimestampCannotActivate() {
+        let engine = GestureEngine()
+        let contact = TouchContact(id: 1, x: 0.995, y: 0.5, timestamp: 0, phase: .began)
+        XCTAssertTrue(engine.process(TouchFrame(contacts: [contact], timestamp: .nan)).isEmpty)
+        XCTAssertEqual(engine.state, .rejected(.invalidInput))
+    }
+
 }

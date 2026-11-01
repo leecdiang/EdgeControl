@@ -29,3 +29,22 @@ jobs:
 
       - name: Build unsigned Release
         run: ./Scripts/build_release.sh build
+
+      - name: Package validated release candidate
+        run: |
+          ./Scripts/package_dmg.sh "$PWD/build/DerivedData/Build/Products/Release/EdgeControl.app" "$PWD/build/EdgeControl-macOS.dmg"
+          hdiutil verify build/EdgeControl-macOS.dmg
+          ditto -c -k --sequesterRsrc --keepParent build/DerivedData/Build/Products/Release/EdgeControl.app build/EdgeControl-macOS.zip
+          unzip -t build/EdgeControl-macOS.zip
+          shasum -a 256 build/EdgeControl-macOS.dmg build/EdgeControl-macOS.zip > build/SHA256SUMS
+
+      - name: Retain candidate packages and test evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: EdgeControl-candidate-${{ github.sha }}
+          path: |
+            build/EdgeControl-macOS.dmg
+            build/EdgeControl-macOS.zip
+            build/SHA256SUMS
+            build/DerivedData/Logs/Test/*.xcresult
+          retention-days: 14

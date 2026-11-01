@@ -15,7 +15,7 @@ final class BuiltInDisplayBackend: BrightnessBackend {
     }
 
     init() {
-        activeDisplayProvider = Self.activeDisplayIDs
+        activeDisplayProvider = { Self.activeDisplayIDs(query: CGGetActiveDisplayList) }
         builtInDetector = { CGDisplayIsBuiltin($0) != 0 }
         refresh()
     }
@@ -46,6 +46,9 @@ final class BuiltInDisplayBackend: BrightnessBackend {
         guard ec_display_services_get_brightness(displayID, &value) else {
             throw ControlError.readFailed("Built-in display brightness could not be read.")
         }
+        guard value.isFinite else {
+            throw ControlError.readFailed("The display returned an invalid brightness value.")
+        }
         return min(1.0, max(0.0, Double(value)))
     }
 
@@ -53,19 +56,25 @@ final class BuiltInDisplayBackend: BrightnessBackend {
         guard let displayID, ec_display_services_is_available() else {
             throw ControlError.unavailable("Built-in display brightness control is unavailable.")
         }
+        guard value.isFinite else {
+            throw ControlError.writeFailed("Brightness must be a finite value.")
+        }
         let clamped = Float(min(1.0, max(0.0, value)))
         guard ec_display_services_set_brightness(displayID, clamped) else {
             throw ControlError.writeFailed("Built-in display brightness could not be changed.")
         }
     }
 
-    private static func activeDisplayIDs() -> [CGDirectDisplayID]? {
+    typealias DisplayListQuery = (UInt32, UnsafeMutablePointer<CGDirectDisplayID>?, UnsafeMutablePointer<UInt32>?) -> CGError
+
+    static func activeDisplayIDs(query: DisplayListQuery) -> [CGDirectDisplayID]? {
         var count: UInt32 = 0
-        guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else {
+        guard query(0, nil, &count) == .success else {
             return nil
         }
+        guard count > 0 else { return [] }
         var displays = Array(repeating: CGDirectDisplayID(), count: Int(count))
-        guard CGGetActiveDisplayList(count, &displays, &count) == .success, count > 0 else {
+        guard query(count, &displays, &count) == .success else {
             return nil
         }
         return Array(displays.prefix(Int(count)))

@@ -70,6 +70,19 @@ final class GestureEngine {
             $0.phase != .ended && $0.phase != .cancelled
         }
 
+        if !frame.timestamp.isFinite || liveContacts.contains(where: {
+            !$0.x.isFinite || !$0.y.isFinite || !$0.timestamp.isFinite
+        }) {
+            let events: [EdgeGestureEvent]
+            if case let .active(active) = state {
+                events = [.cancelled(edge: active.edge)]
+            } else {
+                events = []
+            }
+            state = .rejected(.invalidInput)
+            return events
+        }
+
         if liveContacts.isEmpty {
             let wasCancelled = frame.contacts.contains { $0.phase == .cancelled }
             let events: [EdgeGestureEvent]
@@ -288,7 +301,9 @@ final class GestureEngine {
             }
         }
 
-        let moved = contact.x != active.lastX || contact.y != active.lastY
+        // Horizontal drift still participates in corridor cancellation, but
+        // must not rewrite volume/brightness without vertical movement.
+        let moved = contact.y != active.lastY
         active.lastX = contact.x
         active.lastY = contact.y
         state = .active(active)

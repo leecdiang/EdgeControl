@@ -165,8 +165,8 @@ final class TrackpadManager: @unchecked Sendable {
                 copied.append(
                     RawTouchContact(
                         id: Int(contact.identifier),
-                        x: min(1.0, max(0.0, contact.x)),
-                        y: min(1.0, max(0.0, contact.y)),
+                        x: contact.x.isFinite ? min(1.0, max(0.0, contact.x)) : .nan,
+                        y: contact.y.isFinite ? min(1.0, max(0.0, contact.y)) : .nan,
                         rawState: contact.raw_state,
                         size: contact.size
                     )

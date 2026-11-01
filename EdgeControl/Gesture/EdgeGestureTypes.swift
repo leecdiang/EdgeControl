@@ -16,6 +16,7 @@ enum GestureRejectReason: String, Sendable, Equatable {
     case bornInInterior
     case bornInUpperHalf
     case recentKeyboardActivity
+    case invalidInput
     case initialMotionNotInward
     case entryTimedOut
     case leftControlCorridorExited

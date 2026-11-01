@@ -4,14 +4,27 @@ import Foundation
 final class BrightnessControlSession {
     let initialValue: Double
     private let backend: BrightnessBackend
+    private var lastWrittenValue: Float? = nil
 
     fileprivate init(backend: BrightnessBackend) throws {
         self.backend = backend
-        initialValue = try backend.getBrightness()
+        let value = try backend.getBrightness()
+        guard value.isFinite else {
+            throw ControlError.readFailed("The display returned an invalid brightness value.")
+        }
+        initialValue = min(1, max(0, value))
     }
 
     func setBrightness(_ value: Double) throws {
-        try backend.setBrightness(value)
+        guard value.isFinite else {
+            throw ControlError.writeFailed("Brightness must be a finite value.")
+        }
+        // DisplayServices consumes Float. Deduplicate only successful writes,
+        // scoped to this gesture; a new gesture must read the system again.
+        let target = Float(min(1, max(0, value)))
+        guard target != lastWrittenValue else { return }
+        try backend.setBrightness(Double(target))
+        lastWrittenValue = target
     }
 }
 

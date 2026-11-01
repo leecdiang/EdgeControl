@@ -614,6 +614,89 @@ final class BrightnessRoutingTests: XCTestCase {
         backend.refresh()
         XCTAssertNil(backend.displayID)
     }
+    func testBrightnessSessionDeduplicatesBothClampedEndpoints() throws {
+        for endpoint in [0.0, 1.0] {
+            let backend = FakeBrightnessBackend(isAvailable: true, value: 0.5)
+            let controller = DisplayBrightnessController(builtIn: backend, external: FakeExternalBrightnessBackend(isAvailable: false, value: 0))
+            let session = try controller.beginSession()
+            for _ in 0..<120 { try session.setBrightness(endpoint) }
+            XCTAssertEqual(backend.writeCount, 1)
+            XCTAssertEqual(backend.value, endpoint)
+            try session.setBrightness(0.5)
+            XCTAssertEqual(backend.writeCount, 2)
+        }
+    }
+
+    func testBrightnessSessionDeduplicatesAtFloatPrecision() throws {
+        let backend = FakeBrightnessBackend(isAvailable: true, value: 0.3)
+        let controller = DisplayBrightnessController(builtIn: backend, external: FakeExternalBrightnessBackend(isAvailable: false, value: 0))
+        let session = try controller.beginSession()
+        try session.setBrightness(0.5)
+        try session.setBrightness(0.5 + 1e-10)
+        XCTAssertEqual(backend.writeCount, 1)
+        try session.setBrightness(0.501)
+        XCTAssertEqual(backend.writeCount, 2)
+    }
+
+    func testBrightnessNewSessionDoesNotReuseWriteCache() throws {
+        let backend = FakeBrightnessBackend(isAvailable: true, value: 0.3)
+        let controller = DisplayBrightnessController(builtIn: backend, external: FakeExternalBrightnessBackend(isAvailable: false, value: 0))
+        try controller.beginSession().setBrightness(0.5)
+        backend.value = 0.2 // Another app or the keyboard changed brightness.
+        let next = try controller.beginSession()
+        XCTAssertEqual(next.initialValue, 0.2)
+        try next.setBrightness(0.5)
+        XCTAssertEqual(backend.writeCount, 2)
+    }
+
+    func testFailedBrightnessWriteDoesNotPoisonDeduplication() throws {
+        let backend = FakeBrightnessBackend(isAvailable: true, value: 0.3)
+        let controller = DisplayBrightnessController(builtIn: backend, external: FakeExternalBrightnessBackend(isAvailable: false, value: 0))
+        let session = try controller.beginSession()
+        backend.failWrites = true
+        XCTAssertThrowsError(try session.setBrightness(0.6))
+        backend.failWrites = false
+        try session.setBrightness(0.6)
+        XCTAssertEqual(backend.writeCount, 1)
+    }
+
+    func testBrightnessRejectsNonFiniteReadsAndWrites() throws {
+        let backend = FakeBrightnessBackend(isAvailable: true, value: 0.3)
+        let controller = DisplayBrightnessController(builtIn: backend, external: FakeExternalBrightnessBackend(isAvailable: false, value: 0))
+        let session = try controller.beginSession()
+        for invalid in [Double.nan, .infinity, -.infinity] {
+            XCTAssertThrowsError(try session.setBrightness(invalid))
+            backend.value = invalid
+            XCTAssertThrowsError(try controller.beginSession())
+        }
+        XCTAssertEqual(backend.writeCount, 0)
+    }
+
+    func testSuccessfulEmptyDisplayEnumerationClearsBuiltIn() {
+        let result = BuiltInDisplayBackend.activeDisplayIDs { _, _, count in
+            count?.pointee = 0
+            return .success
+        }
+        XCTAssertEqual(result, [])
+        var displays: [CGDirectDisplayID]? = [42]
+        let backend = BuiltInDisplayBackend(activeDisplayProvider: { displays }, builtInDetector: { $0 == 42 })
+        displays = result
+        backend.refresh()
+        XCTAssertNil(backend.displayID)
+    }
+
+    func testDisplayEnumerationFailureAndShrinkingList() {
+        XCTAssertNil(BuiltInDisplayBackend.activeDisplayIDs { _, _, _ in .failure })
+        var calls = 0
+        let result = BuiltInDisplayBackend.activeDisplayIDs { _, _, count in
+            calls += 1
+            count?.pointee = calls == 1 ? 1 : 0
+            return .success
+        }
+        XCTAssertEqual(calls, 2)
+        XCTAssertEqual(result, [])
+    }
+
 }
 
 @MainActor
@@ -624,6 +707,7 @@ private class FakeBrightnessBackend: BrightnessBackend {
     private(set) var refreshCount = 0
     private(set) var readCount = 0
     private(set) var writeCount = 0
+    var failWrites = false
 
     init(isAvailable: Bool, value: Double) {
         self.isAvailable = isAvailable
@@ -641,6 +725,7 @@ private class FakeBrightnessBackend: BrightnessBackend {
     }
 
     func setBrightness(_ value: Double) throws {
+        if failWrites { throw ControlError.writeFailed("Injected failure") }
         writeCount += 1
         self.value = value
     }
