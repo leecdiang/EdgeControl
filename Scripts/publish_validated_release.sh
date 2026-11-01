@@ -38,7 +38,8 @@ app="$release_dir/unpacked/EdgeControl.app"
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" == "$version" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" == "$build" ]]
 codesign --verify --deep --strict "$app"
-lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/EdgeControl"
+architectures="$(lipo -archs "$app/Contents/MacOS/EdgeControl")"
+[[ " $architectures " == *" arm64 "* && " $architectures " == *" x86_64 "* ]]
 hdiutil verify "$candidate/EdgeControl-macOS.dmg"
 mkdir "$release_dir/assets"
 cp "$candidate/EdgeControl-macOS.zip" "$release_dir/assets/EdgeControl-$version-macOS.zip"
@@ -69,7 +70,8 @@ PY
 gh api "repos/$repo/contents/RELEASE_NOTES_$version.md?ref=$commit" --jq .content | base64 --decode > "$release_dir/notes.md"
 (cd "$release_dir/assets" && shasum -a 256 ./* > "$release_dir/SHA256SUMS")
 # An existing tag is deliberately not overwritten. Resume an interrupted draft manually.
-gh release create "$tag" --repo "$repo" --target "$commit" --draft --title "EdgeControl $version" --notes-file "$release_dir/notes.md"
+gh api "repos/$repo/git/refs" --method POST -f "ref=refs/tags/$tag" -f "sha=$commit" > "$release_dir/tag.json"
+gh release create "$tag" --repo "$repo" --verify-tag --draft --title "EdgeControl $version" --notes-file "$release_dir/notes.md"
 gh release upload "$tag" --repo "$repo" "$release_dir/assets/EdgeControl-$version-macOS.dmg" "$archive" "$release_dir/assets/appcast.xml"
 mkdir "$release_dir/downloaded"
 gh release download "$tag" --repo "$repo" --dir "$release_dir/downloaded"

@@ -44,7 +44,9 @@ run_build() {
     codesign --force --sign - "$app_path"
     codesign --verify --deep --strict "$app_path"
   fi
-  lipo -verify_arch arm64 x86_64 "$app_path/Contents/MacOS/EdgeControl"
+  local architectures
+  architectures="$(lipo -archs "$app_path/Contents/MacOS/EdgeControl")"
+  [[ " $architectures " == *" arm64 "* && " $architectures " == *" x86_64 "* ]]
   echo "Built app: $app_path"
 }
 
