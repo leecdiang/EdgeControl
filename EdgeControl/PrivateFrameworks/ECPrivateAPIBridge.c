@@ -16,6 +16,7 @@
 #include <IOKit/graphics/IOGraphicsLib.h>
 #include <IOKit/i2c/IOI2CInterface.h>
 #include <mach/mach.h>
+#include <mach/mach_time.h>
 #include <unistd.h>
 #else
 #define EC_HAS_LEGACY_DDC 0
@@ -653,12 +654,14 @@ static bool ec_ddc_send(
     const uint8_t *send_buffer,
     uint32_t send_count,
     uint8_t *reply_buffer,
-    uint32_t reply_count
+    uint32_t reply_count,
+    uint32_t *received_count
 ) {
     if (handle == NULL || handle->connection == 0 || send_buffer == NULL) {
         return false;
     }
 
+    if (received_count != NULL) { *received_count = 0; }
     IOI2CRequest request;
     memset(&request, 0, sizeof(request));
     request.sendTransactionType = kIOI2CSimpleTransactionType;
@@ -671,13 +674,23 @@ static bool ec_ddc_send(
         request.replyAddress = 0x6F;
         request.replyBuffer = (vm_address_t)reply_buffer;
         request.replyBytes = reply_count;
-        request.minReplyDelay = 40 * 1000 * 1000;
+        // IOI2CRequest uses mach absolute ticks, not nanoseconds on ARM.
+        mach_timebase_info_data_t timebase;
+        if (mach_timebase_info(&timebase) != KERN_SUCCESS || timebase.numer == 0) {
+            return false;
+        }
+        request.minReplyDelay = (40ULL * 1000 * 1000 * timebase.denom + timebase.numer - 1) / timebase.numer;
     } else {
         request.replyTransactionType = kIOI2CNoTransactionType;
     }
 
     IOReturn result = IOI2CSendRequest(handle->connection, 0, &request);
-    return result == kIOReturnSuccess && request.result == kIOReturnSuccess;
+    bool succeeded = result == kIOReturnSuccess && request.result == kIOReturnSuccess;
+    if (succeeded && received_count != NULL) {
+        if (request.replyBytes > reply_count) { return false; }
+        *received_count = request.replyBytes;
+    }
+    return succeeded;
 }
 #endif
 
@@ -757,11 +770,12 @@ bool ec_ddc_get_vcp10(
     request[4] = ec_ddc_checksum(0x6E, request, 4);
     uint8_t reply[16];
     memset(reply, 0, sizeof(reply));
-    if (!ec_ddc_send(handle, request, sizeof(request), reply, sizeof(reply))) {
+    uint32_t received_count = 0;
+    if (!ec_ddc_send(handle, request, sizeof(request), reply, sizeof(reply), &received_count)) {
         return false;
     }
 
-    return ec_ddc_parse_vcp10_reply(reply, sizeof(reply), current_value, maximum_value);
+    return ec_ddc_parse_vcp10_reply(reply, received_count, current_value, maximum_value);
 #else
     (void)handle;
     (void)current_value;
@@ -770,67 +784,31 @@ bool ec_ddc_get_vcp10(
     return false;
 }
 
-// Parses a DDC/CI Get VCP Feature reply for VCP 0x10 (brightness).
-//
-// Reply layout per VESA DDC/CI (relative to the 0x02 command byte):
-//   [0] = 0x02    feature reply op code
-//   [1] = result code   (0x00 = no error, 0x01 = unsupported op code)
-//   [2] = VCP code      (0x10 for brightness)
-//   [3] = type code
-//   [4] = maximum value high byte (mh)
-//   [5] = maximum value low byte  (ml)
-//   [6] = current value high byte (sh)
-//   [7] = current value low byte  (sl)
-//   [8] = checksum
-//
-// A leading address/destination byte (0x6F) may precede the 0x02 byte on
-// some I2C transports, so the reply is scanned for the command marker.
+// Full Get VCP Feature reply: 6E 88 02 result vcp type mh ml sh sl checksum.
+// The checksum includes virtual host address 0x50, source and length. Reject
+// truncated/malformed headers rather than scanning arbitrary data for opcode 02.
 bool ec_ddc_parse_vcp10_reply(
     const uint8_t *reply,
     size_t reply_count,
     uint16_t *current_value,
     uint16_t *maximum_value
 ) {
-    if (reply == NULL || current_value == NULL || maximum_value == NULL) {
+    if (reply == NULL || current_value == NULL || maximum_value == NULL || reply_count < 11) {
         return false;
     }
-    // Need 9 bytes after the command byte: result, VCP code, type, mh, ml, sh, sl, checksum.
-    for (size_t index = 0; index + 9 <= reply_count; index += 1) {
-        if (reply[index] != 0x02 || reply[index + 2] != 0x10) {
-            continue;
-        }
-        if (reply[index + 1] != 0x00) {
-            // Result code is not "no error": unsupported or rejected feature.
-            continue;
-        }
-
-        uint16_t maximum = (uint16_t)((reply[index + 4] << 8) | reply[index + 5]);
-        uint16_t current = (uint16_t)((reply[index + 6] << 8) | reply[index + 7]);
-
-        // DDC/CI checksum: XOR of all message bytes (including the checksum
-        // byte itself) equals zero. Accept both plain and address-prefixed
-        // forms so a stray leading destination byte cannot invalidate a good reply.
-        uint8_t plain_xor = 0;
-        for (size_t offset = 0; offset < 9; offset += 1) {
-            plain_xor ^= reply[index + offset];
-        }
-        bool checksum_ok = (plain_xor == 0);
-        if (!checksum_ok && index > 0) {
-            uint8_t prefixed_xor = 0x6F;
-            for (size_t offset = 0; offset < 9; offset += 1) {
-                prefixed_xor ^= reply[index + offset];
-            }
-            checksum_ok = (prefixed_xor == 0);
-        }
-        if (!checksum_ok) {
-            continue;
-        }
-
-        *maximum_value = maximum;
-        *current_value = current;
-        return maximum > 0;
+    if (reply[0] != 0x6E || reply[1] != 0x88 || reply[2] != 0x02 ||
+        reply[3] != 0 || reply[4] != 0x10 || reply[5] != 0) {
+        return false;
     }
-    return false;
+    uint8_t checksum = 0x50;
+    for (size_t index = 0; index < 11; index += 1) { checksum ^= reply[index]; }
+    if (checksum != 0) { return false; }
+    uint16_t maximum = (uint16_t)((reply[6] << 8) | reply[7]);
+    uint16_t current = (uint16_t)((reply[8] << 8) | reply[9]);
+    if (maximum == 0 || current > maximum) { return false; }
+    *maximum_value = maximum;
+    *current_value = current;
+    return true;
 }
 
 bool ec_ddc_set_vcp10(ECDDCHandle *handle, uint16_t value) {
@@ -845,7 +823,7 @@ bool ec_ddc_set_vcp10(ECDDCHandle *handle, uint16_t value) {
         0x00
     };
     request[6] = ec_ddc_checksum(0x6E, request, 6);
-    return ec_ddc_send(handle, request, sizeof(request), NULL, 0);
+    return ec_ddc_send(handle, request, sizeof(request), NULL, 0, NULL);
 #else
     (void)handle;
     (void)value;

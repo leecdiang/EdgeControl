@@ -45,7 +45,7 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
             return
         }
 
-        for display in displays where CGDisplayIsBuiltin(display) == 0 {
+        for display in displays.prefix(Int(count)) where CGDisplayIsBuiltin(display) == 0 {
             if let handle = ec_ddc_open(display) {
                 connections.append(Connection(displayID: display, handle: handle))
             }
@@ -67,6 +67,7 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
     }
 
     func setBrightness(_ value: Double) throws {
+        guard value.isFinite else { throw ControlError.writeFailed("Brightness must be finite.") }
         guard let index = Self.resolvedConnectionIndex(
             lastResponsiveIndex: selectedConnectionIndex,
             connectionCount: connections.count

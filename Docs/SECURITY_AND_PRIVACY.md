@@ -8,7 +8,7 @@ The recent-typing guard asks Quartz only for the elapsed time since the last key
 
 ## Network posture
 
-The application target contains no networking library, URL session, analytics SDK, telemetry client, account code, updater, backend, or cloud integration. Release distribution checks should retain this property.
+EdgeControl has no account, analytics, telemetry, or cloud backend. Sparkle checks the GitHub-hosted update feed and downloads updates over the network. Automatic checks are enabled by default; the About tab exposes Sparkle's saved preference, and manual checks remain available. Touch contacts are not included in update requests. Repository string checks are not proof that a dependency performs no networking.
 
 ## Permission posture
 

@@ -28,14 +28,14 @@ final class EdgeControlAppModel: ObservableObject {
 
     private var gestureEngine: GestureEngine
     private let trackpadManager = TrackpadManager()
-    private let volumeController = VolumeController()
+    private let volumeController: VolumeController
     private let brightnessController = DisplayBrightnessController()
     private let hapticEngine = HapticEngine()
     private var settingsWindow: NSWindow?
-    private let cursorController = CursorController()
+    private let cursorController: CursorController
     private let hudController = HUDController()
     private let launchAtLoginController = LaunchAtLoginController()
-    private let updateController = UpdateController()
+    private let updateController: UpdateController
     private let keyboardActivityGuard: RecentKeyboardActivityGuard
     private var settingsCancellables = Set<AnyCancellable>()
     private let mapper = ContinuousValueMapper()
@@ -46,6 +46,11 @@ final class EdgeControlAppModel: ObservableObject {
     private var discardTouchFramesUntilLift = false
     private var touchWatchdogTask: Task<Void, Never>?
     private var frameGeneration: UInt64 = 0
+    private let inputNow: () -> TimeInterval
+    static let maximumFrameAge: TimeInterval = 0.150
+    var isControlling: Bool { session != nil }
+    var isCursorFrozen: Bool { cursorController.isFrozen }
+    @Published private(set) var automaticallyChecksForUpdates = false
 
     private lazy var systemEventMonitor = SystemEventMonitor(
         onSleep: { [weak self] in self?.finishSession() },
@@ -57,9 +62,17 @@ final class EdgeControlAppModel: ObservableObject {
 
     init(
         settings: AppSettings = AppSettings(),
-        keyboardActivityGuard: RecentKeyboardActivityGuard = RecentKeyboardActivityGuard()
+        keyboardActivityGuard: RecentKeyboardActivityGuard = RecentKeyboardActivityGuard(),
+        volumeController: VolumeController = VolumeController(),
+        cursorController: CursorController = CursorController(),
+        updateController: UpdateController = UpdateController(),
+        inputNow: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     ) {
         self.settings = settings
+        self.volumeController = volumeController
+        self.cursorController = cursorController
+        self.updateController = updateController
+        self.inputNow = inputNow
         self.keyboardActivityGuard = keyboardActivityGuard
         self.gestureEngine = Self.makeGestureEngine(settings: settings)
         brightnessController.setExternalDDCEnabled(settings.externalDDCEnabled)
@@ -70,6 +83,32 @@ final class EdgeControlAppModel: ObservableObject {
                 self?.hudController.setColorStyle(style)
             }
             .store(in: &settingsCancellables)
+        // Published sends before assignment. Use each incoming value directly,
+        // and perform teardown synchronously rather than waiting for movement.
+        settings.$masterEnabled.dropFirst().removeDuplicates().sink { [weak self] enabled in
+            if !enabled { self?.cancelTouchLifecycle() }
+        }.store(in: &settingsCancellables)
+        settings.$volumeEnabled.dropFirst().removeDuplicates().sink { [weak self] enabled in
+            if !enabled && self?.session?.action == .volume { self?.cancelTouchLifecycle() }
+        }.store(in: &settingsCancellables)
+        settings.$brightnessEnabled.dropFirst().removeDuplicates().sink { [weak self] enabled in
+            if !enabled && self?.session?.action == .brightness { self?.cancelTouchLifecycle() }
+        }.store(in: &settingsCancellables)
+        settings.$leftEdgeAction.dropFirst().removeDuplicates().sink { [weak self] _ in
+            if self?.session?.edge == .left { self?.cancelTouchLifecycle() }
+        }.store(in: &settingsCancellables)
+        settings.$rightEdgeAction.dropFirst().removeDuplicates().sink { [weak self] _ in
+            if self?.session?.edge == .right { self?.cancelTouchLifecycle() }
+        }.store(in: &settingsCancellables)
+        settings.$hapticFeedback.dropFirst().removeDuplicates().sink { [weak self] enabled in
+            if !enabled { self?.hapticEngine.endGesture() }
+        }.store(in: &settingsCancellables)
+        settings.$showHUD.dropFirst().removeDuplicates().sink { [weak self] enabled in
+            if !enabled { self?.hudController.hideImmediately() }
+        }.store(in: &settingsCancellables)
+        updateController.$automaticallyChecksForUpdates.removeDuplicates().sink { [weak self] enabled in
+            self?.automaticallyChecksForUpdates = enabled
+        }.store(in: &settingsCancellables)
     }
 
     private static func makeGestureEngine(settings: AppSettings) -> GestureEngine {
@@ -90,6 +129,7 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     func stop() {
+        frameGeneration &+= 1
         finishSession()
         trackpadManager.stop()
         hasLiveTouchContacts = false
@@ -97,7 +137,12 @@ final class EdgeControlAppModel: ObservableObject {
         touchWatchdogTask?.cancel()
         touchWatchdogTask = nil
         touchStatus = .stopped
+        gestureEngine = Self.makeGestureEngine(settings: settings)
         hasStarted = false
+    }
+
+    func setAutomaticallyChecksForUpdates(_ enabled: Bool) {
+        updateController.setAutomaticallyChecksForUpdates(enabled)
     }
 
     func checkForUpdates() {
@@ -125,6 +170,7 @@ final class EdgeControlAppModel: ObservableObject {
     /// grant approval in System Settings), so re-read it on activation instead
     /// of trusting the persisted mirror in AppSettings.
     func refreshLaunchAtLoginState() {
+        updateController.refreshPreferences()
         let enabled = launchAtLoginController.isEnabled
         let needsApproval = launchAtLoginController.requiresApproval
         if settings.launchAtLogin != enabled {
@@ -269,11 +315,8 @@ final class EdgeControlAppModel: ObservableObject {
     private func startTouchInput() {
         let generation = frameGeneration
         do {
-            try trackpadManager.start(preference: settings.trackpadPreference) { [weak self] frame in
-                Task { @MainActor [weak self] in
-                    self?.consume(frame, generation: generation)
-                }
-            }
+            try trackpadManager.start(preference: settings.trackpadPreference,
+                                      frameHandler: makeFrameHandler(generation: generation))
             touchStatus = .running(trackpadManager.selectedKind)
             lastError = nil
             runActuatorProbeIfRequested()
@@ -355,9 +398,8 @@ final class EdgeControlAppModel: ObservableObject {
         frameGeneration &+= 1
         let generation = frameGeneration
         do {
-            try trackpadManager.restart(preference: settings.trackpadPreference) { [weak self] frame in
-                Task { @MainActor [weak self] in self?.consume(frame, generation: generation) }
-            }
+            try trackpadManager.restart(preference: settings.trackpadPreference,
+                                        frameHandler: makeFrameHandler(generation: generation))
             touchStatus = .running(trackpadManager.selectedKind)
         } catch {
             touchStatus = .unavailable(error.localizedDescription)
@@ -373,9 +415,38 @@ final class EdgeControlAppModel: ObservableObject {
         hudController.refreshPositionIfNeeded()
     }
 
-    private func consume(_ frame: TouchFrame, generation: UInt64) {
+    private func makeFrameHandler(generation: UInt64) -> TrackpadManager.FrameHandler {
+        let mailbox = TouchFrameMailbox()
+        return { [weak self] frame in
+            guard mailbox.submit(frame) else { return }
+            Task { @MainActor [weak self] in
+                while let delivery = mailbox.next() {
+                    guard let self else { return }
+                    guard generation == self.frameGeneration else { continue }
+                    self.consume(delivery.frame, generation: generation, discontinuity: delivery.discontinuity)
+                }
+            }
+        }
+    }
+
+    private func cancelTouchLifecycle(requireLift: Bool = false) {
+        discardTouchFramesUntilLift = requireLift || discardTouchFramesUntilLift || hasLiveTouchContacts || session != nil
+        finishSession()
+        gestureEngine = Self.makeGestureEngine(settings: settings)
+        hudController.hideImmediately()
+    }
+
+    // Internal for deterministic lifecycle tests with injected hardware adapters.
+    func consume(_ frame: TouchFrame, generation: UInt64, discontinuity: Bool = false) {
         guard generation == frameGeneration else { return }
-        lastTouchFrameUptime = ProcessInfo.processInfo.systemUptime
+        if discontinuity { cancelTouchLifecycle(requireLift: true) }
+        let age = inputNow() - frame.receivedAtUptime
+        guard age.isFinite, age >= 0, age <= Self.maximumFrameAge else {
+            cancelTouchLifecycle(requireLift: true)
+            hasLiveTouchContacts = false
+            return
+        }
+        lastTouchFrameUptime = frame.receivedAtUptime
 
         // After callback silence, a resumed frame may still carry the old
         // physical contact. Do not let that frame become a fresh edge birth.
@@ -390,6 +461,10 @@ final class EdgeControlAppModel: ObservableObject {
         }
 
         hasLiveTouchContacts = !frame.contacts.isEmpty
+        guard settings.masterEnabled else {
+            cancelTouchLifecycle()
+            return
+        }
         // Do not query keyboard timing while the product master switch is off.
         let blockNewGestureForRecentTyping = settings.masterEnabled
             && !frame.contacts.isEmpty

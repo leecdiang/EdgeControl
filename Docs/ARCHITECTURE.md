@@ -35,7 +35,7 @@ Settings expose Automatic, Built-in, and External Magic Trackpad preferences plu
 
 ### Controller boundary
 
-- `VolumeController`: public CoreAudio only; default output device is resolved on every operation.
+- `VolumeController`: public CoreAudio only; each gesture pins the output device, writable channel layout, and initial channel ratios. Peak channel scalar is the overall value without a master control. All reads must succeed and be finite; partial write failures trigger best-effort rollback.
 - `BuiltInDisplayBackend`: finds an active built-in display using CoreGraphics, then calls runtime-loaded DisplayServices.
 - `ExternalDDCBackend`: enumerates non-built-in online displays, owns isolated DDC handles, and remembers the connection that successfully returned the initial VCP `0x10` value so writes target the same monitor.
 - `DisplayBrightnessController`: refreshes and prioritizes the built-in display at gesture start. External DDC is eligible only when explicitly enabled and backed by a live connection. A `BrightnessControlSession` pins the selected backend for the gesture, so availability changes cannot silently reroute an in-flight adjustment.
@@ -71,3 +71,9 @@ Wake and close/open recovery passed on the reference machine. Display hot-plug, 
 - DDC disabled or disconnected: it is never called as an implicit fallback. DDC failure remains isolated from built-in brightness and app startup.
 - Haptic failure: control continues without vibration.
 - Cursor freeze failure: control continues with ordinary pointer movement.
+
+## 1.7.6 input and settings lifecycle
+
+Callback receipt time uses system uptime independently of the private device timestamp. TrackpadManager synchronously forwards copied values through its serial processing queue into a locked 32-frame mailbox. Only one MainActor drain task is scheduled. Overflow flags a discontinuity, while frames older than 150ms are rejected before recognition or controller access; both paths require a fresh lift. These changes bound queued work and stop replay after a main-thread delay. Synchronous OS device calls themselves are not interruptible by this guard; moving those calls to a separate session executor remains a possible future latency improvement.
+
+Master/action disablement and edge reassignment synchronously end affected control sessions, restore cursor association, and require lift. HUD and haptic toggles immediately cancel their corresponding feedback. Sparkle owns persistence of automatic checks; About displays and changes that preference without storing a second value in AppSettings.

@@ -71,6 +71,7 @@ private struct RawTouchContact: Sendable {
 private struct RawTouchFrame: Sendable {
     let contacts: [RawTouchContact]
     let timestamp: TimeInterval
+    let receivedAtUptime: TimeInterval
 }
 
 /// Owns the MultitouchSupport handle and confines all Swift-side frame mutation
@@ -157,6 +158,7 @@ final class TrackpadManager: @unchecked Sendable {
         count: Int,
         timestamp: TimeInterval
     ) {
+        let receivedAtUptime = ProcessInfo.processInfo.systemUptime
         var copied: [RawTouchContact] = []
         if let contacts, count > 0 {
             copied.reserveCapacity(count)
@@ -174,8 +176,10 @@ final class TrackpadManager: @unchecked Sendable {
             }
         }
 
-        let rawFrame = RawTouchFrame(contacts: copied, timestamp: timestamp)
-        processingQueue.async { [self] in
+        let rawFrame = RawTouchFrame(contacts: copied, timestamp: timestamp, receivedAtUptime: receivedAtUptime)
+        // No unbounded intermediate queue: delivery only copies values into the
+        // bounded mailbox, never waits for the main actor or hardware I/O.
+        processingQueue.sync {
             deliver(rawFrame)
         }
     }
@@ -199,7 +203,7 @@ final class TrackpadManager: @unchecked Sendable {
             print("[EdgeControl][RawTouch] id=\(raw.id) x=\(raw.x) y=\(raw.y) size=\(String(format: "%.3f", raw.size)) rawState=\(raw.rawState) fingers=\(rawFrame.contacts.count)")
         }
         #endif
-        frameHandler?(TouchFrame(contacts: contacts, timestamp: rawFrame.timestamp))
+        frameHandler?(TouchFrame(contacts: contacts, timestamp: rawFrame.timestamp, receivedAtUptime: rawFrame.receivedAtUptime))
     }
 
     deinit {

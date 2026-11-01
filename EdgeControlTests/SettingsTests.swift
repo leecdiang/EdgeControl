@@ -440,87 +440,64 @@ private final class FakeVolumeBackend: VolumeBackend {
 
 @MainActor
 final class DDCParsingTests: XCTestCase {
-    // Builds a standard DDC/CI Get VCP Feature reply (VCP 0x10):
-    // [0x02, result, 0x10, type, mh, ml, sh, sl, checksum]
-    // with the checksum byte chosen so the XOR of the 9 bytes is zero.
-    private func makeReply(
-        maximum: UInt16,
-        current: UInt16,
-        resultCode: UInt8 = 0x00,
-        leading: [UInt8] = []
-    ) -> [UInt8] {
-        var bytes: [UInt8] = leading + [0x02, resultCode, 0x10, 0x00]
-        bytes.append(UInt8(maximum >> 8))
-        bytes.append(UInt8(maximum & 0xFF))
-        bytes.append(UInt8(current >> 8))
-        bytes.append(UInt8(current & 0xFF))
-        let checksum = bytes.reduce(UInt8(0), ^)
-        bytes.append(checksum)
-        return bytes
+    // Independent full wire fixture: 50% brightness, maximum 100.
+    private let wire: [UInt8] = [0x6E, 0x88, 0x02, 0, 0x10, 0, 0, 0x64, 0, 0x32, 0xF2]
+    private func parse(_ bytes: [UInt8]) -> Bool {
+        var current: UInt16 = 0, maximum: UInt16 = 0
+        return bytes.withUnsafeBufferPointer { ec_ddc_parse_vcp10_reply($0.baseAddress, $0.count, &current, &maximum) }
     }
-
+    private func checksum(_ bytes: [UInt8]) -> [UInt8] {
+        var result = bytes
+        result[result.count - 1] = result.dropLast().reduce(UInt8(0x50), ^)
+        return result
+    }
     func testParsesStandardReplyLayout() {
-        let reply = makeReply(maximum: 100, current: 50)
-        var current: UInt16 = 0
-        var maximum: UInt16 = 0
-        XCTAssertTrue(reply.withUnsafeBytes { buffer in
-            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
-        })
-        XCTAssertEqual(maximum, 100)
+        var current: UInt16 = 0, maximum: UInt16 = 0
+        XCTAssertTrue(wire.withUnsafeBufferPointer { ec_ddc_parse_vcp10_reply($0.baseAddress, $0.count, &current, &maximum) })
         XCTAssertEqual(current, 50)
+        XCTAssertEqual(maximum, 100)
     }
-
-    func testParsesReplyWithLeadingDestinationByte() {
-        let reply = makeReply(maximum: 200, current: 75, leading: [0x6F])
-        var current: UInt16 = 0
-        var maximum: UInt16 = 0
-        XCTAssertTrue(reply.withUnsafeBytes { buffer in
-            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
-        })
-        XCTAssertEqual(maximum, 200)
-        XCTAssertEqual(current, 75)
+    func testRejectsLeadingGarbageRatherThanScanningForOpcode() {
+        XCTAssertFalse(parse([0x6F] + wire))
     }
-
     func testRejectsNonZeroResultCode() {
-        // result 0x01 = unsupported op code
-        let reply = makeReply(maximum: 100, current: 50, resultCode: 0x01)
-        var current: UInt16 = 0
-        var maximum: UInt16 = 0
-        XCTAssertFalse(reply.withUnsafeBytes { buffer in
-            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
-        })
+        var reply = wire; reply[3] = 1
+        XCTAssertFalse(parse(checksum(reply)))
     }
-
     func testRejectsCorruptChecksum() {
-        var reply = makeReply(maximum: 100, current: 50)
-        reply[reply.count - 1] ^= 0x01 // flip one bit in the checksum byte
-        var current: UInt16 = 0
-        var maximum: UInt16 = 0
-        XCTAssertFalse(reply.withUnsafeBytes { buffer in
-            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
-        })
+        var reply = wire; reply[10] = 0x44 // formerly accepted command-only XOR
+        XCTAssertFalse(parse(reply))
     }
-
     func testRejectsWrongVCPCode() {
-        // VCP 0x12 (contrast) instead of 0x10 must not be accepted as brightness.
-        var reply = makeReply(maximum: 100, current: 50)
-        reply[2] = 0x12
-        // Recompute checksum over the mutated message.
-        reply[reply.count - 1] = reply.dropLast().reduce(UInt8(0), ^)
-        var current: UInt16 = 0
-        var maximum: UInt16 = 0
-        XCTAssertFalse(reply.withUnsafeBytes { buffer in
-            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
-        })
+        var reply = wire; reply[4] = 0x12
+        XCTAssertFalse(parse(checksum(reply)))
     }
-
     func testRejectsTruncatedReply() {
-        let reply = Array(makeReply(maximum: 100, current: 50).prefix(5))
-        var current: UInt16 = 0
-        var maximum: UInt16 = 0
-        XCTAssertFalse(reply.withUnsafeBytes { buffer in
-            ec_ddc_parse_vcp10_reply(buffer.baseAddress!, buffer.count, &current, &maximum)
-        })
+        for length in 0..<wire.count { XCTAssertFalse(parse(Array(wire.prefix(length)))) }
+    }
+    func testRejectsWrongSourceLengthAndType() {
+        for (index, value) in [(0, UInt8(0x50)), (1, 0x89), (5, 1)] {
+            var reply = wire; reply[index] = value
+            XCTAssertFalse(parse(checksum(reply)))
+        }
+    }
+    func testRejectsInvalidRangeWithoutOverwritingOutputs() {
+        var reply = wire; reply[9] = 101
+        reply = checksum(reply)
+        var current: UInt16 = 23, maximum: UInt16 = 45
+        XCTAssertFalse(reply.withUnsafeBufferPointer { ec_ddc_parse_vcp10_reply($0.baseAddress, $0.count, &current, &maximum) })
+        XCTAssertEqual(current, 23); XCTAssertEqual(maximum, 45)
+        reply[7] = 0
+        XCTAssertFalse(parse(checksum(reply)))
+    }
+    func testParsesSixteenBitRangeAndPaddedBuffer() {
+        var reply = wire
+        reply[6] = 1; reply[7] = 0x90 // max 400
+        reply[8] = 1; reply[9] = 0x2C // current 300
+        reply = checksum(reply) + [0, 0, 0]
+        var current: UInt16 = 0, maximum: UInt16 = 0
+        XCTAssertTrue(reply.withUnsafeBufferPointer { ec_ddc_parse_vcp10_reply($0.baseAddress, $0.count, &current, &maximum) })
+        XCTAssertEqual(current, 300); XCTAssertEqual(maximum, 400)
     }
 }
 
@@ -737,4 +714,240 @@ private final class FakeExternalBrightnessBackend:
     ExternalBrightnessBackend
 {
     var enabled = false
+}
+
+private final class RecordingAudioTransport: AudioVolumeTransport {
+    var elements: [AudioObjectPropertyElement] = [1, 2]
+    var values: [AudioObjectPropertyElement: Float] = [1: 0.2, 2: 0.8]
+    var writes: [(AudioObjectPropertyElement, Float)] = []
+    var failedRead: AudioObjectPropertyElement?
+    var failNextWrite: AudioObjectPropertyElement?
+    var failAllWrites = false
+    func currentOutputDevice() throws -> AudioDeviceID { 42 }
+    func volumeElements(on device: AudioDeviceID, requireSettable: Bool) -> [AudioObjectPropertyElement] { elements }
+    func readScalar(on device: AudioDeviceID, element: AudioObjectPropertyElement) throws -> Float {
+        guard element != failedRead, let value = values[element] else { throw ControlError.readFailed("Injected read failure") }
+        return value
+    }
+    func writeScalar(_ value: Float, on device: AudioDeviceID, element: AudioObjectPropertyElement) throws {
+        if failAllWrites { throw ControlError.writeFailed("Injected persistent failure") }
+        if element == failNextWrite {
+            failNextWrite = nil
+            throw ControlError.writeFailed("Injected write failure")
+        }
+        writes.append((element, value)); values[element] = value
+    }
+}
+
+final class VolumeChannelTests: XCTestCase {
+    func testSessionPreservesBalanceAcrossZeroAndFullScale() throws {
+        let transport = RecordingAudioTransport()
+        let session = try VolumeController(transport: transport).beginSession()
+        XCTAssertEqual(session.initialValue, 0.8, accuracy: 1e-6)
+        try session.setVolume(0.81)
+        XCTAssertEqual(transport.values[1]!, 0.2025, accuracy: 1e-6)
+        XCTAssertEqual(transport.values[2]!, 0.81, accuracy: 1e-6)
+        try session.setVolume(0)
+        try session.setVolume(1)
+        XCTAssertEqual(transport.values[1]!, 0.25, accuracy: 1e-6)
+        XCTAssertEqual(transport.values[2]!, 1, accuracy: 1e-6)
+    }
+    func testZeroChannelsStartWithNeutralBalance() throws {
+        let transport = RecordingAudioTransport(); transport.values = [1: 0, 2: 0]
+        try VolumeController(transport: transport).beginSession().setVolume(0.4)
+        XCTAssertEqual(transport.values[1]!, 0.4, accuracy: 1e-6)
+        XCTAssertEqual(transport.values[2]!, 0.4, accuracy: 1e-6)
+    }
+    func testMasterScalarUsesSingleChannel() throws {
+        let transport = RecordingAudioTransport(); transport.elements = [0]; transport.values = [0: 0.6]
+        try VolumeController(transport: transport).beginSession().setVolume(0.4)
+        XCTAssertEqual(transport.writes.count, 1)
+        XCTAssertEqual(transport.values[0]!, 0.4, accuracy: 1e-6)
+    }
+    func testPartialReadCannotCreateSessionOrWrite() {
+        let transport = RecordingAudioTransport(); transport.failedRead = 2
+        let controller = VolumeController(transport: transport)
+        XCTAssertThrowsError(try controller.readVolume(on: 42))
+        XCTAssertThrowsError(try controller.beginSession())
+        XCTAssertTrue(transport.writes.isEmpty)
+    }
+    func testNonFiniteReadAndWriteNeverReachDevice() throws {
+        for invalid in [Float.nan, .infinity, -.infinity] {
+            let transport = RecordingAudioTransport(); transport.values[2] = invalid
+            XCTAssertThrowsError(try VolumeController(transport: transport).beginSession())
+            XCTAssertTrue(transport.writes.isEmpty)
+        }
+        let transport = RecordingAudioTransport()
+        let controller = VolumeController(transport: transport)
+        let session = try controller.beginSession()
+        for invalid in [Double.nan, .infinity, -.infinity] {
+            XCTAssertThrowsError(try session.setVolume(invalid))
+            XCTAssertThrowsError(try controller.setVolume(invalid))
+        }
+        XCTAssertTrue(transport.writes.isEmpty)
+    }
+    func testNonFiniteBackendInitialValueIsRejected() {
+        let backend = FakeVolumeBackend(defaultDevice: 1, values: [1: .nan])
+        XCTAssertThrowsError(try VolumeControlSession(backend: backend))
+        XCTAssertTrue(backend.writtenDevices.isEmpty)
+    }
+    func testReadFailureDuringSessionPreventsPartialWrite() throws {
+        let transport = RecordingAudioTransport()
+        let session = try VolumeController(transport: transport).beginSession()
+        transport.failedRead = 2
+        XCTAssertThrowsError(try session.setVolume(0.5))
+        XCTAssertTrue(transport.writes.isEmpty)
+    }
+    func testPartialWriteRollsBackAndCanRetrySameTarget() throws {
+        let transport = RecordingAudioTransport()
+        let session = try VolumeController(transport: transport).beginSession()
+        transport.failNextWrite = 2
+        XCTAssertThrowsError(try session.setVolume(0.4))
+        XCTAssertEqual(transport.values[1]!, 0.2, accuracy: 1e-6)
+        XCTAssertEqual(transport.values[2]!, 0.8, accuracy: 1e-6)
+        try session.setVolume(0.4)
+        XCTAssertEqual(transport.values[1]!, 0.1, accuracy: 1e-6)
+        XCTAssertEqual(transport.values[2]!, 0.4, accuracy: 1e-6)
+    }
+    func testRollbackFailureIsReported() throws {
+        let transport = RecordingAudioTransport()
+        let session = try VolumeController(transport: transport).beginSession()
+        transport.failAllWrites = true
+        XCTAssertThrowsError(try session.setVolume(0.4)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("restoration was incomplete"))
+        }
+    }
+    func testChannelLayoutChangeFailsBeforeWriting() throws {
+        let transport = RecordingAudioTransport()
+        let session = try VolumeController(transport: transport).beginSession()
+        transport.elements = [0]; transport.values[0] = 0.5
+        XCTAssertThrowsError(try session.setVolume(0.4))
+        XCTAssertTrue(transport.writes.isEmpty)
+    }
+    func testRepeatedEndpointWritesAreDeduplicatedPerSession() throws {
+        let transport = RecordingAudioTransport()
+        let controller = VolumeController(transport: transport)
+        let session = try controller.beginSession()
+        for _ in 0..<120 { try session.setVolume(1) }
+        XCTAssertEqual(transport.writes.count, 2)
+        try controller.beginSession().setVolume(1)
+        XCTAssertEqual(transport.writes.count, 4)
+    }
+}
+
+@MainActor
+final class InputLifecycleTests: XCTestCase {
+    private func frame(_ y: Double?, receipt: Double = 10, timestamp: Double = 1) -> TouchFrame {
+        TouchFrame(contacts: y.map { [TouchContact(id: 1, x: 0.001, y: $0, timestamp: timestamp, phase: .moved)] } ?? [],
+                   timestamp: timestamp, receivedAtUptime: receipt)
+    }
+    private func model() -> (EdgeControlAppModel, AppSettings, RecordingAudioTransport) {
+        let name = "EdgeControlTests.Input." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        addTeardownBlock { defaults.removePersistentDomain(forName: name) }
+        let settings = AppSettings(defaults: defaults)
+        settings.showHUD = false; settings.hapticFeedback = false
+        let transport = RecordingAudioTransport()
+        let model = EdgeControlAppModel(settings: settings,
+            keyboardActivityGuard: RecentKeyboardActivityGuard { 999 },
+            volumeController: VolumeController(transport: transport),
+            cursorController: CursorController(associate: { _ in .success }),
+            updateController: UpdateController(startingUpdater: false), inputNow: { 10 })
+        return (model, settings, transport)
+    }
+    private func activate(_ model: EdgeControlAppModel) {
+        model.consume(frame(0.5), generation: 0)
+        model.consume(frame(0.53, timestamp: 1.02), generation: 0)
+        XCTAssertTrue(model.isControlling)
+        XCTAssertTrue(model.isCursorFrozen)
+    }
+    func testMasterOffRestoresCursorWithoutNextMovementAndRequiresLift() {
+        let (model, settings, transport) = model(); activate(model)
+        settings.masterEnabled = false
+        XCTAssertFalse(model.isControlling); XCTAssertFalse(model.isCursorFrozen)
+        settings.masterEnabled = true
+        model.consume(frame(0.56, timestamp: 1.04), generation: 0)
+        XCTAssertTrue(transport.writes.isEmpty); XCTAssertFalse(model.isControlling)
+        model.consume(frame(nil), generation: 0)
+        activate(model)
+    }
+    func testDisabledActionAndEdgeReassignmentEndSessionImmediately() {
+        let (model, settings, _) = model(); activate(model)
+        settings.volumeEnabled = false
+        XCTAssertFalse(model.isControlling); XCTAssertFalse(model.isCursorFrozen)
+        model.consume(frame(nil), generation: 0); settings.volumeEnabled = true
+        activate(model)
+        settings.leftEdgeAction = .disabled
+        XCTAssertFalse(model.isControlling); XCTAssertFalse(model.isCursorFrozen)
+    }
+    func testPausedBirthCannotActivateWhenReenabledBeforeLift() {
+        let (model, settings, _) = model()
+        settings.masterEnabled = false
+        model.consume(frame(0.5), generation: 0)
+        settings.masterEnabled = true
+        model.consume(frame(0.53, timestamp: 1.02), generation: 0)
+        XCTAssertFalse(model.isControlling)
+        model.consume(frame(nil), generation: 0); activate(model)
+    }
+    func testOldReceiptCancelsSessionWithoutWriting() {
+        let (model, _, transport) = model(); activate(model)
+        model.consume(frame(0.56, receipt: 5, timestamp: 1.04), generation: 0)
+        XCTAssertFalse(model.isControlling); XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertTrue(transport.writes.isEmpty)
+        model.consume(frame(0.58, timestamp: 1.06), generation: 0)
+        XCTAssertFalse(model.isControlling)
+        model.consume(frame(nil), generation: 0); activate(model)
+    }
+    func testOldAndInvalidReceiptCannotStartGestureOrClearLiftLatch() {
+        for receipt in [5.0, Double.nan, .infinity, 11] {
+            let (model, _, transport) = model()
+            model.consume(frame(0.5, receipt: receipt), generation: 0)
+            model.consume(frame(nil, receipt: 5), generation: 0)
+            model.consume(frame(0.53, timestamp: 1.02), generation: 0)
+            XCTAssertFalse(model.isControlling); XCTAssertTrue(transport.writes.isEmpty)
+            model.consume(frame(nil), generation: 0); activate(model)
+        }
+    }
+    func testFreshReceiptDoesNotAssumeDeviceClockEqualsUptime() {
+        let (model, _, transport) = model(); activate(model)
+        model.consume(frame(0.56, timestamp: 1.04), generation: 0)
+        XCTAssertEqual(transport.writes.count, 2)
+    }
+    func testOverflowCancelsAndRequiresFreshLift() {
+        let (model, _, transport) = model(); activate(model)
+        model.consume(frame(0.56, timestamp: 1.04), generation: 0, discontinuity: true)
+        XCTAssertFalse(model.isControlling); XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertTrue(transport.writes.isEmpty)
+        model.consume(frame(nil), generation: 0); activate(model)
+    }
+    func testStoppedGenerationCannotBeResurrectedByQueuedFrames() {
+        let (model, _, transport) = model(); activate(model); model.stop()
+        model.consume(frame(nil), generation: 0)
+        model.consume(frame(0.5), generation: 0)
+        model.consume(frame(0.53, timestamp: 1.02), generation: 0)
+        model.consume(frame(0.56, timestamp: 1.04), generation: 0)
+        XCTAssertFalse(model.isControlling); XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertTrue(transport.writes.isEmpty)
+    }
+    func testMailboxPreservesOrderAndSchedulesOneConsumer() {
+        let mailbox = TouchFrameMailbox(capacity: 3)
+        XCTAssertTrue(mailbox.submit(frame(0.5, timestamp: 1)))
+        XCTAssertFalse(mailbox.submit(frame(nil, timestamp: 2)))
+        XCTAssertEqual(mailbox.next()?.frame.timestamp, 1)
+        XCTAssertEqual(mailbox.next()?.frame.timestamp, 2)
+        XCTAssertNil(mailbox.next())
+        XCTAssertTrue(mailbox.submit(frame(0.5, timestamp: 3)))
+    }
+    func testMailboxOverflowFlagsDiscontinuityAndRetainsLift() {
+        let mailbox = TouchFrameMailbox(capacity: 2)
+        _ = mailbox.submit(frame(0.5, timestamp: 1))
+        _ = mailbox.submit(frame(0.53, timestamp: 2))
+        _ = mailbox.submit(frame(0.56, timestamp: 3))
+        _ = mailbox.submit(frame(nil, timestamp: 4))
+        let first = mailbox.next()
+        XCTAssertEqual(first?.frame.timestamp, 3); XCTAssertEqual(first?.discontinuity, true)
+        let lift = mailbox.next()
+        XCTAssertEqual(lift?.frame.contacts.count, 0); XCTAssertEqual(lift?.discontinuity, false)
+        XCTAssertNil(mailbox.next())
+    }
 }

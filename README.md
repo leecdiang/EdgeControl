@@ -149,3 +149,5 @@ This implementation was written independently for this repository. No Verge, Sli
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Version 1.7.6 adds bounded, age-checked input delivery, immediate pause teardown, channel-balanced and finite-only volume control, full DDC reply validation, and an automatic-update preference in About.

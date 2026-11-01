@@ -4,24 +4,29 @@ import Foundation
 @MainActor
 final class CursorController {
     private(set) var isFrozen = false
+    private let associate: @Sendable (Int32) -> CGError
+
+    init(associate: @escaping @Sendable (Int32) -> CGError = { CGAssociateMouseAndMouseCursorPosition($0) }) {
+        self.associate = associate
+    }
 
     @discardableResult
     func freeze() -> Bool {
         guard !isFrozen else { return true }
-        let result = CGAssociateMouseAndMouseCursorPosition(0)
+        let result = associate(0)
         isFrozen = result == .success
         return isFrozen
     }
 
     func restore() {
         guard isFrozen else { return }
-        _ = CGAssociateMouseAndMouseCursorPosition(1)
+        _ = associate(1)
         isFrozen = false
     }
 
     deinit {
         if isFrozen {
-            _ = CGAssociateMouseAndMouseCursorPosition(1)
+            _ = associate(1)
         }
     }
 }

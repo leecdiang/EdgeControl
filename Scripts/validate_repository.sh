@@ -56,15 +56,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.7.5;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.7.6;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.7.5, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.7.6, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 11;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 12;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 11 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 12 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -99,8 +99,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 90 ]]; then
-  echo "Expected at least 90 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 114 ]]; then
+  echo "Expected at least 114 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
@@ -330,7 +330,7 @@ if [[ "$local_validation_count" -lt 8 ]]; then
   exit 1
 fi
 
-echo "Repository structure and offline-runtime guard checks passed."
+echo "Repository structure and direct telemetry/API guard checks passed (Sparkle update networking is allowed)."
 echo "LOCAL_VALIDATION_REQUIRED markers: $local_validation_count"
 echo "XCTest methods: $test_method_count"
 echo "Run xcodebuild on macOS to compile and execute the tests."
