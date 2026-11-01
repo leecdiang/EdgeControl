@@ -29,7 +29,7 @@ run_tests() {
 }
 
 run_build() {
-  xcodebuild "${common_args[@]}" -configuration Release clean build "${signing_args[@]}"
+  xcodebuild "${common_args[@]}" -configuration Release clean build ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO "${signing_args[@]}"
   local app_path="$derived_data/Build/Products/Release/EdgeControl.app"
   if [[ -z "${DEVELOPMENT_TEAM:-}" && -d "$app_path" ]]; then
     # Sparkle contains nested frameworks, XPC services, and helper apps. Sign
@@ -44,6 +44,7 @@ run_build() {
     codesign --force --sign - "$app_path"
     codesign --verify --deep --strict "$app_path"
   fi
+  lipo -verify_arch arm64 x86_64 "$app_path/Contents/MacOS/EdgeControl"
   echo "Built app: $app_path"
 }
 

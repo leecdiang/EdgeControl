@@ -34,6 +34,7 @@ jobs:
         run: |
           ./Scripts/package_dmg.sh "$PWD/build/DerivedData/Build/Products/Release/EdgeControl.app" "$PWD/build/EdgeControl-macOS.dmg"
           hdiutil verify build/EdgeControl-macOS.dmg
+          printf '%s\n' "$GITHUB_SHA" > build/SOURCE_COMMIT
           ditto -c -k --sequesterRsrc --keepParent build/DerivedData/Build/Products/Release/EdgeControl.app build/EdgeControl-macOS.zip
           unzip -t build/EdgeControl-macOS.zip
           shasum -a 256 build/EdgeControl-macOS.dmg build/EdgeControl-macOS.zip > build/SHA256SUMS
@@ -46,5 +47,6 @@ jobs:
             build/EdgeControl-macOS.dmg
             build/EdgeControl-macOS.zip
             build/SHA256SUMS
+            build/SOURCE_COMMIT
             build/DerivedData/Logs/Test/*.xcresult
           retention-days: 14
