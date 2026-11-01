@@ -5,7 +5,7 @@ import XCTest
 final class RecordingHapticBackend: HapticBackend {
     var patterns: [HapticPulsePattern] = []
     var pulses: Int { patterns.count }
-    var isAvailable: Bool { true }
+    var isAvailable = true
     func pulse(_ pattern: HapticPulsePattern) { patterns.append(pattern) }
     func reset() {}
 }
@@ -140,4 +140,63 @@ final class HapticEngineTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2)
     }
+    func testCrossingSuppressedByCooldownRemainsEligibleOnNextMovement() {
+        let backend = RecordingHapticBackend()
+        var time: TimeInterval = 0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.010
+        engine.valueChanged(to: 0.55)
+        XCTAssertEqual(backend.pulses, 1)
+        time = 0.040
+        engine.valueChanged(to: 0.551)
+        XCTAssertEqual(backend.pulses, 2, "the suppressed crossing must not consume its detent")
+        time = 0.080
+        engine.valueChanged(to: 0.552)
+        XCTAssertEqual(backend.pulses, 2, "the successful request must commit the new bucket")
+    }
+
+    func testReturningToOriginalBucketDoesNotReplaySuppressedCrossing() {
+        let backend = RecordingHapticBackend()
+        var time: TimeInterval = 0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.010
+        engine.valueChanged(to: 0.55)
+        time = 0.040
+        engine.valueChanged(to: 0.501)
+        XCTAssertEqual(backend.pulses, 1)
+    }
+
+    func testGestureEndDiscardsSuppressedCrossing() {
+        let backend = RecordingHapticBackend()
+        var time: TimeInterval = 0
+        let engine = makeEngine(backend, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        time = 0.010
+        engine.valueChanged(to: 0.55)
+        engine.endGesture()
+        time = 0.040
+        engine.valueChanged(to: 0.551) // A reset tracker only primes itself.
+        XCTAssertEqual(backend.pulses, 1)
+        engine.activationTick(initialValue: 0.551)
+        XCTAssertEqual(backend.pulses, 2)
+    }
+
+    func testUnavailableBackendDoesNotConsumeDetentOrCooldown() {
+        let backend = RecordingHapticBackend()
+        let fallback = RecordingHapticBackend()
+        fallback.isAvailable = false
+        var time: TimeInterval = 0
+        let engine = HapticEngine(publicBackend: backend, privateBackend: fallback, now: { time })
+        engine.activationTick(initialValue: 0.5)
+        backend.isAvailable = false
+        time = 0.040
+        engine.valueChanged(to: 0.55)
+        backend.isAvailable = true
+        time = 0.041
+        engine.valueChanged(to: 0.551)
+        XCTAssertEqual(backend.pulses, 2, "unavailable hardware must not advance the bucket or cooldown")
+    }
+
 }

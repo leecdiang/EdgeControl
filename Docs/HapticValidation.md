@@ -34,3 +34,11 @@ For 1.5.1, end a Strong gesture immediately after its primary tick and repeat ac
 
 - No competitor haptic constants were copied; pattern values were never needed because the actuator API does not exist on this OS.
 - TCC permissions required: none (see BUILD_REPORT.md Permissions).
+
+## 1.7.5 cooldown regression (2026-11-01)
+
+A deterministic trace against the original HapticEngine reproduced a lost detent request: activation at 0.50/t=0 requested one pulse; 0.55/t=10ms crossed a detent but cooldown suppressed it; 0.551/t=40ms and 0.552/t=80ms requested no further feedback because the suppressed crossing had already advanced the bucket. This matches intermittent missing ticks during an otherwise working adjustment, not a proven complete hardware-feedback outage.
+
+The fix commits the candidate detent bucket only after a request reaches an available backend, and advances cooldown only on that path. Repeating the trace requests a second pulse at 40ms and no duplicate at 80ms. Existing 30ms throttling, patterns, and Strong-secondary cancellation remain intact. No deferred detent timer is added; a return to the prior bucket or gesture end prevents stale replay. Four new XCTest regressions cover these cases and unavailable backends.
+
+The public AppKit performer returns no hardware-delivery acknowledgement. Apple documents that the system may suppress requests and that the default performer depends on input device and preferences. Unit tests and the synthetic trace establish request behavior, not physical actuator delivery on macOS 27.0.1. Physical verification remains required.

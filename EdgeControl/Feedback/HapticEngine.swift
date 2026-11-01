@@ -90,8 +90,13 @@ final class HapticEngine {
 
     func valueChanged(to value: Double, strength: HapticStrength = .standard) {
         configureDetents(for: strength)
-        if detents.shouldEmit(for: value) {
-            pulse(force: false, strength: strength)
+        // A crossing suppressed by cooldown must not consume the detent.
+        // Compare the next movement with the last requested feedback position;
+        // returning inside that bucket naturally cancels a suppressed crossing.
+        // No timer is needed, so release/cancellation cannot cause a late tick.
+        var candidate = detents
+        if !candidate.shouldEmit(for: value) || pulse(force: false, strength: strength) {
+            detents = candidate
         }
     }
 
@@ -117,15 +122,16 @@ final class HapticEngine {
         detents = DetentTracker(interval: strength.detentInterval)
     }
 
-    private func pulse(force: Bool, strength: HapticStrength) {
+    @discardableResult
+    private func pulse(force: Bool, strength: HapticStrength) -> Bool {
         let nowValue = now()
         if !force && nowValue - lastPulseTime < pulseCooldown {
-            return
+            return false
         }
-        lastPulseTime = nowValue
         let pattern: HapticPulsePattern = strength == .strong ? .firm : .alignment
-        guard let backend = selectedBackend() else { return }
+        guard let backend = selectedBackend() else { return false }
         backend.pulse(pattern)
+        lastPulseTime = nowValue
         if strength == .strong {
             // The public AppKit API has no amplitude knob and .generic feels
             // close to .alignment, so Strong doubles up: a second firm pulse a
@@ -147,6 +153,7 @@ final class HapticEngine {
                 self.secondaryPulseTask = nil
             }
         }
+        return true
     }
 
     private func cancelSecondaryPulse() {

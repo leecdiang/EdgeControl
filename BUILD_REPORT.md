@@ -1,8 +1,8 @@
 # BUILD_REPORT — EdgeControl 1.7.5
 
 Date: 2026-11-01
-Status: **VALIDATED CANDIDATE — 86/86 tests, Universal 2 Release build, deep ad-hoc signature, and DMG/ZIP integrity checks pass. Publishing and local installation remain blocked by this session's Keychain/filesystem access.**
+Status: **HAPTIC FOLLOW-UP CANDIDATE — build 11, 90 regression tests; final CI pending. Publishing remains paused.**
 
-Tested source: `2f5de264056f93c0dbb7cd83e9ae345425a792c0`. [CI evidence](https://github.com/leecdiang/EdgeControl/actions/runs/41280473174). Version/build: 1.7.5 (10). The installed application remains 1.7.4 (9).
+The prior build 10 candidate passed 86 tests, Universal 2 build and package checks, but is superseded by the haptic cooldown fix. Do not publish it using run 41280473174. The release helper now requires build 11.
 
-See [release notes](RELEASE_NOTES_1.7.5.md) for changes and [validation](VALIDATION_1.7.5.md) for package evidence, limits, and the final publishing/install command. No claim is made that the Control Center brightness-repeat root cause has been established.
+The local before/after haptic trace confirms a previously consumed cooldown-suppressed detent now requests feedback on the next eligible movement. Physical actuator delivery has not been verified. See [release notes](RELEASE_NOTES_1.7.5.md), [haptic audit](Docs/HapticValidation.md), and [validation](VALIDATION_1.7.5.md). Installed and published version remain 1.7.4.
