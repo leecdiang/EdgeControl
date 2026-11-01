@@ -32,9 +32,10 @@ candidate="$release_dir/candidate"
 mkdir "$release_dir/hashcheck"
 ln -s "$candidate" "$release_dir/hashcheck/build"
 (cd "$release_dir/hashcheck" && shasum -a 256 -c "$candidate/SHA256SUMS")
-mkdir "$release_dir/unpacked"
-ditto -x -k "$candidate/EdgeControl-macOS.zip" "$release_dir/unpacked"
-app="$release_dir/unpacked/EdgeControl.app"
+unpack_dir="$(mktemp -d "${TMPDIR:-/tmp}/EdgeControl-release.XXXXXX")"
+trap 'rm -rf "$unpack_dir"' EXIT
+ditto -x -k "$candidate/EdgeControl-macOS.zip" "$unpack_dir"
+app="$unpack_dir/EdgeControl.app"
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" == "$version" ]]
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" == "$build" ]]
 codesign --verify --deep --strict "$app"
@@ -61,7 +62,7 @@ assert channel is not None
 item=ET.Element('item');ET.SubElement(item,'title').text=f'EdgeControl {version}'
 ET.SubElement(item,'pubDate').text=email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc))
 ET.SubElement(item,f'{{{ns}}}minimumSystemVersion').text='13.0'
-ET.SubElement(item,'description').text='Brightness write deduplication, horizontal jitter filtering, invalid input rejection, and empty-display handling.'
+ET.SubElement(item,'description').text='Brightness write deduplication, horizontal jitter filtering, invalid input rejection, empty-display handling, and haptic cooldown recovery.'
 archive=root/f'assets/EdgeControl-{version}-macOS.zip'
 ET.SubElement(item,'enclosure',{'url':f'https://github.com/leecdiang/EdgeControl/releases/download/v{version}/{archive.name}','length':str(archive.stat().st_size),'type':'application/octet-stream',f'{{{ns}}}version':build,f'{{{ns}}}shortVersionString':version,f'{{{ns}}}edSignature':sig})
 channel.insert(0,item);tree.write(root/'assets/appcast.xml',encoding='utf-8',xml_declaration=True)
@@ -77,33 +78,6 @@ mkdir "$release_dir/downloaded"
 gh release download "$tag" --repo "$repo" --dir "$release_dir/downloaded"
 (cd "$release_dir/downloaded" && shasum -a 256 -c "$release_dir/SHA256SUMS")
 gh release edit "$tag" --repo "$repo" --draft=false --latest
-# Replace only this app, retaining a complete recoverable copy.
-if pgrep -x EdgeControl >/dev/null; then
-    killall -TERM EdgeControl
-    for _ in {1..50}; do
-        pgrep -x EdgeControl >/dev/null || break
-        sleep 0.1
-    done
-    if pgrep -x EdgeControl >/dev/null; then
-        echo "Published; EdgeControl did not exit. Local installation was not changed." >&2
-        exit 1
-    fi
-fi
-staged_app="/Applications/EdgeControl-update-$run_id.app"
-[[ ! -e "$staged_app" ]] || { echo "Existing staged app: $staged_app" >&2; exit 1; }
-ditto "$app" "$staged_app"
-codesign --verify --deep --strict "$staged_app"
-cmp "$app/Contents/MacOS/EdgeControl" "$staged_app/Contents/MacOS/EdgeControl"
-if [[ -d /Applications/EdgeControl.app ]]; then
-    mv /Applications/EdgeControl.app "$release_dir/EdgeControl-previous.app"
-fi
-if ! mv "$staged_app" /Applications/EdgeControl.app; then
-    if [[ -d "$release_dir/EdgeControl-previous.app" ]]; then
-        mv "$release_dir/EdgeControl-previous.app" /Applications/EdgeControl.app
-    fi
-    exit 1
-fi
-open /Applications/EdgeControl.app
-sleep 2
-pgrep -x EdgeControl >/dev/null
-echo "Published $tag and installed $version ($build). Backup and verified packages: $release_dir"
+# Installation can be retried independently without recreating the release.
+bash "$script_dir/install_validated_release.sh" "$release_dir"
+echo "Published $tag and installed $version ($build). Evidence: $release_dir"
