@@ -382,13 +382,23 @@ struct SettingsView: View {
                 .frame(maxWidth: 300)
 
             VStack(spacing: 5) {
-                Text("Open source · No analytics · No network · No account")
+                Text("Open source · No analytics · No account")
                 Text("By leecdiang")
                 Text("Uses undocumented macOS interfaces and is not affiliated with Apple Inc.")
                     .foregroundStyle(.secondary)
             }
             .font(.system(size: 11))
             .multilineTextAlignment(.center)
+
+            Toggle("Check for updates automatically", isOn: Binding(
+                get: { model.automaticallyChecksForUpdates },
+                set: { model.setAutomaticallyChecksForUpdates($0) }
+            ))
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            Text("Only update checks and downloads use the network (GitHub).")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

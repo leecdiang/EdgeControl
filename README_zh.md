@@ -149,3 +149,5 @@ EdgeControl 与 Apple Inc. 无关。
 ## 许可证
 
 MIT。见 [LICENSE](LICENSE)。
+
+1.7.6 新增有界触控缓冲与帧时效检查、暂停时立即释放会话、保留声道平衡并拒绝非法音量值、完整 DDC 回包校验，以及 About 中的自动更新开关。

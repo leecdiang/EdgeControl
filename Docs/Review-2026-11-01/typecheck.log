@@ -1,0 +1,36 @@
+sandbox-exec: sandbox_apply: Operation not permitted
+EdgeControl/UI/SettingsView.swift:36:24: error: external macro implementation type 'SwiftUIMacros.StateMacro' could not be found for macro 'State()'; '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server' produced malformed response
+ 34 |     @ObservedObject var model: EdgeControlAppModel
+ 35 |     @ObservedObject var settings: AppSettings
+ 36 |     @State private var selectedTab: SettingsTab = .controls
+    |                        `- error: external macro implementation type 'SwiftUIMacros.StateMacro' could not be found for macro 'State()'; '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server' produced malformed response
+ 37 |     @FocusState private var focusedTab: SettingsTab?
+ 38 | 
+
+SwiftUI.State:1:145: note: 'State()' declared here
+1 | @attached(accessor, names: named(init), named(get), named(set)) @attached(peer, names: prefixed(`_`), prefixed(__), prefixed(`$`)) public macro State() = #externalMacro(module: "SwiftUIMacros", type: "StateMacro")
+  |                                                                                                                                                 `- note: 'State()' declared here
+
+EdgeControl/UI/SettingsView.swift:36:24: error: external macro implementation type 'SwiftUIMacros.StateMacro' could not be found for macro 'State()'; '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server' produced malformed response
+ 34 |     @ObservedObject var model: EdgeControlAppModel
+ 35 |     @ObservedObject var settings: AppSettings
+ 36 |     @State private var selectedTab: SettingsTab = .controls
+    |                        `- error: external macro implementation type 'SwiftUIMacros.StateMacro' could not be found for macro 'State()'; '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server' produced malformed response
+ 37 |     @FocusState private var focusedTab: SettingsTab?
+ 38 | 
+
+SwiftUI.State:1:145: note: 'State()' declared here
+1 | @attached(accessor, names: named(init), named(get), named(set)) @attached(peer, names: prefixed(`_`), prefixed(__), prefixed(`$`)) public macro State() = #externalMacro(module: "SwiftUIMacros", type: "StateMacro")
+  |                                                                                                                                                 `- note: 'State()' declared here
+
+EdgeControl/UI/SettingsView.swift:72:13: error: cannot assign to property: 'self' is immutable
+ 67 |     }
+ 68 | 
+ 69 |     private func tabButton(_ tab: SettingsTab) -> some View {
+    |             `- note: mark method 'mutating' to make 'self' mutable
+ 70 |         let isSelected = selectedTab == tab
+ 71 |         return Button {
+ 72 |             selectedTab = tab
+    |             `- error: cannot assign to property: 'self' is immutable
+ 73 |         } label: {
+ 74 |             Label(tab.title, systemImage: tab.systemImage)
