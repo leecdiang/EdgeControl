@@ -251,9 +251,10 @@ final class AppSettings: ObservableObject {
             rawValue: defaults.string(forKey: Key.hapticStrength) ?? ""
         ) ?? .standard
         let storedMode = defaults.string(forKey: Key.hudMode).flatMap(HUDMode.init(rawValue:))
-        hudMode = storedMode ?? (defaults.bool(forKey: Key.showHUD) ? .capsule : .off)
+        let initialMode = storedMode ?? (defaults.bool(forKey: Key.showHUD) ? HUDMode.capsule : .off)
+        hudMode = initialMode
         let lastMode = defaults.string(forKey: Key.lastVisibleHUDMode).flatMap(HUDMode.init(rawValue:))
-        lastVisibleHUDMode = hudMode == .off ? (lastMode == .notch ? .notch : .capsule) : hudMode
+        lastVisibleHUDMode = initialMode == .off ? (lastMode == .notch ? .notch : .capsule) : initialMode
         if let storedHUDColorStyle {
             hudColorStyle = HUDColorStyle(rawValue: storedHUDColorStyle) ?? .system
             defaults.removeObject(forKey: Key.colorfulHUD)

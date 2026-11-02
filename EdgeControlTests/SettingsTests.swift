@@ -1143,5 +1143,29 @@ final class NativeUISnapshotTests: XCTestCase {
                 window.close()
             }
         }
+        // Compact native rendering evidence, also retrievable through text-only
+        // CI log tooling. Original PNGs remain in the artifact and xcresult.
+        let sheet = NSImage(size: NSSize(width: 960, height: 1120))
+        sheet.lockFocus()
+        NSColor.windowBackgroundColor.setFill()
+        NSRect(x: 0, y: 0, width: 960, height: 1120).fill()
+        for (row, appearance) in ["light", "dark"].enumerated() {
+            for (column, page) in SettingsView.Page.allCases.enumerated() {
+                let image = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("settings-\(page.rawValue)-\(appearance).png")))
+                image.draw(in: NSRect(x: CGFloat(column * 320 + 5), y: CGFloat(1120 - (row + 1) * 480), width: 310, height: 480))
+            }
+        }
+        for (index, key) in ["capsule-light", "notch-light", "capsule-dark", "notch-dark"].enumerated() {
+            let image = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("hud-\(key).png")))
+            image.draw(in: NSRect(x: CGFloat(index * 240), y: 25, width: 240, height: 100))
+        }
+        sheet.unlockFocus()
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(sheet.tiffRepresentation)))
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        try png.write(to: directory.appendingPathComponent("contact-sheet.png"))
+        let encoded = png.base64EncodedString()
+        for start in stride(from: 0, to: encoded.count, by: 4000) {
+            print("EDGE_UI_IMAGE_CHUNK:\(start):" + String(encoded.dropFirst(start).prefix(4000)))
+        }
     }
 }
