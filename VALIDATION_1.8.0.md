@@ -9,3 +9,5 @@ Placement uses NSScreen frame, visibleFrame, safeAreaInsets and auxiliary areas 
 Alcove 1.7.9 is installed on the user's machine. Detection is informational only. Off / External does not guarantee Alcove receives programmatic adjustments, does not launch/configure it, and never synthesizes media-key events. User-assisted physical validation remains necessary: check actual gestures for volume and built-in brightness, fullscreen, output-device changes, and external DDC where available; restore Capsule if external feedback is missing.
 
 The software test matrix is not a claim of physical cross-model certification. Check notch positioning on actual MacBook screens, menu bar overlap, fullscreen/Spaces, Reduce Motion/Transparency, large settings window, and external-display hotplug. CI results and native UI attachments are recorded in the PR.
+
+Native CI snapshots were visually inspected in light and dark appearances. The settings background was made explicit so text remains legible without a backdrop, and preview captures wait for the entrance animation. Three settings pages and both HUD styles are included in the CI artifact.

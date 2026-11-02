@@ -631,7 +631,8 @@ final class EdgeControlAppModel: ObservableObject {
     private func showHUD(action: EdgeAction, value: Double?, message: String?) {
         guard settings.showHUD else { return }
         let kind: HUDKind = action == .volume ? .volume : .brightness
-        hudController.show(HUDPresentation(kind: kind, value: value, message: message))
+        hudController.show(HUDPresentation(kind: kind, value: value, message: message),
+                           preferredDisplayID: action == .brightness ? session?.brightnessSession?.targetDisplayID : nil)
     }
 }
 

@@ -229,8 +229,9 @@ final class HUDController {
         panel.contentView?.layer?.isOpaque = false
     }
 
-    func show(_ presentation: HUDPresentation) {
+    func show(_ presentation: HUDPresentation, preferredDisplayID: UInt32? = nil) {
         guard mode != .off else { return }
+        if let preferredDisplayID { pinnedScreenID = UInt64(preferredDisplayID) }
         dismissTask?.cancel()
         lastPresentation = presentation
         let activeScreen = currentScreen()
