@@ -1110,7 +1110,7 @@ final class NativeUISnapshotTests: XCTestCase {
                 window.contentView = view
                 window.orderFrontRegardless()
                 view.layoutSubtreeIfNeeded()
-                RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+                RunLoop.main.run(until: Date().addingTimeInterval(0.2))
                 view.displayIfNeeded()
                 let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
                 view.cacheDisplay(in: view.bounds, to: rep)

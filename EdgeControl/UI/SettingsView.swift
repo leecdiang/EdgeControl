@@ -67,6 +67,7 @@ struct SettingsView: View {
             }.id(selectedPage)
         }
         .frame(minWidth: 560, minHeight: 540)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var gesturesPage: some View {
@@ -297,8 +298,8 @@ private struct SettingsCard<Content: View>: View {
                 // Slightly more solid than the window glass so cards read as a
                 // distinct layer; near-opaque when Reduce Transparency is on.
                 .fill(
-                    Color(nsColor: .windowBackgroundColor)
-                        .opacity(reduceTransparency ? 0.92 : 0.50)
+                    Color(nsColor: .controlBackgroundColor)
+                        .opacity(reduceTransparency ? 1 : 0.65)
                 )
         }
         .overlay {
