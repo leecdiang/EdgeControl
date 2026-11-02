@@ -143,9 +143,9 @@ struct SettingsView: View {
                     Label("Alcove is installed", systemImage: "checkmark.circle")
                         .font(.system(size: 13, weight: .medium))
                 }
-                Text("Choose Off / External to hide EdgeControl’s overlay. Your other app must detect volume and brightness changes itself; this does not connect to or configure it.")
+                Text("Off hides only EdgeControl’s overlay. It does not activate Alcove or send it HUD events.")
                     .settingsCaption()
-                Text("Test both controls with real edge gestures, including in fullscreen. If feedback is missing, switch back to Capsule.")
+                Text("If Alcove does not respond to edge gestures, use Capsule or Notch for visual feedback. Alcove’s keyboard controls are independent.")
                     .settingsCaption()
             }
             SettingsCard(title: "Touch feedback", systemImage: "waveform") {

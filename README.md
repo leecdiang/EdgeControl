@@ -155,4 +155,8 @@ Version 1.7.6 adds bounded, age-checked input delivery, immediate pause teardown
 
 ### 1.8.0: adaptive feedback
 
-Settings now group Gestures, Feedback and General. HUD choices are Capsule, Notch (top-capsule fallback on notchless displays), and Off / External. Existing visibility is preserved. Brightness HUD follows the controlled display; volume HUD stays on the gesture-start screen. Alcove detection is informational, not an integration guarantee. See [validation](VALIDATION_1.8.0.md) for the software matrix and remaining hardware checks.
+Settings now group Gestures, Feedback and General. HUD choices are Capsule, Notch (top-capsule fallback on notchless displays), and Off. Existing visibility is preserved. Brightness HUD follows the controlled display; volume HUD stays on the gesture-start screen. Alcove detection is informational, not an integration guarantee. See [validation](VALIDATION_1.8.0.md) for the software matrix and remaining hardware checks.
+
+### 1.8.1: compact HUD refinement
+
+Restores the 1.7.7 capsule size (144×40 pt; 212×40 for errors). Notch feedback uses a 24 pt content strip below the cutout, only 4 pt of shoulder per side, smaller symbols and a 3 pt indicator. Off hides EdgeControl only: it does not activate Alcove. No integration or media-key injection is added. See [validation](VALIDATION_1.8.1.md).

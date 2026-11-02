@@ -93,3 +93,7 @@ HUDMode owns Capsule / Notch / Off and persists the last visible choice for the 
 HUDPlacement is pure point-based geometry, using the target NSScreen's safe top inset and auxiliary left/right areas. Invalid or absent cutout metadata falls back to a top capsule within visibleFrame; Capsule retains lower placement. The content is entirely below the cutout, while the black background meets the top screen edge. The panel is nonactivating and ignores mouse events; notch presentation uses statusBar level. Fullscreen coverage remains a physical validation item.
 
 Brightness sessions capture backend display identity after initial reading. HUD placement follows that identity; volume pins the pointer screen at gesture start. Hotplug reselects an available screen and recomputes geometry. This metadata does not reroute device writes. Preview actions issue no volume/brightness writes and are suppressed during active control. Alcove installation detection does not change settings, launch it, synthesize keys, or promise external HUD delivery.
+
+### Compact refinement (1.8.1)
+
+The capsule again uses 144×40 pt (212×40 for errors). Notch geometry adds only 8 pt total width to the reported cutout, subject to the content minimum, and 24 pt below it; all content remains outside the physical cutout. The notch fades without scaling to avoid separating its silhouette from the hardware. Preview and live placement share the same resolver. Off is a visibility setting, not a third-party transport. Alcove HUD dispatch is not implemented.
