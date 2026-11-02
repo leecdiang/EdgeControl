@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from appcast import LEGACY, NS, normalize, validate
+from appcast import LEGACY, NS, normalize, signature_for, validate
 
 FIXTURE = Path(__file__).parent / "Fixtures/appcast-legacy-namespace.xml"
 
@@ -31,6 +31,23 @@ class AppcastTests(unittest.TestCase):
     def test_normalizing_is_idempotent(self):
         before = ET.tostring(self.fixed)
         self.assertEqual(before, ET.tostring(normalize(self.fixed)))
+
+    def test_installer_accepts_item_and_enclosure_version_fields(self):
+        item = self.fixed.find("channel/item")
+        enclosure = item.find("enclosure")
+        expected = enclosure.get(NS + "edSignature")
+        self.assertEqual(signature_for(self.fixed, "1.8.3", 17), expected)
+        for key in ["version", "shortVersionString"]:
+            ET.SubElement(item, NS + key).text = enclosure.attrib.pop(NS + key)
+        self.assertEqual(signature_for(self.fixed, "1.8.3", 17), expected)
+
+    def test_installer_rejects_ambiguous_and_wrong_version_signatures(self):
+        with self.assertRaises(ValueError):
+            signature_for(self.fixed, "1.8.4", 17)
+        channel = self.fixed.find("channel")
+        channel.append(copy.deepcopy(channel.find("item")))
+        with self.assertRaises(ValueError):
+            signature_for(self.fixed, "1.8.3", 17)
 
     def test_rejects_duplicate_or_misordered_builds(self):
         channel = self.fixed.find("channel")

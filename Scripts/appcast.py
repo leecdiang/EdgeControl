@@ -61,6 +61,22 @@ def validate(root, latest_build):
     return items
 
 
+def signature_for(root, version, build):
+    """Read either Sparkle-supported version location for the local installer."""
+    matches = []
+    for item in root.findall("channel/item"):
+        enclosure = item.find("enclosure")
+        if enclosure is None:
+            continue
+        item_build = enclosure.get(NS + "version") or item.findtext(NS + "version")
+        item_version = enclosure.get(NS + "shortVersionString") or item.findtext(NS + "shortVersionString")
+        if item_build == str(build) and item_version == version:
+            matches.append(enclosure.get(NS + "edSignature", ""))
+    if len(matches) != 1 or len(base64.b64decode(matches[0], validate=True)) != 64:
+        raise ValueError("Expected one signed archive matching the requested version and build")
+    return matches[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
