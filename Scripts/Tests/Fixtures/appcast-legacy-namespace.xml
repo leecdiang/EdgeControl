@@ -1,0 +1,35 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:ns1="http://www.andymatusiak.com/sparkle" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <item><title>EdgeControl 1.8.3</title><pubDate>Mon, 02 Nov 2026 16:23:21 +0000</pubDate><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><description>Slim notch wings with camera-safe content, smooth horizontal transitions, and the original compact capsule.</description><enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.8.3/EdgeControl-1.8.3-macOS.zip" length="4472340" type="application/octet-stream" sparkle:version="17" sparkle:shortVersionString="1.8.3" sparkle:edSignature="YUIr2WQddP9VDr8u0t5w3W5IYTEFr7uzSzS7i0OzgtSKUWmn3aFIhc6CdVhsGoLrsm9+GDEsbUvv7ndu6Z18Bg==" /></item><item><title>EdgeControl 1.8.2</title><pubDate>Mon, 02 Nov 2026 11:25:42 +0000</pubDate><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><description>Synchronized HUD previews, clearer menu panel, and simpler settings with native Liquid Glass navigation.</description><enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.8.2/EdgeControl-1.8.2-macOS.zip" length="4456390" type="application/octet-stream" sparkle:version="16" sparkle:shortVersionString="1.8.2" sparkle:edSignature="U12EjQ5Yu/bx6fqO3KCk7gOxBTDoYXDX6EEIbgu6aB9tjEXOQpZz1OEuUUlrDETkeRZ8as+E0dlDv0BoEF8vAw==" /></item><item><title>EdgeControl 1.8.1</title><pubDate>Mon, 02 Nov 2026 10:17:55 +0000</pubDate><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><description>Restored compact capsule dimensions, slimmer notch feedback, and clear Off behavior.</description><enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.8.1/EdgeControl-1.8.1-macOS.zip" length="4449117" type="application/octet-stream" sparkle:version="15" sparkle:shortVersionString="1.8.1" sparkle:edSignature="MuCMzyHvE/WcEoX9cXA2393UlxoLpVQTNhYTc31tcW6zPNDEcqyob18jSJ6fwuTTGIkOhiiae7QOmDfIifqsBA==" /></item><item><title>EdgeControl 1.8.0</title><pubDate>Mon, 02 Nov 2026 09:58:23 +0000</pubDate><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><description>Redesigned settings, adaptive notch and capsule HUDs, display-aware placement, and explicit external-HUD coexistence.</description><enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.8.0/EdgeControl-1.8.0-macOS.zip" length="4448439" type="application/octet-stream" sparkle:version="14" sparkle:shortVersionString="1.8.0" sparkle:edSignature="FEXSEj+VL3PCJ9pfxBe51q3+YGjvaElzWtjTCEVNiKfHJxPQmumqCAMeaqPzxV3VWAtJRt+uHrAPnp9pRHm2AA==" /></item><item><title>EdgeControl 1.7.7</title><pubDate>Sun, 01 Nov 2026 11:15:10 +0000</pubDate><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><description>Continuous movement feedback, coalesced cooldown requests, endpoint ticks, and haptic diagnostics.</description><enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.7.7/EdgeControl-1.7.7-macOS.zip" length="4396269" type="application/octet-stream" sparkle:version="13" sparkle:shortVersionString="1.7.7" sparkle:edSignature="waGM2CcJTSa5NFYU2VOu3ofp9D4BK3vtTrxTyb/KdqizxXYecKYsguSHm/pFMaDvNGUg7LaeOhErLcm/KfURDg==" /></item><item><title>EdgeControl 1.7.6</title><pubDate>Sun, 01 Nov 2026 07:20:59 +0000</pubDate><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><description>Bounded touch input, immediate pause cleanup, preserved audio balance, finite audio validation, corrected DDC replies, and explicit automatic-update preferences.</description><enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.7.6/EdgeControl-1.7.6-macOS.zip" length="4389155" type="application/octet-stream" sparkle:version="12" sparkle:shortVersionString="1.7.6" sparkle:edSignature="vTWqkHMXcKH4kkwnnl67DMbdEICQAabLxD5/oIxzKgIAyyB7+YL8/yMLY1mBkQbDwqTrydqKmwMfGXoC15MbBA==" /></item><item><title>EdgeControl 1.7.5</title><pubDate>Sun, 01 Nov 2026 06:47:57 +0000</pubDate><sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion><description>Brightness write deduplication, horizontal jitter filtering, invalid input rejection, and empty-display handling.</description><enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.7.5/EdgeControl-1.7.5-macOS.zip" length="4366266" type="application/octet-stream" sparkle:version="11" sparkle:shortVersionString="1.7.5" sparkle:edSignature="iK0AVHYTJNRRmLK+rCj2AYP5PdcOqMFMaF/AdxQkCfUURabfqN/Xoer/aU9TDQS6Z63JKJJa6Hvfe9k1vfJ9Aw==" /></item><title>EdgeControl Updates</title>
+        <description>EdgeControl release updates</description>
+        <language>en</language>
+        <item>
+            <title>1.7.4</title>
+            <pubDate>Sun, 18 Oct 2026 11:55:22 +0800</pubDate>
+            <link>https://github.com/leecdiang/EdgeControl</link>
+            <ns1:fullReleaseNotesLink>https://github.com/leecdiang/EdgeControl/releases/tag/v1.7.4</ns1:fullReleaseNotesLink>
+            <ns1:version>9</ns1:version>
+            <ns1:shortVersionString>1.7.4</ns1:shortVersionString>
+            <ns1:minimumSystemVersion>13.0</ns1:minimumSystemVersion>
+            <enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.7.4/EdgeControl-1.7.4-macOS.zip" length="4355678" type="application/octet-stream" ns1:edSignature="XqnO384YN8SwKED6I1/yTwtozdv+JlBjDEoZcrRqEo0dWy1WPx7xIjtY/kWOKdOGszgK/CLwhHqRb+HUfHGuDQ==" />
+        </item>
+        <item>
+            <title>1.7.3</title>
+            <pubDate>Sun, 30 Aug 2026 12:20:21 +0800</pubDate>
+            <ns1:fullReleaseNotesLink>https://github.com/leecdiang/EdgeControl/releases/tag/v1.7.3</ns1:fullReleaseNotesLink>
+            <ns1:version>8</ns1:version>
+            <ns1:shortVersionString>1.7.3</ns1:shortVersionString>
+            <ns1:minimumSystemVersion>13.0</ns1:minimumSystemVersion>
+            <enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.7.3/EdgeControl-1.7.3-macOS.zip" length="4422022" type="application/octet-stream" ns1:edSignature="yojHz8zItwUE8FX/ULUsAJwxHEEOzoT9Z34dCyoFNuaxY93rKiXZLRP73AKMCZqbBUfWQy1XQp1BlFr7/6xXAA==" />
+        </item>
+        <item>
+            <title>EdgeControl 1.7.2</title>
+            <ns1:releaseNotesLink>https://github.com/leecdiang/EdgeControl/releases/tag/v1.7.2</ns1:releaseNotesLink>
+            <pubDate>Sun, 23 Aug 2026 12:10:00 +0800</pubDate>
+            <ns1:version>7</ns1:version>
+            <ns1:shortVersionString>1.7.2</ns1:shortVersionString>
+            <enclosure url="https://github.com/leecdiang/EdgeControl/releases/download/v1.7.2/EdgeControl-1.7.2-macOS.zip" type="application/octet-stream" ns1:edSignature="zZKl2sOet88aP89oJYvqx0HXMi8C5HdoQhE4wEXqd+LOV88uvqK2qJXSVb4h44Z9dFzNQzEu+qhOQqIN5AXhCg==" length="4308879" />
+        </item>
+    </channel>
+</rss>

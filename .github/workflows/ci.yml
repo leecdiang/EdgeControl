@@ -27,6 +27,9 @@ jobs:
       - name: Run unit tests
         run: ./Scripts/build_release.sh test
 
+      - name: Validate update feeds with the pinned Sparkle parser
+        run: bash Scripts/test_appcast.sh
+
       - name: Build unsigned Release
         run: ./Scripts/build_release.sh build
 

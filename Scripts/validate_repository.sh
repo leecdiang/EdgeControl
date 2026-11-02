@@ -14,6 +14,11 @@ required=(
   "EdgeControl/Display/ExternalDDCBackend.swift"
   "EdgeControl/System/RecentKeyboardActivityGuard.swift"
   "EdgeControl/System/UpdateController.swift"
+  "Scripts/appcast.py"
+  "Scripts/validate_appcast.m"
+  "Scripts/validate_appcast.sh"
+  "Scripts/test_appcast.sh"
+  "Scripts/Tests/Fixtures/appcast-legacy-namespace.xml"
   "EdgeControl/Feedback/HapticEngine.swift"
   "EdgeControl/UI/HUDController.swift"
   "EdgeControl/UI/EdgeUITheme.swift"
@@ -56,15 +61,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.8.3;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.8.4;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.8.3, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.8.4, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 17;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 18;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 17 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 18 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 

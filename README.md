@@ -161,6 +161,10 @@ Settings now group Gestures, Feedback and General. HUD choices are Capsule, Notc
 
 Restores the 1.7.7 capsule size (144×40 pt; 212×40 for errors). Notch feedback uses a 24 pt content strip below the cutout, only 4 pt of shoulder per side, smaller symbols and a 3 pt indicator. Off hides EdgeControl only: it does not activate Alcove. No integration or media-key injection is added. See [validation](VALIDATION_1.8.1.md).
 
+### 1.8.4: reliable update feeds and a refined icon
+
+Historical feed entries now use the canonical Sparkle namespace, restoring update checks for existing installations. Every publication validates the complete feed with Sparkle's parser. A new pearl-glass trackpad icon keeps the blue/orange edge-control identity with a quieter macOS appearance. See [validation](VALIDATION_1.8.4.md).
+
 ### 1.8.3: a slim horizontal notch HUD
 
 Notch mode expands beside the physical camera cutout, with a short title on the left and progress on the right. It keeps the original notch height, uses curved shoulders and retracts horizontally. Errors and displays without suitable notch space use a top capsule. The original lower capsule and all gesture/haptic behavior stay unchanged. See [validation](VALIDATION_1.8.3.md).
