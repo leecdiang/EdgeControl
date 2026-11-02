@@ -75,7 +75,11 @@ struct HUDPlacement: Equatable {
         }
         let width = min(requestedWidth, max(80, safe.width - 32))
         let size = NSSize(width: width + 32, height: 72)
-        let y = mode == .notch ? safe.maxY - size.height - 8 : safe.minY + safe.height * 0.16
+        // Auto-hidden menu bars can expose the whole frame as visibleFrame.
+        // A fallback capsule must still start below the physical camera.
+        let cutoutInset = screen.safeTop >= 0 && screen.safeTop < 200 ? screen.safeTop : 0
+        let top = min(safe.maxY, screen.frame.maxY - cutoutInset)
+        let y = mode == .notch ? top - size.height - 8 : safe.minY + safe.height * 0.16
         return HUDPlacement(frame: NSRect(x: safe.midX - size.width / 2,
                                           y: min(max(y, safe.minY), max(safe.minY, safe.maxY - size.height)),
                                           width: size.width, height: size.height),

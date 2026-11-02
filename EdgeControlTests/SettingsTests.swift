@@ -991,6 +991,10 @@ final class AdaptiveHUDGeometryTests: XCTestCase {
         XCTAssertFalse(p.attachedToNotch)
         XCTAssertEqual(p.contentWidth, 212)
         XCTAssertLessThan(p.frame.maxY, s.frame.maxY - s.safeTop)
+        let hiddenMenu = HUDScreenGeometry(frame: s.frame, visibleFrame: s.frame,
+            safeTop: s.safeTop, leftArea: s.leftArea, rightArea: s.rightArea)
+        let hiddenPlacement = HUDPlacement.resolve(mode: .notch, screen: hiddenMenu, error: true)
+        XCTAssertLessThan(hiddenPlacement.frame.maxY, s.frame.maxY - s.safeTop)
     }
     func testInsufficientWingRoomFallsBackInsteadOfMovingCameraGap() {
         let original = screen()
