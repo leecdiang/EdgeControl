@@ -131,7 +131,7 @@ enum HUDMode: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .capsule: return "Capsule"
         case .notch: return "Notch"
-        case .off: return "Off / External"
+        case .off: return "Off"
         }
     }
 }

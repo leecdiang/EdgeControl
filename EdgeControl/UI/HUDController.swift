@@ -14,9 +14,11 @@ struct HUDPresentation: Sendable, Equatable {
 }
 
 private enum HUDLayout {
-    static let compactWidth: CGFloat = 180
-    static let errorWidth: CGFloat = 252
+    static let compactWidth: CGFloat = 144
+    static let errorWidth: CGFloat = 212
     static let height: CGFloat = 40
+    static let notchContentHeight: CGFloat = 24
+    static let progressWidth: CGFloat = 58
     static let progressHeight: CGFloat = 5
     static let shadowPadding: CGFloat = 16
 
@@ -49,7 +51,7 @@ struct HUDPlacement: Equatable {
     var attachedToNotch: Bool { cutoutHeight > 0 }
 
     static func resolve(mode: HUDMode, screen: HUDScreenGeometry, error: Bool = false) -> HUDPlacement {
-        let requestedWidth: CGFloat = error ? 252 : 180
+        let requestedWidth = error ? HUDLayout.errorWidth : HUDLayout.compactWidth
         let usable = screen.visibleFrame.intersection(screen.frame)
         let safe = usable.isEmpty ? screen.frame : usable
         if mode == .notch, screen.safeTop > 0, screen.safeTop < 200,
@@ -58,15 +60,17 @@ struct HUDPlacement: Equatable {
            left.minX >= screen.frame.minX, right.maxX <= screen.frame.maxX,
            right.minX - left.maxX < screen.frame.width / 2 {
             let gap = right.minX - left.maxX
-            let width = min(max(requestedWidth, gap + 32), screen.frame.width - 32)
-            let size = NSSize(width: width + 32, height: screen.safeTop + 40 + 16)
+            // Match the physical cutout with only 4 pt of shoulder per side.
+            // The compact content strip stays fully below the camera housing.
+            let width = min(max(requestedWidth, gap + 8), screen.frame.width - 32)
+            let size = NSSize(width: width + 32, height: screen.safeTop + HUDLayout.notchContentHeight + 16)
             let center = (left.maxX + right.minX) / 2
             let x = min(max(center - size.width / 2, screen.frame.minX), screen.frame.maxX - size.width)
             return HUDPlacement(frame: NSRect(x: x, y: screen.frame.maxY - size.height,
                                               width: size.width, height: size.height),
                                 contentWidth: width, cutoutHeight: screen.safeTop)
         }
-        let width = min(error ? 252 : 180, max(80, safe.width - 32))
+        let width = min(requestedWidth, max(80, safe.width - 32))
         let size = NSSize(width: width + 32, height: 72)
         let y = mode == .notch ? safe.maxY - size.height - 8 : safe.minY + safe.height * 0.16
         return HUDPlacement(frame: NSRect(x: safe.midX - size.width / 2,
@@ -152,7 +156,11 @@ private final class HUDViewModel: ObservableObject {
     @Published var isPresented = false
     @Published var colorStyle: HUDColorStyle = .system
     @Published var cutoutHeight: CGFloat = 0
-    @Published var surfaceWidth: CGFloat = 180
+    @Published var surfaceWidth: CGFloat = HUDLayout.compactWidth
+
+    init(isPresented: Bool = false) {
+        self.isPresented = isPresented
+    }
 }
 
 @MainActor
@@ -367,10 +375,12 @@ private struct EdgeHUDView: View {
 
     var body: some View {
         surface
-            .scaleEffect(model.isPresented || reduceMotion ? 1 : 0.97, anchor: model.cutoutHeight > 0 ? .top : .center)
+            // Keep the attached silhouette flush with the real notch throughout
+            // the transition; scaling it exposes a seam around the cutout.
+            .scaleEffect(model.isPresented || reduceMotion || isNotch ? 1 : 0.96)
             .opacity(model.isPresented ? 1 : 0)
             .animation(reduceMotion ? .linear(duration: 0.10) : .easeOut(duration: 0.14), value: model.isPresented)
-            .frame(width: width + 32, height: 40 + model.cutoutHeight + (model.cutoutHeight > 0 ? 16 : 32),
+            .frame(width: width + 32, height: contentHeight + model.cutoutHeight + (isNotch ? 16 : 32),
                    alignment: model.cutoutHeight > 0 ? .top : .center)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(model.presentation.kind == .volume ? "Volume" : "Brightness")
@@ -380,12 +390,12 @@ private struct EdgeHUDView: View {
     @ViewBuilder private var surface: some View {
         if model.cutoutHeight > 0 {
             content
-                .frame(width: width, height: 40)
+                .frame(width: width, height: contentHeight)
                 .padding(.top, model.cutoutHeight)
                 .background(AttachedHUDShape().fill(.black))
                 .environment(\.colorScheme, .dark)
         } else {
-            content.frame(width: width, height: 40)
+            content.frame(width: width, height: contentHeight)
                 .modifier(EdgeHUDGlassModifier(tint: glassTint, reduceTransparency: reduceTransparency))
         }
     }
@@ -395,16 +405,16 @@ private struct EdgeHUDView: View {
         if let value = model.presentation.value {
             HStack(spacing: 6) {
                 Image(systemName: symbolName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: isNotch ? 11 : 13, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 15)
 
-                EdgeHUDProgress(value: value, tint: accentColor)
-                    .frame(maxWidth: .infinity)
+                EdgeHUDProgress(value: value, tint: accentColor, height: isNotch ? 3 : HUDLayout.progressHeight)
+                    .frame(width: isNotch ? nil : HUDLayout.progressWidth)
 
                 Text("\(Int((clamped(value) * 100).rounded()))%")
                     .monospacedDigit()
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: isNotch ? 10 : 11, weight: .semibold))
                     .frame(width: 31, alignment: .trailing)
             }
             .padding(.horizontal, 10)
@@ -430,6 +440,9 @@ private struct EdgeHUDView: View {
     private var width: CGFloat {
         model.surfaceWidth
     }
+
+    private var isNotch: Bool { model.cutoutHeight > 0 }
+    private var contentHeight: CGFloat { isNotch ? HUDLayout.notchContentHeight : HUDLayout.height }
 
     private var accentColor: Color {
         HUDPalette.accent(style: model.colorStyle, kind: model.presentation.kind)
@@ -464,6 +477,7 @@ private struct EdgeHUDView: View {
 private struct EdgeHUDProgress: View {
     let value: Double
     let tint: Color
+    let height: CGFloat
 
     private var clampedValue: Double {
         min(1, max(0, value))
@@ -479,7 +493,7 @@ private struct EdgeHUDProgress: View {
                     .frame(width: geometry.size.width * CGFloat(clampedValue))
             }
         }
-        .frame(height: HUDLayout.progressHeight)
+        .frame(height: height)
         .transaction { $0.animation = nil }
         .accessibilityHidden(true)
     }
@@ -575,7 +589,7 @@ private struct CapsuleVisualEffect: NSViewRepresentable {
 
 private struct AttachedHUDShape: Shape {
     func path(in rect: CGRect) -> Path {
-        let r: CGFloat = min(18, rect.height / 2)
+        let r: CGFloat = min(10, rect.height / 2)
         var p = Path()
         p.move(to: CGPoint(x: rect.minX, y: rect.minY))
         p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
@@ -593,7 +607,9 @@ private struct AttachedHUDShape: Shape {
 struct HUDStylePreview: View {
     let mode: HUDMode
     let style: HUDColorStyle
-    @StateObject private var model = HUDViewModel()
+    // This is a persistent sample, not an entering transient panel. Starting
+    // visible avoids a blank preview while the settings page first lays out.
+    @StateObject private var model = HUDViewModel(isPresented: true)
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12).fill(.primary.opacity(0.035))
@@ -611,8 +627,16 @@ struct HUDStylePreview: View {
     private func update() {
         model.presentation = HUDPresentation(kind: .volume, value: 0.62, message: nil)
         model.colorStyle = style
-        model.cutoutHeight = mode == .notch ? 20 : 0
-        model.surfaceWidth = mode == .notch ? 220 : 180
+        // Use the live geometry resolver for a representative 180×32 pt notch
+        // rather than independently choosing an oversized preview silhouette.
+        let geometry = HUDScreenGeometry(
+            frame: NSRect(x: 0, y: 0, width: 1512, height: 982),
+            visibleFrame: NSRect(x: 0, y: 40, width: 1512, height: 910), safeTop: 32,
+            leftArea: NSRect(x: 0, y: 950, width: 666, height: 32),
+            rightArea: NSRect(x: 846, y: 950, width: 666, height: 32))
+        let placement = HUDPlacement.resolve(mode: mode, screen: geometry)
+        model.cutoutHeight = placement.cutoutHeight
+        model.surfaceWidth = placement.contentWidth
         model.isPresented = true
     }
 }

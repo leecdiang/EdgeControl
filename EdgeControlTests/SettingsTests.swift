@@ -970,8 +970,8 @@ final class AdaptiveHUDGeometryTests: XCTestCase {
         XCTAssertEqual(p.frame.maxY, s.frame.maxY)
         XCTAssertEqual(p.cutoutHeight, 32)
         XCTAssertEqual(p.frame.midX, s.frame.midX)
-        XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 40)
-        XCTAssertGreaterThan(p.contentWidth, 180)
+        XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 24)
+        XCTAssertEqual(p.contentWidth, 188)
     }
     func testScaledNotchLayoutsUsePointsAtDifferentSizes() {
         for (width, height, notch, gap) in [(1280.0, 832.0, 28.0, 160.0), (1728, 1117, 37, 210), (2056, 1329, 43, 240)] {
@@ -979,7 +979,8 @@ final class AdaptiveHUDGeometryTests: XCTestCase {
             let p = HUDPlacement.resolve(mode: .notch, screen: s)
             XCTAssertEqual(p.cutoutHeight, notch)
             XCTAssertTrue(s.frame.contains(p.frame))
-            XCTAssertGreaterThanOrEqual(p.contentWidth, gap)
+            XCTAssertEqual(p.contentWidth, gap + 8)
+            XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 24)
         }
     }
     func testNotchlessExternalScreenFallsBackInsideVisibleTop() {
@@ -1016,12 +1017,14 @@ final class AdaptiveHUDGeometryTests: XCTestCase {
         let s = screen()
         let p = HUDPlacement.resolve(mode: .capsule, screen: s)
         XCTAssertFalse(p.attachedToNotch)
+        XCTAssertEqual(p.contentWidth, 144)
+        XCTAssertEqual(p.frame.size, NSSize(width: 176, height: 72))
         XCTAssertEqual(p.frame.minY, s.visibleFrame.minY + s.visibleFrame.height * 0.16)
     }
     func testErrorWidthExpandsWithoutMovingOffscreen() {
         let s = screen(notch: 0)
         let p = HUDPlacement.resolve(mode: .notch, screen: s, error: true)
-        XCTAssertEqual(p.contentWidth, 252)
+        XCTAssertEqual(p.contentWidth, 212)
         XCTAssertTrue(s.visibleFrame.contains(p.frame))
     }
     func testAutoHiddenMenuBarUsesUpdatedVisibleFrame() {

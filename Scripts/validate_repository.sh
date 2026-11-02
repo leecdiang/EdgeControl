@@ -56,15 +56,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.8.0;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.8.1;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.8.0, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.8.1, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 14;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 15;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 14 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 15 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -284,8 +284,8 @@ fi
 hud_controller="$project_root/EdgeControl/UI/HUDController.swift"
 hud_theme="$project_root/EdgeControl/UI/EdgeUITheme.swift"
 required_hud_markers=(
-  "static let compactWidth: CGFloat = 180"
-  "static let errorWidth: CGFloat = 252"
+  "static let compactWidth: CGFloat = 144"
+  "static let errorWidth: CGFloat = 212"
   "static let height: CGFloat = 40"
   "CapsuleVisualEffect"
   "view.material = .hudWindow"
