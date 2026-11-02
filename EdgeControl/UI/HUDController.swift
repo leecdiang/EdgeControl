@@ -433,6 +433,10 @@ struct EdgeHUDView: View {
                     .frame(width: width, height: cutoutHeight)
                     .opacity(isPresented ? 1 : 0)
                     .blur(radius: isPresented || reduceMotion ? 0 : 3)
+                    // Reveal only after there is room for complete glyphs;
+                    // hide before the retracting mask reaches either wing.
+                    .animation(.easeOut(duration: reduceMotion ? 0.10 : (isPresented ? 0.10 : 0.06))
+                        .delay(isPresented && !reduceMotion ? 0.22 : 0), value: isPresented)
                     .mask {
                         AttachedHUDShape()
                             .frame(width: isPresented || reduceMotion ? width : cutoutWidth,

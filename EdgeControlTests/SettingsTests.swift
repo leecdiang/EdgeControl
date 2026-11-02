@@ -1161,6 +1161,15 @@ final class NativeUISnapshotTests: XCTestCase {
                     XCTAssertLessThan(max(c.redComponent, max(c.greenComponent, c.blueComponent)), 0.05)
                 }
             }
+            if index == 0 || index == 2 || index == 4 || index == 5 {
+                let scale = CGFloat(rep.pixelsWide) / 388
+                let wing = try XCTUnwrap(rep.colorAt(x: Int(45 * scale), y: Int(7 * scale))?.usingColorSpace(.deviceRGB))
+                if index == 2 || index == 4 {
+                    XCTAssertLessThan(wing.redComponent, 0.05, "Wings must re-expand after interrupted retraction")
+                } else {
+                    XCTAssertGreaterThan(wing.redComponent, 0.95, "Retracted wings must leave desktop clear")
+                }
+            }
         }
         view.rootView = content(false, true)
         RunLoop.main.run(until: Date().addingTimeInterval(0.15))
@@ -1267,7 +1276,7 @@ final class NativeUISnapshotTests: XCTestCase {
                 let image = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("hud-\(mode.rawValue)-\(appearance).png")))
                 let x = CGFloat(column * 320), y = CGFloat(340 - row * 125)
                 image.draw(in: NSRect(x: x, y: y, width: 320, height: 124))
-                ("\(mode.title) · \(appearance)" as NSString).draw(at: NSPoint(x: x + 12, y: y + 105),
+                ("\(mode.title) · \(appearance)" as NSString).draw(at: NSPoint(x: x + 12, y: y + 4),
                     withAttributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.labelColor])
             }
             let menu = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("menu-\(appearance).png")))
