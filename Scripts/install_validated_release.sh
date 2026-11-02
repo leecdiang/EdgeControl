@@ -13,13 +13,12 @@ archive="$release_dir/downloaded/EdgeControl-$version-macOS.zip"
 # Keep extracted bundles outside Documents/File Provider managed directories.
 install_work="$(mktemp -d "${TMPDIR:-/tmp}/EdgeControl-install.XXXXXX")"
 trap 'rm -rf "$install_work"' EXIT
-signature="$(python3 - "$release_dir/downloaded/appcast.xml" "$version" "$build" <<'PYXML'
+signature="$(python3 - "$release_dir/downloaded/appcast.xml" "$version" "$build" "$script_dir" <<'PYXML'
 import sys, xml.etree.ElementTree as ET
-path, version, build = sys.argv[1:]
-ns = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
-items = [e for e in ET.parse(path).iter('enclosure') if e.get(ns+'version') == build and e.get(ns+'shortVersionString') == version]
-assert len(items) == 1
-print(items[0].attrib[ns+'edSignature'])
+path, version, build, script_dir = sys.argv[1:]
+sys.path.insert(0, script_dir)
+from appcast import signature_for
+print(signature_for(ET.parse(path).getroot(), version, build))
 PYXML
 )"
 # Anchor the update signature to the key already trusted by the installed app.

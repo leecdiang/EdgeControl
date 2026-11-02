@@ -18,3 +18,10 @@ signature="$(python3 -c 'import base64; print(base64.b64encode(bytes(64)).decode
 python3 "$script_dir/appcast.py" "$work/appcast.xml" "$work/new.xml" --build 18 \
     --version 1.8.4 --archive "$work/archive.zip" --signature "$signature" --description 'Feed regression fixture'
 bash "$script_dir/validate_appcast.sh" "$work/new.xml" 18
+python3 - "$script_dir" "$work/new.xml" "$signature" <<'PY'
+import sys, xml.etree.ElementTree as ET
+sys.path.insert(0, sys.argv[1])
+from appcast import signature_for
+assert signature_for(ET.parse(sys.argv[2]).getroot(), '1.8.4', 18) == sys.argv[3]
+print('Generated feed is compatible with local installer signature selection')
+PY
