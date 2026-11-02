@@ -312,7 +312,9 @@ final class HUDController {
                 self.viewModel.isPresented = false
             }
             do {
-                try await Task.sleep(nanoseconds: 320_000_000)
+                // Let the critically damped outline settle before removing its
+                // window. A new value cancels this wait and reverses in place.
+                try await Task.sleep(nanoseconds: 650_000_000)
             } catch {
                 return
             }
@@ -404,7 +406,8 @@ struct EdgeHUDView: View {
             // the transition; scaling it exposes a seam around the cutout.
             .scaleEffect(isPresented || reduceMotion || isNotch ? 1 : 0.96)
             .opacity(isPresented || (isNotch && !reduceMotion) ? 1 : 0)
-            .animation(reduceMotion ? .linear(duration: 0.10) : .easeInOut(duration: isNotch ? 0.28 : 0.14), value: isPresented)
+            .animation(reduceMotion ? .linear(duration: 0.10)
+                : (isNotch ? .spring(response: 0.32, dampingFraction: 1) : .easeOut(duration: 0.14)), value: isPresented)
             .frame(width: width + 32, height: contentHeight + (isNotch ? 16 : 32),
                    alignment: cutoutHeight > 0 ? .top : .center)
             .accessibilityElement(children: .ignore)

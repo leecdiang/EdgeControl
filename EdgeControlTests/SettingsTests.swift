@@ -1140,8 +1140,8 @@ final class NativeUISnapshotTests: XCTestCase {
         window.orderFrontRegardless()
         defer { window.close() }
         var frames: [NSImage] = []
-        for (index, state) in [(false, 0.1), (true, 0.10), (true, 0.32),
-                                (false, 0.10), (true, 0.32), (false, 0.32)].enumerated() {
+        for (index, state) in [(false, 0.1), (true, 0.10), (true, 0.65),
+                                (false, 0.10), (true, 0.65), (false, 0.65)].enumerated() {
             view.rootView = content(state.0)
             RunLoop.main.run(until: Date().addingTimeInterval(state.1))
             view.layoutSubtreeIfNeeded()
