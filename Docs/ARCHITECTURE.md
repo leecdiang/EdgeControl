@@ -85,3 +85,11 @@ Detents remain the primary trigger. A moving value also requests feedback after 
 A cooldown crossing retains only the latest value and schedules one cancellable deadline. Returning inside the threshold, ending/disabling the gesture, starting another gesture, or waking cancels it. Feedback older than 100ms of actual value movement is dropped. Strong secondary feedback is dropped if delayed beyond 42ms from the primary request, and its actual request time participates in the next primary cooldown. Public AppKit performers are acquired per request; private actuator calls remain opt-in and unvalidated.
 
 Release debug logging in OSLog category Haptics distinguishes below-threshold, cooldown, stale, unavailable, and requested outcomes; it does not record touch coordinates. AppKit provides no actuator-delivery acknowledgement.
+
+### Adaptive presentation (1.8.0)
+
+HUDMode owns Capsule / Notch / Off and persists the last visible choice for the menu toggle. Legacy hidden HUD stays hidden. Previously disabled global actions migrate once to explicit disabled edge assignments. The settings UI has only one master switch and two assignments; haptic scheduling and gesture recognition are unchanged.
+
+HUDPlacement is pure point-based geometry, using the target NSScreen's safe top inset and auxiliary left/right areas. Invalid or absent cutout metadata falls back to a top capsule within visibleFrame; Capsule retains lower placement. The content is entirely below the cutout, while the black background meets the top screen edge. The panel is nonactivating and ignores mouse events; notch presentation uses statusBar level. Fullscreen coverage remains a physical validation item.
+
+Brightness sessions capture backend display identity after initial reading. HUD placement follows that identity; volume pins the pointer screen at gesture start. Hotplug reselects an available screen and recomputes geometry. This metadata does not reroute device writes. Preview actions issue no volume/brightness writes and are suppressed during active control. Alcove installation detection does not change settings, launch it, synthesize keys, or promise external HUD delivery.

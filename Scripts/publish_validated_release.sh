@@ -8,8 +8,8 @@ signer="$2"
 expected_commit="$3"
 [[ "$run_id" =~ ^[0-9]+$ && -x "$signer" && "$expected_commit" =~ ^[0-9a-f]{40}$ ]] || exit 2
 repo="leecdiang/EdgeControl"
-version="1.7.7"
-build="13"
+version="1.8.0"
+build="14"
 tag="v$version"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 project_root="$(cd "$script_dir/.." && pwd)"
@@ -54,7 +54,7 @@ signature="$("$signer" -p "$archive")"
 public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")"
 xcrun swift -sdk "$(xcrun --show-sdk-path)" -module-cache-path "$release_dir/module-cache" "$script_dir/verify_update.swift" "$archive" "$public_key" "$signature"
 mkdir "$release_dir/previous"
-gh release download v1.7.6 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
+gh release download v1.7.7 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
 python3 - "$release_dir" "$version" "$build" "$signature" <<'PY'
 import sys, pathlib, datetime, email.utils, xml.etree.ElementTree as ET
 root,version,build,sig=sys.argv[1:];root=pathlib.Path(root)
@@ -65,7 +65,7 @@ assert channel is not None
 item=ET.Element('item');ET.SubElement(item,'title').text=f'EdgeControl {version}'
 ET.SubElement(item,'pubDate').text=email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc))
 ET.SubElement(item,f'{{{ns}}}minimumSystemVersion').text='13.0'
-ET.SubElement(item,'description').text='Continuous movement feedback, coalesced cooldown requests, endpoint ticks, and haptic diagnostics.'
+ET.SubElement(item,'description').text='Redesigned settings, adaptive notch and capsule HUDs, display-aware placement, and explicit external-HUD coexistence.'
 archive=root/f'assets/EdgeControl-{version}-macOS.zip'
 ET.SubElement(item,'enclosure',{'url':f'https://github.com/leecdiang/EdgeControl/releases/download/v{version}/{archive.name}','length':str(archive.stat().st_size),'type':'application/octet-stream',f'{{{ns}}}version':build,f'{{{ns}}}shortVersionString':version,f'{{{ns}}}edSignature':sig})
 channel.insert(0,item);tree.write(root/'assets/appcast.xml',encoding='utf-8',xml_declaration=True)

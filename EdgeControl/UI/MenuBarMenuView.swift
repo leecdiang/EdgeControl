@@ -42,14 +42,7 @@ private struct MenuBarSettingsContent: View {
                     systemImage: "rectangle.inset.filled",
                     isOn: $settings.showHUD
                 )
-                QuickToggle(
-                    title: "Login",
-                    systemImage: "power",
-                    isOn: Binding(
-                        get: { settings.launchAtLogin },
-                        set: { model.setLaunchAtLogin($0) }
-                    )
-                )
+
             }
 
             if let warningText {

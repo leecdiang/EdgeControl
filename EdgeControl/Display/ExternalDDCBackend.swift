@@ -26,6 +26,10 @@ final class ExternalDDCBackend: ExternalBrightnessBackend {
     var enabled = false
 
     var isAvailable: Bool { !connections.isEmpty }
+    var targetDisplayID: UInt32? {
+        guard let index = selectedConnectionIndex, connections.indices.contains(index) else { return nil }
+        return connections[index].displayID
+    }
 
     init() {
         refresh()
