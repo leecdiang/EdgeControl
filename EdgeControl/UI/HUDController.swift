@@ -397,8 +397,12 @@ struct EdgeHUDView: View {
     let cutoutHeight: CGFloat
     let surfaceWidth: CGFloat
     var cutoutWidth: CGFloat = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    // Optional rendering override lets native snapshots exercise accessibility
+    // without changing the machine-wide, read-only system preference.
+    var reduceMotionOverride: Bool? = nil
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    private var reduceMotion: Bool { reduceMotionOverride ?? systemReduceMotion }
 
     var body: some View {
         surface

@@ -1127,8 +1127,7 @@ final class NativeUISnapshotTests: XCTestCase {
         func content(_ shown: Bool, _ reduced: Bool = false) -> some View {
             EdgeHUDView(presentation: HUDPresentation(kind: .brightness, value: 0.62, message: nil),
                 isPresented: shown, colorStyle: .system, cutoutHeight: 32,
-                surfaceWidth: 356, cutoutWidth: 180)
-                .environment(\.accessibilityReduceMotion, reduced)
+                surfaceWidth: 356, cutoutWidth: 180, reduceMotionOverride: reduced)
                 .background(Color.white)
         }
         let view = NSHostingView(rootView: content(false))
