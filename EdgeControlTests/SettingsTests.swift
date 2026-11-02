@@ -963,15 +963,16 @@ final class AdaptiveHUDGeometryTests: XCTestCase {
             leftArea: notch > 0 ? NSRect(x: x, y: frame.maxY - notch, width: (width - gap) / 2, height: notch) : nil,
             rightArea: notch > 0 ? NSRect(x: x + (width + gap) / 2, y: frame.maxY - notch, width: (width - gap) / 2, height: notch) : nil)
     }
-    func testNotchContentsRemainBelowPhysicalCutout() {
+    func testNotchWingsReservePhysicalCutoutWithoutAddingHeight() {
         let s = screen()
         let p = HUDPlacement.resolve(mode: .notch, screen: s)
         XCTAssertTrue(p.attachedToNotch)
         XCTAssertEqual(p.frame.maxY, s.frame.maxY)
         XCTAssertEqual(p.cutoutHeight, 32)
         XCTAssertEqual(p.frame.midX, s.frame.midX)
-        XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 24)
-        XCTAssertEqual(p.contentWidth, 188)
+        XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 0)
+        XCTAssertEqual(p.cutoutWidth, 180)
+        XCTAssertEqual(p.contentWidth, 356)
     }
     func testScaledNotchLayoutsUsePointsAtDifferentSizes() {
         for (width, height, notch, gap) in [(1280.0, 832.0, 28.0, 160.0), (1728, 1117, 37, 210), (2056, 1329, 43, 240)] {
@@ -979,9 +980,37 @@ final class AdaptiveHUDGeometryTests: XCTestCase {
             let p = HUDPlacement.resolve(mode: .notch, screen: s)
             XCTAssertEqual(p.cutoutHeight, notch)
             XCTAssertTrue(s.frame.contains(p.frame))
-            XCTAssertEqual(p.contentWidth, gap + 8)
-            XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 24)
+            XCTAssertEqual(p.contentWidth, gap + 176)
+            XCTAssertEqual(p.cutoutWidth, gap)
+            XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 0)
         }
+    }
+    func testNotchErrorUsesReadableCapsuleBelowCamera() {
+        let s = screen()
+        let p = HUDPlacement.resolve(mode: .notch, screen: s, error: true)
+        XCTAssertFalse(p.attachedToNotch)
+        XCTAssertEqual(p.contentWidth, 212)
+        XCTAssertLessThan(p.frame.maxY, s.frame.maxY - s.safeTop)
+    }
+    func testInsufficientWingRoomFallsBackInsteadOfMovingCameraGap() {
+        let original = screen()
+        let s = HUDScreenGeometry(frame: original.frame, visibleFrame: original.visibleFrame,
+            safeTop: 32, leftArea: NSRect(x: 0, y: 950, width: 60, height: 32),
+            rightArea: NSRect(x: 240, y: 950, width: 1272, height: 32))
+        XCTAssertFalse(HUDPlacement.resolve(mode: .notch, screen: s).attachedToNotch)
+    }
+    func testOffCenterCutoutRemainsPreciselyAligned() {
+        let original = screen(x: -1512)
+        let s = HUDScreenGeometry(frame: original.frame, visibleFrame: original.visibleFrame,
+            safeTop: 32, leftArea: NSRect(x: -1512, y: 950, width: 600, height: 32),
+            rightArea: NSRect(x: -732, y: 950, width: 732, height: 32))
+        let p = HUDPlacement.resolve(mode: .notch, screen: s)
+        XCTAssertTrue(p.attachedToNotch)
+        XCTAssertEqual(p.frame.midX, -822)
+        XCTAssertEqual(p.cutoutWidth, 180)
+    }
+    func testTooShortMenuStripUsesReadableFallback() {
+        XCTAssertFalse(HUDPlacement.resolve(mode: .notch, screen: screen(notch: 16)).attachedToNotch)
     }
     func testNotchlessExternalScreenFallsBackInsideVisibleTop() {
         let s = screen(width: 2560, height: 1440, notch: 0)
@@ -1094,6 +1123,64 @@ final class FeedbackSettingsMigrationTests: XCTestCase {
 
 @MainActor
 final class NativeUISnapshotTests: XCTestCase {
+    func testNotchWingsKeepCameraClearAndRecoverFromInterruptedRetraction() throws {
+        func content(_ shown: Bool, _ reduced: Bool = false) -> some View {
+            EdgeHUDView(presentation: HUDPresentation(kind: .brightness, value: 0.62, message: nil),
+                isPresented: shown, colorStyle: .system, cutoutHeight: 32,
+                surfaceWidth: 356, cutoutWidth: 180)
+                .environment(\.accessibilityReduceMotion, reduced)
+                .background(Color.white)
+        }
+        let view = NSHostingView(rootView: content(false))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 388, height: 48),
+            styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.backgroundColor = .white
+        window.contentView = view
+        window.orderFrontRegardless()
+        defer { window.close() }
+        var frames: [NSImage] = []
+        for (index, state) in [(false, 0.1), (true, 0.10), (true, 0.32),
+                                (false, 0.10), (true, 0.32), (false, 0.32)].enumerated() {
+            view.rootView = content(state.0)
+            RunLoop.main.run(until: Date().addingTimeInterval(state.1))
+            view.layoutSubtreeIfNeeded()
+            let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: rep)
+            let image = NSImage(size: view.bounds.size)
+            image.addRepresentation(rep)
+            frames.append(image)
+            if index == 2 || index == 4 {
+                // Camera occupies x=104...284. No text or progress may enter it.
+                let scale = CGFloat(rep.pixelsWide) / 388
+                for x in stride(from: 110, to: 278, by: 4) {
+                    let c = try XCTUnwrap(rep.colorAt(x: Int(CGFloat(x) * scale), y: Int(16 * scale))?.usingColorSpace(.deviceRGB))
+                    XCTAssertLessThan(max(c.redComponent, max(c.greenComponent, c.blueComponent)), 0.05)
+                }
+            }
+        }
+        view.rootView = content(false, true)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+        let hidden = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+        view.cacheDisplay(in: view.bounds, to: hidden)
+        let center = try XCTUnwrap(hidden.colorAt(x: hidden.pixelsWide / 2, y: hidden.pixelsHigh / 3)?.usingColorSpace(.deviceRGB))
+        XCTAssertGreaterThan(center.redComponent, 0.95, "Reduce Motion hides without horizontal morphing")
+        let sheet = NSImage(size: NSSize(width: 388, height: 48 * frames.count))
+        sheet.lockFocus()
+        for (i, frame) in frames.enumerated() {
+            frame.draw(in: NSRect(x: 0, y: (frames.count - i - 1) * 48, width: 388, height: 48))
+        }
+        sheet.unlockFocus()
+        let png = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(sheet.tiffRepresentation))?.representation(using: .png, properties: [:]))
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("build/UI-Snapshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try png.write(to: directory.appendingPathComponent("notch-transitions.png"))
+        let encoded = png.base64EncodedString()
+        for start in stride(from: 0, to: encoded.count, by: 4000) {
+            print("EDGE_NOTCH_IMAGE_CHUNK:\(start):" + String(encoded.dropFirst(start).prefix(4000)))
+        }
+    }
+
     func testSettingsPagesAndHUDPreviewsRenderInBothAppearances() throws {
         let name = "EdgeControlTests.Snapshots." + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!

@@ -56,15 +56,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.8.2;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.8.3;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.8.2, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.8.3, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 16;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 17;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 16 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 17 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -99,8 +99,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 146 ]]; then
-  echo "Expected at least 146 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 151 ]]; then
+  echo "Expected at least 151 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
