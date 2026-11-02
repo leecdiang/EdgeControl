@@ -157,6 +157,10 @@ private final class HUDViewModel: ObservableObject {
     @Published var colorStyle: HUDColorStyle = .system
     @Published var cutoutHeight: CGFloat = 0
     @Published var surfaceWidth: CGFloat = HUDLayout.compactWidth
+
+    init(isPresented: Bool = false) {
+        self.isPresented = isPresented
+    }
 }
 
 @MainActor
@@ -603,7 +607,9 @@ private struct AttachedHUDShape: Shape {
 struct HUDStylePreview: View {
     let mode: HUDMode
     let style: HUDColorStyle
-    @StateObject private var model = HUDViewModel()
+    // This is a persistent sample, not an entering transient panel. Starting
+    // visible avoids a blank preview while the settings page first lays out.
+    @StateObject private var model = HUDViewModel(isPresented: true)
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12).fill(.primary.opacity(0.035))
