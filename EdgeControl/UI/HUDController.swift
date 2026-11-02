@@ -18,6 +18,7 @@ private enum HUDLayout {
     static let errorWidth: CGFloat = 212
     static let height: CGFloat = 40
     static let notchContentHeight: CGFloat = 24
+    static let progressWidth: CGFloat = 58
     static let progressHeight: CGFloat = 5
     static let shadowPadding: CGFloat = 16
 
@@ -405,7 +406,7 @@ private struct EdgeHUDView: View {
                     .frame(width: 15)
 
                 EdgeHUDProgress(value: value, tint: accentColor, height: isNotch ? 3 : HUDLayout.progressHeight)
-                    .frame(maxWidth: .infinity)
+                    .frame(width: isNotch ? nil : HUDLayout.progressWidth)
 
                 Text("\(Int((clamped(value) * 100).rounded()))%")
                     .monospacedDigit()
