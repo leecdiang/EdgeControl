@@ -15,6 +15,7 @@ struct MenuBarMenuView: View {
 private struct MenuBarSettingsContent: View {
     @ObservedObject var model: EdgeControlAppModel
     @ObservedObject var settings: AppSettings
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(spacing: 11) {
@@ -110,6 +111,11 @@ private struct MenuBarSettingsContent: View {
         }
         .padding(14)
         .frame(width: 304)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(nsColor: .windowBackgroundColor)
+                    .opacity(reduceTransparency ? 1 : EdgeUITheme.menuNeutralScrimOpacity))
+        }
     }
 
     private var header: some View {

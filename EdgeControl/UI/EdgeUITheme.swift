@@ -7,8 +7,37 @@ enum EdgeUITheme {
 
     // Stabilizes behind-window vibrancy while preserving translucency.
     static let settingsNeutralScrimOpacity: Double = 0.24
+    static let menuNeutralScrimOpacity: Double = 0.18
     // Keeps the HUD glass from inheriting large background color swings.
     static let hudNeutralVeilOpacity: Double = 0.64
+}
+
+/// Liquid Glass belongs to navigation and controls; content keeps a quieter
+/// material. Keep macOS 13–15 and Reduce Transparency fully supported.
+struct EdgeNavigationGlass: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if reduceTransparency {
+            content.background(Color(nsColor: .controlBackgroundColor), in: Capsule())
+        } else if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: Capsule())
+        } else {
+            content.background(.regularMaterial, in: Capsule())
+        }
+    }
+}
+
+struct EdgePreviewButtonStyle: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(macOS 26.0, *), !reduceTransparency {
+            content.buttonStyle(.glass)
+        } else {
+            content.buttonStyle(.bordered)
+        }
+    }
 }
 
 enum HUDPalette {
