@@ -8,8 +8,8 @@ signer="$2"
 expected_commit="$3"
 [[ "$run_id" =~ ^[0-9]+$ && -x "$signer" && "$expected_commit" =~ ^[0-9a-f]{40}$ ]] || exit 2
 repo="leecdiang/EdgeControl"
-version="1.8.3"
-build="17"
+version="1.8.4"
+build="18"
 tag="v$version"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 project_root="$(cd "$script_dir/.." && pwd)"
@@ -54,22 +54,13 @@ signature="$("$signer" -p "$archive")"
 public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")"
 xcrun swift -sdk "$(xcrun --show-sdk-path)" -module-cache-path "$release_dir/module-cache" "$script_dir/verify_update.swift" "$archive" "$public_key" "$signature"
 mkdir "$release_dir/previous"
-gh release download v1.8.2 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
-python3 - "$release_dir" "$version" "$build" "$signature" <<'PY'
-import sys, pathlib, datetime, email.utils, xml.etree.ElementTree as ET
-root,version,build,sig=sys.argv[1:];root=pathlib.Path(root)
-ns='http://www.andymatuschak.org/xml-namespaces/sparkle'
-ET.register_namespace('sparkle',ns)
-p=root/'previous/appcast.xml'; tree=ET.parse(p);channel=tree.getroot().find('channel')
-assert channel is not None
-item=ET.Element('item');ET.SubElement(item,'title').text=f'EdgeControl {version}'
-ET.SubElement(item,'pubDate').text=email.utils.format_datetime(datetime.datetime.now(datetime.timezone.utc))
-ET.SubElement(item,f'{{{ns}}}minimumSystemVersion').text='13.0'
-ET.SubElement(item,'description').text='Slim notch wings with camera-safe content, smooth horizontal transitions, and the original compact capsule.'
-archive=root/f'assets/EdgeControl-{version}-macOS.zip'
-ET.SubElement(item,'enclosure',{'url':f'https://github.com/leecdiang/EdgeControl/releases/download/v{version}/{archive.name}','length':str(archive.stat().st_size),'type':'application/octet-stream',f'{{{ns}}}version':build,f'{{{ns}}}shortVersionString':version,f'{{{ns}}}edSignature':sig})
-channel.insert(0,item);tree.write(root/'assets/appcast.xml',encoding='utf-8',xml_declaration=True)
-PY
+gh release download v1.8.3 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
+python3 "$script_dir/appcast.py" "$release_dir/previous/appcast.xml" "$release_dir/assets/appcast.xml" \
+  --version "$version" --build "$build" --archive "$archive" --signature "$signature" \
+  --description 'Repairs update-feed parsing and introduces a refined glass trackpad icon.'
+sparkle_root="$(cd "$(dirname "$signer")/.." && pwd)"
+bash "$script_dir/validate_appcast.sh" "$release_dir/assets/appcast.xml" "$build" \
+  "$sparkle_root/Sparkle.xcframework/macos-arm64_x86_64"
 # Resolve release notes from the exact tested commit.
 gh api "repos/$repo/contents/RELEASE_NOTES_$version.md?ref=$commit" --jq .content | base64 --decode > "$release_dir/notes.md"
 python3 - "$release_dir/notes.md" <<'PYNOTES'
