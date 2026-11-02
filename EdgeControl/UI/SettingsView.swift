@@ -73,12 +73,16 @@ struct SettingsView: View {
 
     private var gesturesPage: some View {
         VStack(spacing: 16) {
-            TrackpadGuide(left: settings.leftEdgeAction, right: settings.rightEdgeAction,
-                          lowerHalfOnly: settings.lowerHalfOnly)
             SettingsCard(title: "Edge actions", systemImage: "rectangle.split.2x1") {
-                SettingsRow(title: "Left edge") { actionPicker("Left edge", selection: $settings.leftEdgeAction) }
-                Divider()
-                SettingsRow(title: "Right edge") { actionPicker("Right edge", selection: $settings.rightEdgeAction) }
+                HStack(spacing: 20) {
+                    TrackpadGuide(left: settings.leftEdgeAction, right: settings.rightEdgeAction,
+                                  lowerHalfOnly: settings.lowerHalfOnly).frame(width: 150)
+                    VStack(spacing: 14) {
+                        SettingsRow(title: "Left edge") { actionPicker("Left edge", selection: $settings.leftEdgeAction) }
+                        Divider()
+                        SettingsRow(title: "Right edge") { actionPicker("Right edge", selection: $settings.rightEdgeAction) }
+                    }
+                }
             }
             .help("Start at an edge, then slide up or down.")
             SettingsCard(title: "Gesture feel", systemImage: "slider.horizontal.3") {
@@ -226,21 +230,17 @@ private struct TrackpadGuide: View {
     let lowerHalfOnly: Bool
     var body: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 20) {
-                Label(left.title, systemImage: left.systemImage).frame(maxWidth: .infinity)
-                Label(right.title, systemImage: right.systemImage).frame(maxWidth: .infinity)
-            }.font(.system(size: 12, weight: .medium))
             ZStack {
                 RoundedRectangle(cornerRadius: 16).fill(.primary.opacity(0.035))
                 RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.12), lineWidth: 1)
                 HStack {
                     strip(enabled: left != .disabled)
                     Spacer()
-                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 22, weight: .light)).foregroundStyle(.tertiary)
+                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 16, weight: .light)).foregroundStyle(.tertiary)
                     Spacer()
                     strip(enabled: right != .disabled)
                 }.padding(7)
-            }.frame(width: 230, height: 116)
+            }.frame(width: 150, height: 96)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 4)
         .accessibilityElement(children: .ignore)
@@ -250,8 +250,8 @@ private struct TrackpadGuide: View {
         VStack(spacing: 0) {
             if lowerHalfOnly { Spacer(minLength: 0) }
             Capsule().fill(enabled ? Color.accentColor.opacity(0.45) : Color.secondary.opacity(0.12))
-                .frame(width: 6, height: lowerHalfOnly ? 46 : 96)
-        }.frame(height: 102)
+                .frame(width: 5, height: lowerHalfOnly ? 38 : 76)
+        }.frame(height: 82)
     }
 }
 
