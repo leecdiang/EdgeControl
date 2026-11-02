@@ -2,6 +2,7 @@ import AppKit
 import CoreAudio
 import CoreGraphics
 import XCTest
+import SwiftUI
 @testable import EdgeControl
 
 @MainActor
@@ -949,5 +950,198 @@ final class InputLifecycleTests: XCTestCase {
         let lift = mailbox.next()
         XCTAssertEqual(lift?.frame.contacts.count, 0); XCTAssertEqual(lift?.discontinuity, false)
         XCTAssertNil(mailbox.next())
+    }
+}
+
+final class AdaptiveHUDGeometryTests: XCTestCase {
+    private func screen(x: CGFloat = 0, y: CGFloat = 0, width: CGFloat = 1512,
+                        height: CGFloat = 982, notch: CGFloat = 32, gap: CGFloat = 180) -> HUDScreenGeometry {
+        let frame = NSRect(x: x, y: y, width: width, height: height)
+        return HUDScreenGeometry(frame: frame,
+            visibleFrame: NSRect(x: x, y: y + 40, width: width, height: height - 40 - max(notch, 24)),
+            safeTop: notch,
+            leftArea: notch > 0 ? NSRect(x: x, y: frame.maxY - notch, width: (width - gap) / 2, height: notch) : nil,
+            rightArea: notch > 0 ? NSRect(x: x + (width + gap) / 2, y: frame.maxY - notch, width: (width - gap) / 2, height: notch) : nil)
+    }
+    func testNotchContentsRemainBelowPhysicalCutout() {
+        let s = screen()
+        let p = HUDPlacement.resolve(mode: .notch, screen: s)
+        XCTAssertTrue(p.attachedToNotch)
+        XCTAssertEqual(p.frame.maxY, s.frame.maxY)
+        XCTAssertEqual(p.cutoutHeight, 32)
+        XCTAssertEqual(p.frame.midX, s.frame.midX)
+        XCTAssertEqual(p.frame.height - p.cutoutHeight - 16, 40)
+        XCTAssertGreaterThan(p.contentWidth, 180)
+    }
+    func testScaledNotchLayoutsUsePointsAtDifferentSizes() {
+        for (width, height, notch, gap) in [(1280.0, 832.0, 28.0, 160.0), (1728, 1117, 37, 210), (2056, 1329, 43, 240)] {
+            let s = screen(width: width, height: height, notch: notch, gap: gap)
+            let p = HUDPlacement.resolve(mode: .notch, screen: s)
+            XCTAssertEqual(p.cutoutHeight, notch)
+            XCTAssertTrue(s.frame.contains(p.frame))
+            XCTAssertGreaterThanOrEqual(p.contentWidth, gap)
+        }
+    }
+    func testNotchlessExternalScreenFallsBackInsideVisibleTop() {
+        let s = screen(width: 2560, height: 1440, notch: 0)
+        let p = HUDPlacement.resolve(mode: .notch, screen: s)
+        XCTAssertFalse(p.attachedToNotch)
+        XCTAssertEqual(p.frame.maxY, s.visibleFrame.maxY - 8)
+        XCTAssertTrue(s.visibleFrame.contains(p.frame))
+    }
+    func testNegativeOriginAndVerticallyStackedDisplays() {
+        for s in [screen(x: -1920, y: -200, width: 1920, height: 1080, notch: 0), screen(x: 100, y: 982)] {
+            let p = HUDPlacement.resolve(mode: .notch, screen: s)
+            XCTAssertTrue(s.frame.contains(p.frame))
+            XCTAssertEqual(p.frame.midX, s.frame.midX)
+        }
+    }
+    func testPortraitDisplayUsesTopCapsule() {
+        let s = screen(width: 1080, height: 1920, notch: 0)
+        let p = HUDPlacement.resolve(mode: .notch, screen: s)
+        XCTAssertFalse(p.attachedToNotch)
+        XCTAssertTrue(s.visibleFrame.contains(p.frame))
+    }
+    func testMissingOrInvalidCutoutMetadataFallsBack() {
+        let original = screen()
+        for left in [nil, NSRect(x: 0, y: 950, width: 1300, height: 32)] {
+            let s = HUDScreenGeometry(frame: original.frame, visibleFrame: original.visibleFrame,
+                safeTop: 32, leftArea: left, rightArea: original.rightArea)
+            let p = HUDPlacement.resolve(mode: .notch, screen: s)
+            XCTAssertFalse(p.attachedToNotch)
+            XCTAssertTrue(s.visibleFrame.contains(p.frame))
+        }
+    }
+    func testCapsuleKeepsLowerPlacementOnNotchedScreen() {
+        let s = screen()
+        let p = HUDPlacement.resolve(mode: .capsule, screen: s)
+        XCTAssertFalse(p.attachedToNotch)
+        XCTAssertEqual(p.frame.minY, s.visibleFrame.minY + s.visibleFrame.height * 0.16)
+    }
+    func testErrorWidthExpandsWithoutMovingOffscreen() {
+        let s = screen(notch: 0)
+        let p = HUDPlacement.resolve(mode: .notch, screen: s, error: true)
+        XCTAssertEqual(p.contentWidth, 252)
+        XCTAssertTrue(s.visibleFrame.contains(p.frame))
+    }
+    func testAutoHiddenMenuBarUsesUpdatedVisibleFrame() {
+        let s = screen(notch: 0)
+        let hidden = HUDScreenGeometry(frame: s.frame, visibleFrame: s.frame, safeTop: 0, leftArea: nil, rightArea: nil)
+        XCTAssertNotEqual(HUDPlacement.resolve(mode: .notch, screen: s).frame,
+                          HUDPlacement.resolve(mode: .notch, screen: hidden).frame)
+    }
+    func testBrightnessTargetOverridesPointerAndVolumeRemainsPinned() {
+        XCTAssertEqual(HUDScreenSelection.resolve(available: [1, 2], preferred: 1, pinned: 2, pointer: 2), 1)
+        XCTAssertEqual(HUDScreenSelection.resolve(available: [1, 2], preferred: nil, pinned: 1, pointer: 2), 1)
+    }
+    func testDisconnectedDisplayFallsBackToAvailableScreen() {
+        XCTAssertEqual(HUDScreenSelection.resolve(available: [2], preferred: 1, pinned: 1, pointer: 2), 2)
+        XCTAssertEqual(HUDScreenSelection.resolve(available: [2], preferred: 1, pinned: 1, pointer: nil), 2)
+        XCTAssertNil(HUDScreenSelection.resolve(available: [], preferred: 1, pinned: 1, pointer: nil))
+    }
+}
+
+@MainActor
+final class FeedbackSettingsMigrationTests: XCTestCase {
+    private func defaults() -> UserDefaults {
+        let name = "EdgeControlTests.Feedback." + UUID().uuidString
+        let d = UserDefaults(suiteName: name)!
+        addTeardownBlock { d.removePersistentDomain(forName: name) }
+        return d
+    }
+    func testLegacyHiddenHUDStaysHidden() {
+        let d = defaults(); d.set(false, forKey: AppSettings.Key.showHUD)
+        let settings = AppSettings(defaults: d)
+        XCTAssertEqual(settings.hudMode, .off)
+        XCTAssertFalse(settings.showHUD)
+    }
+    func testVisibleHUDDefaultsToCapsuleAndUnknownModeFallsBack() {
+        let d = defaults(); d.set("future-style", forKey: AppSettings.Key.hudMode)
+        let settings = AppSettings(defaults: d)
+        XCTAssertEqual(settings.hudMode, .capsule)
+    }
+    func testNotchModeSurvivesQuickToggleAndRelaunch() {
+        let d = defaults()
+        let settings = AppSettings(defaults: d)
+        settings.hudMode = .notch; settings.showHUD = false
+        let restored = AppSettings(defaults: d)
+        XCTAssertEqual(restored.hudMode, .off)
+        restored.showHUD = true
+        XCTAssertEqual(restored.hudMode, .notch)
+        XCTAssertEqual(AppSettings(defaults: d).hudMode, .notch)
+    }
+    func testOldDisabledGlobalActionMigratesToDisabledEdgeOnce() {
+        let d = defaults(); d.set(false, forKey: AppSettings.Key.volumeEnabled)
+        let settings = AppSettings(defaults: d)
+        XCTAssertEqual(settings.leftEdgeAction, .disabled)
+        XCTAssertEqual(settings.rightEdgeAction, .brightness)
+        XCTAssertTrue(settings.volumeEnabled)
+        settings.leftEdgeAction = .volume
+        XCTAssertEqual(AppSettings(defaults: d).leftEdgeAction, .volume)
+    }
+    func testTwoEdgesWithSameDisabledActionBothMigrate() {
+        let d = defaults()
+        d.set("volume", forKey: AppSettings.Key.rightEdgeAction)
+        d.set(false, forKey: AppSettings.Key.volumeEnabled)
+        let settings = AppSettings(defaults: d)
+        XCTAssertEqual(settings.leftEdgeAction, .disabled)
+        XCTAssertEqual(settings.rightEdgeAction, .disabled)
+    }
+}
+
+@MainActor
+final class NativeUISnapshotTests: XCTestCase {
+    func testSettingsPagesAndHUDPreviewsRenderInBothAppearances() throws {
+        let name = "EdgeControlTests.Snapshots." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = AppSettings(defaults: defaults)
+        let model = EdgeControlAppModel(settings: settings, updateController: UpdateController(startingUpdater: false))
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("build/UI-Snapshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for (label, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            for page in SettingsView.Page.allCases {
+                let view = NSHostingView(rootView: SettingsView(model: model, settings: settings, initialPage: page))
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 960),
+                    styleMask: [.titled], backing: .buffered, defer: false)
+                window.isReleasedWhenClosed = false
+                window.appearance = NSAppearance(named: appearance)
+                window.contentView = view
+                window.orderFrontRegardless()
+                view.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+                view.displayIfNeeded()
+                let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+                view.cacheDisplay(in: view.bounds, to: rep)
+                let data = try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+                try data.write(to: directory.appendingPathComponent("settings-\(page.rawValue)-\(label).png"))
+                let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
+                attachment.name = "Settings \(page.rawValue) \(label)"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+                window.close()
+            }
+            for mode in [HUDMode.capsule, .notch] {
+                let view = NSHostingView(rootView: HUDStylePreview(mode: mode, style: .system).frame(width: 360, height: 140))
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 140),
+                    styleMask: [.borderless], backing: .buffered, defer: false)
+                window.isReleasedWhenClosed = false
+                window.appearance = NSAppearance(named: appearance)
+                window.contentView = view
+                window.orderFrontRegardless()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+                view.layoutSubtreeIfNeeded()
+                let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+                view.cacheDisplay(in: view.bounds, to: rep)
+                let data = try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+                try data.write(to: directory.appendingPathComponent("hud-\(mode.rawValue)-\(label).png"))
+                let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.png")
+                attachment.name = "HUD \(mode.rawValue) \(label)"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+                window.close()
+            }
+        }
     }
 }

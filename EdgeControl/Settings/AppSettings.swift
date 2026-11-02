@@ -124,6 +124,18 @@ enum HUDColorStyle: String, CaseIterable, Codable, Sendable, Identifiable, Hasha
     }
 }
 
+enum HUDMode: String, CaseIterable, Identifiable, Sendable {
+    case capsule, notch, off
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .capsule: return "Capsule"
+        case .notch: return "Notch"
+        case .off: return "Off / External"
+        }
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     enum Key {
@@ -135,6 +147,9 @@ final class AppSettings: ObservableObject {
         static let hapticFeedback = "hapticFeedback"
         static let hapticStrength = "hapticStrength"
         static let showHUD = "showHUD"
+        static let hudMode = "hudMode"
+        static let lastVisibleHUDMode = "lastVisibleHUDMode"
+        static let edgeControlsMigrated = "edgeControlsMigrated"
         static let hudColorStyle = "hudColorStyle"
         // Read-only migration key from 1.5.0.
         static let colorfulHUD = "colorfulHUD"
@@ -157,7 +172,21 @@ final class AppSettings: ObservableObject {
     @Published var rightEdgeAction: EdgeAction { didSet { defaults.set(rightEdgeAction.rawValue, forKey: Key.rightEdgeAction) } }
     @Published var hapticFeedback: Bool { didSet { defaults.set(hapticFeedback, forKey: Key.hapticFeedback) } }
     @Published var hapticStrength: HapticStrength { didSet { defaults.set(hapticStrength.rawValue, forKey: Key.hapticStrength) } }
-    @Published var showHUD: Bool { didSet { defaults.set(showHUD, forKey: Key.showHUD) } }
+    @Published var hudMode: HUDMode {
+        didSet {
+            defaults.set(hudMode.rawValue, forKey: Key.hudMode)
+            defaults.set(hudMode != .off, forKey: Key.showHUD)
+            if hudMode != .off {
+                lastVisibleHUDMode = hudMode
+                defaults.set(hudMode.rawValue, forKey: Key.lastVisibleHUDMode)
+            }
+        }
+    }
+    private var lastVisibleHUDMode: HUDMode = .capsule
+    var showHUD: Bool {
+        get { hudMode != .off }
+        set { hudMode = newValue ? lastVisibleHUDMode : .off }
+    }
     @Published var hudColorStyle: HUDColorStyle { didSet { defaults.set(hudColorStyle.rawValue, forKey: Key.hudColorStyle) } }
     @Published var lowerHalfOnly: Bool { didSet { defaults.set(lowerHalfOnly, forKey: Key.lowerHalfOnly) } }
     @Published var trackpadPreference: TrackpadPreference { didSet { defaults.set(trackpadPreference.rawValue, forKey: Key.trackpadPreference) } }
@@ -221,7 +250,10 @@ final class AppSettings: ObservableObject {
         hapticStrength = HapticStrength(
             rawValue: defaults.string(forKey: Key.hapticStrength) ?? ""
         ) ?? .standard
-        showHUD = defaults.bool(forKey: Key.showHUD)
+        let storedMode = defaults.string(forKey: Key.hudMode).flatMap(HUDMode.init(rawValue:))
+        hudMode = storedMode ?? (defaults.bool(forKey: Key.showHUD) ? .capsule : .off)
+        let lastMode = defaults.string(forKey: Key.lastVisibleHUDMode).flatMap(HUDMode.init(rawValue:))
+        lastVisibleHUDMode = hudMode == .off ? (lastMode == .notch ? .notch : .capsule) : hudMode
         if let storedHUDColorStyle {
             hudColorStyle = HUDColorStyle(rawValue: storedHUDColorStyle) ?? .system
             defaults.removeObject(forKey: Key.colorfulHUD)
@@ -251,5 +283,22 @@ final class AppSettings: ObservableObject {
         ) ?? .standard
         launchAtLogin = defaults.bool(forKey: Key.launchAtLogin)
         externalDDCEnabled = defaults.bool(forKey: Key.externalDDCEnabled)
+        // Preserve old disabled actions as explicit edge assignments, then remove
+        // the hidden global gate. The UI has only master + two edge assignments.
+        if !defaults.bool(forKey: Key.edgeControlsMigrated) {
+            for isLeft in [true, false] {
+                let action = isLeft ? leftEdgeAction : rightEdgeAction
+                if (action == .volume && !volumeEnabled) || (action == .brightness && !brightnessEnabled) {
+                    if isLeft { leftEdgeAction = .disabled } else { rightEdgeAction = .disabled }
+                }
+            }
+            volumeEnabled = true
+            brightnessEnabled = true
+            defaults.set(leftEdgeAction.rawValue, forKey: Key.leftEdgeAction)
+            defaults.set(rightEdgeAction.rawValue, forKey: Key.rightEdgeAction)
+            defaults.set(true, forKey: Key.volumeEnabled)
+            defaults.set(true, forKey: Key.brightnessEnabled)
+            defaults.set(true, forKey: Key.edgeControlsMigrated)
+        }
     }
 }

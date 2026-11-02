@@ -14,10 +14,9 @@ struct HUDPresentation: Sendable, Equatable {
 }
 
 private enum HUDLayout {
-    static let compactWidth: CGFloat = 144
-    static let errorWidth: CGFloat = 212
+    static let compactWidth: CGFloat = 180
+    static let errorWidth: CGFloat = 252
     static let height: CGFloat = 40
-    static let progressWidth: CGFloat = 58
     static let progressHeight: CGFloat = 5
     static let shadowPadding: CGFloat = 16
 
@@ -32,6 +31,55 @@ private enum HUDLayout {
         width: compactWidth + shadowPadding * 2,
         height: height + shadowPadding * 2
     )
+}
+
+/// Pure point-based geometry. No model-name tables or pixel assumptions.
+struct HUDScreenGeometry: Equatable {
+    let frame: NSRect
+    let visibleFrame: NSRect
+    let safeTop: CGFloat
+    let leftArea: NSRect?
+    let rightArea: NSRect?
+}
+
+struct HUDPlacement: Equatable {
+    let frame: NSRect
+    let contentWidth: CGFloat
+    let cutoutHeight: CGFloat
+    var attachedToNotch: Bool { cutoutHeight > 0 }
+
+    static func resolve(mode: HUDMode, screen: HUDScreenGeometry, error: Bool = false) -> HUDPlacement {
+        let requestedWidth: CGFloat = error ? 252 : 180
+        let usable = screen.visibleFrame.intersection(screen.frame)
+        let safe = usable.isEmpty ? screen.frame : usable
+        if mode == .notch, screen.safeTop > 0, screen.safeTop < 200,
+           let left = screen.leftArea, let right = screen.rightArea,
+           left.width > 0, right.width > 0, left.maxX < right.minX,
+           left.minX >= screen.frame.minX, right.maxX <= screen.frame.maxX,
+           right.minX - left.maxX < screen.frame.width / 2 {
+            let gap = right.minX - left.maxX
+            let width = min(max(requestedWidth, gap + 32), screen.frame.width - 32)
+            let size = NSSize(width: width + 32, height: screen.safeTop + 40 + 16)
+            let center = (left.maxX + right.minX) / 2
+            let x = min(max(center - size.width / 2, screen.frame.minX), screen.frame.maxX - size.width)
+            return HUDPlacement(frame: NSRect(x: x, y: screen.frame.maxY - size.height,
+                                              width: size.width, height: size.height),
+                                contentWidth: width, cutoutHeight: screen.safeTop)
+        }
+        let width = min(error ? 252 : 180, max(80, safe.width - 32))
+        let size = NSSize(width: width + 32, height: 72)
+        let y = mode == .notch ? safe.maxY - size.height - 8 : safe.minY + safe.height * 0.16
+        return HUDPlacement(frame: NSRect(x: safe.midX - size.width / 2,
+                                          y: min(max(y, safe.minY), max(safe.minY, safe.maxY - size.height)),
+                                          width: size.width, height: size.height),
+                            contentWidth: width, cutoutHeight: 0)
+    }
+}
+
+struct HUDScreenSelection {
+    static func resolve(available: [UInt64], preferred: UInt64?, pinned: UInt64?, pointer: UInt64?) -> UInt64? {
+        [preferred, pinned, pointer].compactMap { $0 }.first(where: available.contains) ?? available.first
+    }
 }
 
 struct HUDPresentationPlan: Equatable, Sendable {
@@ -103,6 +151,8 @@ private final class HUDViewModel: ObservableObject {
     @Published var presentation = HUDPresentation(kind: .volume, value: 0, message: nil)
     @Published var isPresented = false
     @Published var colorStyle: HUDColorStyle = .system
+    @Published var cutoutHeight: CGFloat = 0
+    @Published var surfaceWidth: CGFloat = 180
 }
 
 @MainActor
@@ -111,6 +161,20 @@ final class HUDController {
     private let viewModel: HUDViewModel
     private var dismissTask: Task<Void, Never>?
     private var lifecycle = HUDPresentationLifecycle()
+    private var pinnedScreenID: UInt64?
+    private var lastPresentation: HUDPresentation?
+    private var mode: HUDMode = .capsule
+
+    func setMode(_ mode: HUDMode) {
+        guard self.mode != mode else { return }
+        hideImmediately()
+        self.mode = mode
+    }
+
+    func beginGesture(displayID: UInt32? = nil) {
+        pinnedScreenID = displayID.map(UInt64.init)
+        pinnedScreenID = currentScreen().id
+    }
 
     private(set) var colorStyle: HUDColorStyle = .system
     private(set) var debugMetrics = HUDDebugMetrics()
@@ -166,31 +230,37 @@ final class HUDController {
     }
 
     func show(_ presentation: HUDPresentation) {
+        guard mode != .off else { return }
         dismissTask?.cancel()
-        let requiredSize = HUDLayout.size(for: presentation)
+        lastPresentation = presentation
         let activeScreen = currentScreen()
+        guard let screen = activeScreen.screen else { return }
+        let placement = placement(on: screen, presentation: presentation)
+        let requiredSize = placement.frame.size
+        pinnedScreenID = activeScreen.id
         let plan = lifecycle.plan(
             size: requiredSize,
             screenID: activeScreen.id,
-            screenFrame: activeScreen.screen?.visibleFrame
+            screenFrame: placement.frame
         )
 
         withTransaction(Transaction(animation: nil)) {
             viewModel.presentation = presentation
+            viewModel.cutoutHeight = placement.cutoutHeight
+            viewModel.surfaceWidth = placement.contentWidth
             if plan.isNewPresentation {
                 viewModel.isPresented = false
             }
         }
 
-        if plan.isNewPresentation {
-            panel.appearance = NSApp.effectiveAppearance
-        }
+        panel.appearance = placement.attachedToNotch ? NSAppearance(named: .darkAqua) : NSApp.effectiveAppearance
+        panel.level = placement.attachedToNotch ? .statusBar : .floating
         if plan.shouldResize {
             panel.setContentSize(requiredSize)
             debugMetrics.resizeCount += 1
         }
         if plan.shouldPosition {
-            positionPanel(on: activeScreen.screen)
+            panel.setFrame(placement.frame, display: true)
             debugMetrics.positionCount += 1
         }
         if plan.shouldOrderFront {
@@ -243,38 +313,49 @@ final class HUDController {
         }
         panel.orderOut(nil)
         lifecycle.markHidden()
+        pinnedScreenID = nil
+        lastPresentation = nil
         debugMetrics.dismissCount = lifecycle.dismissCount
     }
 
     func refreshPositionIfNeeded() {
-        guard lifecycle.isVisible else { return }
-        let activeScreen = currentScreen()
-        let frame = activeScreen.screen?.visibleFrame
-        guard activeScreen.id != lifecycle.currentScreenID
-            || frame != lifecycle.currentScreenFrame else {
-            return
+        guard lifecycle.isVisible, let presentation = lastPresentation,
+              let screen = currentScreen().screen else { return }
+        let placement = placement(on: screen, presentation: presentation)
+        // Geometry can change even if the display ID is unchanged.
+        guard panel.frame != placement.frame || viewModel.cutoutHeight != placement.cutoutHeight else { return }
+        withTransaction(Transaction(animation: nil)) {
+            viewModel.cutoutHeight = placement.cutoutHeight
+            viewModel.surfaceWidth = placement.contentWidth
         }
-        lifecycle.updateScreenFrame(frame, screenID: activeScreen.id)
-        positionPanel(on: activeScreen.screen)
+        panel.level = placement.attachedToNotch ? .statusBar : .floating
+        panel.appearance = placement.attachedToNotch ? NSAppearance(named: .darkAqua) : NSApp.effectiveAppearance
+        panel.setFrame(placement.frame, display: true)
+        let id = screenID(screen)
+        pinnedScreenID = id
+        lifecycle.updateScreenFrame(placement.frame, screenID: id)
         debugMetrics.positionCount += 1
     }
 
-    private func currentScreen() -> (screen: NSScreen?, id: UInt64?) {
-        let mouse = NSEvent.mouseLocation
-        let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main
-        let numberKey = NSDeviceDescriptionKey("NSScreenNumber")
-        let id = (screen?.deviceDescription[numberKey] as? NSNumber)?.uint64Value
-        return (screen, id)
+    private func screenID(_ screen: NSScreen) -> UInt64? {
+        (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint64Value
     }
 
-    private func positionPanel(on screen: NSScreen?) {
-        guard let visibleFrame = screen?.visibleFrame else { return }
-        let origin = NSPoint(
-            x: visibleFrame.midX - panel.frame.width / 2,
-            y: visibleFrame.minY + visibleFrame.height * 0.16
-        )
-        panel.setFrameOrigin(origin)
+    private func currentScreen() -> (screen: NSScreen?, id: UInt64?) {
+        let screens = NSScreen.screens
+        let pointer = screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+        let id = HUDScreenSelection.resolve(available: screens.compactMap(screenID), preferred: nil,
+                                             pinned: pinnedScreenID, pointer: pointer.flatMap(screenID))
+        return (screens.first { screenID($0) == id }, id)
     }
+
+    private func placement(on screen: NSScreen, presentation: HUDPresentation) -> HUDPlacement {
+        HUDPlacement.resolve(mode: mode,
+            screen: HUDScreenGeometry(frame: screen.frame, visibleFrame: screen.visibleFrame,
+                safeTop: screen.safeAreaInsets.top, leftArea: screen.auxiliaryTopLeftArea,
+                rightArea: screen.auxiliaryTopRightArea), error: presentation.value == nil)
+    }
+
 }
 
 @MainActor
@@ -284,26 +365,28 @@ private struct EdgeHUDView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        content
-            .frame(width: width, height: HUDLayout.height)
-            .modifier(
-                EdgeHUDGlassModifier(
-                    tint: glassTint,
-                    reduceTransparency: reduceTransparency
-                )
-            )
-            .scaleEffect(model.isPresented || reduceMotion ? 1 : 0.96)
+        surface
+            .scaleEffect(model.isPresented || reduceMotion ? 1 : 0.97, anchor: model.cutoutHeight > 0 ? .top : .center)
             .opacity(model.isPresented ? 1 : 0)
-            .animation(
-                reduceMotion ? .linear(duration: 0.10) : .easeOut(duration: 0.12),
-                value: model.isPresented
-            )
-            // Keep the visible capsule compact while reserving transparent
-            // window space for its soft shadow; NSPanel clips outside bounds.
-            .frame(
-                width: width + HUDLayout.shadowPadding * 2,
-                height: HUDLayout.height + HUDLayout.shadowPadding * 2
-            )
+            .animation(reduceMotion ? .linear(duration: 0.10) : .easeOut(duration: 0.14), value: model.isPresented)
+            .frame(width: width + 32, height: 40 + model.cutoutHeight + (model.cutoutHeight > 0 ? 16 : 32),
+                   alignment: model.cutoutHeight > 0 ? .top : .center)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(model.presentation.kind == .volume ? "Volume" : "Brightness")
+            .accessibilityValue(model.presentation.value.map { "\(Int((clamped($0) * 100).rounded())) percent" } ?? model.presentation.message ?? "Unavailable")
+    }
+
+    @ViewBuilder private var surface: some View {
+        if model.cutoutHeight > 0 {
+            content
+                .frame(width: width, height: 40)
+                .padding(.top, model.cutoutHeight)
+                .background(AttachedHUDShape().fill(.black))
+                .environment(\.colorScheme, .dark)
+        } else {
+            content.frame(width: width, height: 40)
+                .modifier(EdgeHUDGlassModifier(tint: glassTint, reduceTransparency: reduceTransparency))
+        }
     }
 
     @ViewBuilder
@@ -316,6 +399,7 @@ private struct EdgeHUDView: View {
                     .frame(width: 15)
 
                 EdgeHUDProgress(value: value, tint: accentColor)
+                    .frame(maxWidth: .infinity)
 
                 Text("\(Int((clamped(value) * 100).rounded()))%")
                     .monospacedDigit()
@@ -343,7 +427,7 @@ private struct EdgeHUDView: View {
     }
 
     private var width: CGFloat {
-        model.presentation.value == nil ? HUDLayout.errorWidth : HUDLayout.compactWidth
+        model.surfaceWidth
     }
 
     private var accentColor: Color {
@@ -394,8 +478,8 @@ private struct EdgeHUDProgress: View {
                     .frame(width: geometry.size.width * CGFloat(clampedValue))
             }
         }
-        .frame(width: HUDLayout.progressWidth, height: HUDLayout.progressHeight)
-        .animation(.easeOut(duration: 0.08), value: clampedValue)
+        .frame(height: HUDLayout.progressHeight)
+        .transaction { $0.animation = nil }
         .accessibilityHidden(true)
     }
 }
@@ -485,5 +569,49 @@ private struct CapsuleVisualEffect: NSViewRepresentable {
         nsView.blendingMode = .behindWindow
         nsView.state = .active
         nsView.needsLayout = true
+    }
+}
+
+private struct AttachedHUDShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let r: CGFloat = min(18, rect.height / 2)
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        p.addQuadCurve(to: CGPoint(x: rect.maxX - r, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
+        p.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        p.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - r), control: CGPoint(x: rect.minX, y: rect.maxY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// Uses the same native HUD view as the live panel; preview values never write hardware.
+@MainActor
+struct HUDStylePreview: View {
+    let mode: HUDMode
+    let style: HUDColorStyle
+    @StateObject private var model = HUDViewModel()
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12).fill(.primary.opacity(0.035))
+            if mode == .off {
+                Label("No EdgeControl overlay", systemImage: "eye.slash")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            } else {
+                EdgeHUDView(model: model)
+            }
+        }
+        .onAppear { update() }
+        .onChange(of: mode) { _ in update() }
+        .onChange(of: style) { _ in update() }
+    }
+    private func update() {
+        model.presentation = HUDPresentation(kind: .volume, value: 0.62, message: nil)
+        model.colorStyle = style
+        model.cutoutHeight = mode == .notch ? 20 : 0
+        model.surfaceWidth = mode == .notch ? 220 : 180
+        model.isPresented = true
     }
 }

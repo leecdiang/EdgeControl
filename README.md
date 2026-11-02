@@ -151,3 +151,8 @@ This implementation was written independently for this repository. No Verge, Sli
 MIT. See [LICENSE](LICENSE).
 
 Version 1.7.6 adds bounded, age-checked input delivery, immediate pause teardown, channel-balanced and finite-only volume control, full DDC reply validation, and an automatic-update preference in About.
+
+
+### 1.8.0: adaptive feedback
+
+Settings now group Gestures, Feedback and General. HUD choices are Capsule, Notch (top-capsule fallback on notchless displays), and Off / External. Existing visibility is preserved. Brightness HUD follows the controlled display; volume HUD stays on the gesture-start screen. Alcove detection is informational, not an integration guarantee. See [validation](VALIDATION_1.8.0.md) for the software matrix and remaining hardware checks.

@@ -103,8 +103,8 @@ final class EdgeControlAppModel: ObservableObject {
         settings.$hapticFeedback.dropFirst().removeDuplicates().sink { [weak self] enabled in
             if !enabled { self?.hapticEngine.endGesture() }
         }.store(in: &settingsCancellables)
-        settings.$showHUD.dropFirst().removeDuplicates().sink { [weak self] enabled in
-            if !enabled { self?.hudController.hideImmediately() }
+        settings.$hudMode.removeDuplicates().sink { [weak self] mode in
+            self?.hudController.setMode(mode)
         }.store(in: &settingsCancellables)
         updateController.$automaticallyChecksForUpdates.removeDuplicates().sink { [weak self] enabled in
             self?.automaticallyChecksForUpdates = enabled
@@ -229,6 +229,22 @@ final class EdgeControlAppModel: ObservableObject {
         startTouchInput()
     }
 
+    var isAlcoveInstalled: Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.henrikruscon.Alcove") != nil
+    }
+
+    func previewHUD(kind: HUDKind = .volume) {
+        guard session == nil, settings.showHUD else { return }
+        let id = (settingsWindow?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
+        hudController.beginGesture(displayID: id)
+        hudController.show(HUDPresentation(kind: kind, value: 0.62, message: nil))
+    }
+
+    func previewHaptics() {
+        guard session == nil, settings.hapticFeedback else { return }
+        hapticEngine.activationTick(initialValue: 0.5, strength: settings.hapticStrength)
+    }
+
     func openSettings() {
         if settingsWindow == nil {
             let hostingView = NSHostingView(rootView: SettingsView(model: self, settings: settings))
@@ -270,7 +286,7 @@ final class EdgeControlAppModel: ObservableObject {
             ])
 
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 560, height: 470),
+                contentRect: NSRect(x: 0, y: 0, width: 620, height: 640),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -283,8 +299,8 @@ final class EdgeControlAppModel: ObservableObject {
             window.isOpaque = false
             window.backgroundColor = .clear
             window.isMovableByWindowBackground = true
-            window.setContentSize(NSSize(width: 560, height: 470))
-            window.minSize = NSSize(width: 520, height: 430)
+            window.setContentSize(NSSize(width: 620, height: 640))
+            window.minSize = NSSize(width: 560, height: 540)
             window.center()
             settingsWindow = window
         }
@@ -512,6 +528,7 @@ final class EdgeControlAppModel: ObservableObject {
                 return
             }
 
+            hudController.beginGesture(displayID: brightnessSession?.targetDisplayID)
             session = ControlSession(
                 edge: edge,
                 action: action,

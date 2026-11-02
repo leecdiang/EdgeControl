@@ -49,4 +49,5 @@ jobs:
             build/SHA256SUMS
             build/SOURCE_COMMIT
             build/DerivedData/Logs/Test/*.xcresult
+            build/UI-Snapshots/*.png
           retention-days: 14

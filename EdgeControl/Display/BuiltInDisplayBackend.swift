@@ -10,6 +10,8 @@ final class BuiltInDisplayBackend: BrightnessBackend {
     private let activeDisplayProvider: ActiveDisplayProvider
     private let builtInDetector: BuiltInDetector
 
+    var targetDisplayID: UInt32? { displayID }
+
     var isAvailable: Bool {
         displayID != nil && ec_display_services_is_available()
     }

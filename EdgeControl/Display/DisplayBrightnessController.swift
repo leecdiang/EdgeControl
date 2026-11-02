@@ -3,6 +3,7 @@ import Foundation
 @MainActor
 final class BrightnessControlSession {
     let initialValue: Double
+    let targetDisplayID: UInt32?
     private let backend: BrightnessBackend
     private var lastWrittenValue: Float? = nil
 
@@ -13,6 +14,7 @@ final class BrightnessControlSession {
             throw ControlError.readFailed("The display returned an invalid brightness value.")
         }
         initialValue = min(1, max(0, value))
+        targetDisplayID = backend.targetDisplayID
     }
 
     func setBrightness(_ value: Double) throws {

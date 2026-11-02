@@ -56,15 +56,15 @@ for relative_path in "${required[@]}"; do
 done
 
 project_file="$project_root/EdgeControl.xcodeproj/project.pbxproj"
-version_count="$(grep -F 'MARKETING_VERSION = 1.7.7;' "$project_file" | wc -l | tr -d ' ')"
+version_count="$(grep -F 'MARKETING_VERSION = 1.8.0;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$version_count" -ne 2 ]]; then
-  echo "Expected Debug and Release MARKETING_VERSION 1.7.7, found $version_count." >&2
+  echo "Expected Debug and Release MARKETING_VERSION 1.8.0, found $version_count." >&2
   exit 1
 fi
 
-build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 13;' "$project_file" | wc -l | tr -d ' ')"
+build_count="$(grep -F 'CURRENT_PROJECT_VERSION = 14;' "$project_file" | wc -l | tr -d ' ')"
 if [[ "$build_count" -ne 2 ]] || ! grep -Fq '<string>$(CURRENT_PROJECT_VERSION)</string>' "$project_root/EdgeControl/Info.plist"; then
-  echo "Expected build number 13 to be sourced from CURRENT_PROJECT_VERSION." >&2
+  echo "Expected build number 14 to be sourced from CURRENT_PROJECT_VERSION." >&2
   exit 1
 fi
 
@@ -99,8 +99,8 @@ for expected_marker in "${required_disconnect_guards[@]}"; do
 done
 
 test_method_count="$(grep -R -h -E '^[[:space:]]+func test' "$project_root/EdgeControlTests" | wc -l | tr -d ' ')"
-if [[ "$test_method_count" -lt 127 ]]; then
-  echo "Expected at least 127 XCTest methods, found $test_method_count." >&2
+if [[ "$test_method_count" -lt 144 ]]; then
+  echo "Expected at least 144 XCTest methods, found $test_method_count." >&2
   exit 1
 fi
 
@@ -284,8 +284,8 @@ fi
 hud_controller="$project_root/EdgeControl/UI/HUDController.swift"
 hud_theme="$project_root/EdgeControl/UI/EdgeUITheme.swift"
 required_hud_markers=(
-  "static let compactWidth: CGFloat = 144"
-  "static let errorWidth: CGFloat = 212"
+  "static let compactWidth: CGFloat = 180"
+  "static let errorWidth: CGFloat = 252"
   "static let height: CGFloat = 40"
   "CapsuleVisualEffect"
   "view.material = .hudWindow"
