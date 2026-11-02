@@ -227,7 +227,7 @@ final class HUDController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
-        let hostingView = NSHostingView(rootView: EdgeHUDView(model: viewModel))
+        let hostingView = NSHostingView(rootView: LiveEdgeHUDView(model: viewModel))
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         hostingView.layer?.isOpaque = false
@@ -368,8 +368,22 @@ final class HUDController {
 }
 
 @MainActor
-private struct EdgeHUDView: View {
+private struct LiveEdgeHUDView: View {
     @ObservedObject var model: HUDViewModel
+    var body: some View {
+        EdgeHUDView(presentation: model.presentation, isPresented: model.isPresented,
+                    colorStyle: model.colorStyle, cutoutHeight: model.cutoutHeight,
+                    surfaceWidth: model.surfaceWidth)
+    }
+}
+
+@MainActor
+private struct EdgeHUDView: View {
+    let presentation: HUDPresentation
+    let isPresented: Bool
+    let colorStyle: HUDColorStyle
+    let cutoutHeight: CGFloat
+    let surfaceWidth: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -377,21 +391,21 @@ private struct EdgeHUDView: View {
         surface
             // Keep the attached silhouette flush with the real notch throughout
             // the transition; scaling it exposes a seam around the cutout.
-            .scaleEffect(model.isPresented || reduceMotion || isNotch ? 1 : 0.96)
-            .opacity(model.isPresented ? 1 : 0)
-            .animation(reduceMotion ? .linear(duration: 0.10) : .easeOut(duration: 0.14), value: model.isPresented)
-            .frame(width: width + 32, height: contentHeight + model.cutoutHeight + (isNotch ? 16 : 32),
-                   alignment: model.cutoutHeight > 0 ? .top : .center)
+            .scaleEffect(isPresented || reduceMotion || isNotch ? 1 : 0.96)
+            .opacity(isPresented ? 1 : 0)
+            .animation(reduceMotion ? .linear(duration: 0.10) : .easeOut(duration: 0.14), value: isPresented)
+            .frame(width: width + 32, height: contentHeight + cutoutHeight + (isNotch ? 16 : 32),
+                   alignment: cutoutHeight > 0 ? .top : .center)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(model.presentation.kind == .volume ? "Volume" : "Brightness")
-            .accessibilityValue(model.presentation.value.map { "\(Int((clamped($0) * 100).rounded())) percent" } ?? model.presentation.message ?? "Unavailable")
+            .accessibilityLabel(presentation.kind == .volume ? "Volume" : "Brightness")
+            .accessibilityValue(presentation.value.map { "\(Int((clamped($0) * 100).rounded())) percent" } ?? presentation.message ?? "Unavailable")
     }
 
     @ViewBuilder private var surface: some View {
-        if model.cutoutHeight > 0 {
+        if cutoutHeight > 0 {
             content
                 .frame(width: width, height: contentHeight)
-                .padding(.top, model.cutoutHeight)
+                .padding(.top, cutoutHeight)
                 .background(AttachedHUDShape().fill(.black))
                 .environment(\.colorScheme, .dark)
         } else {
@@ -402,7 +416,7 @@ private struct EdgeHUDView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let value = model.presentation.value {
+        if let value = presentation.value {
             HStack(spacing: 6) {
                 Image(systemName: symbolName)
                     .font(.system(size: isNotch ? 11 : 13, weight: .semibold))
@@ -425,7 +439,7 @@ private struct EdgeHUDView: View {
                     .foregroundStyle(.orange)
                     .frame(width: 15)
 
-                Text(model.presentation.message ?? "Unavailable")
+                Text(presentation.message ?? "Unavailable")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -438,27 +452,27 @@ private struct EdgeHUDView: View {
     }
 
     private var width: CGFloat {
-        model.surfaceWidth
+        surfaceWidth
     }
 
-    private var isNotch: Bool { model.cutoutHeight > 0 }
+    private var isNotch: Bool { cutoutHeight > 0 }
     private var contentHeight: CGFloat { isNotch ? HUDLayout.notchContentHeight : HUDLayout.height }
 
     private var accentColor: Color {
-        HUDPalette.accent(style: model.colorStyle, kind: model.presentation.kind)
+        HUDPalette.accent(style: colorStyle, kind: presentation.kind)
     }
 
     private var glassTint: Color {
         // Keep the glass neutral in every palette so color is concentrated in
         // the progress indicator and the system blur remains visually clean.
-        HUDPalette.glassTint(for: model.presentation)
+        HUDPalette.glassTint(for: presentation)
     }
 
     private var symbolName: String {
-        guard let value = model.presentation.value else {
+        guard let value = presentation.value else {
             return "exclamationmark.triangle.fill"
         }
-        switch model.presentation.kind {
+        switch presentation.kind {
         case .brightness:
             return "sun.max.fill"
         case .volume:
@@ -602,41 +616,36 @@ private struct AttachedHUDShape: Shape {
     }
 }
 
-/// Uses the same native HUD view as the live panel; preview values never write hardware.
+/// No cached model or onChange synchronization: each selection renders its own
+/// geometry in the same SwiftUI update as the picker label.
 @MainActor
 struct HUDStylePreview: View {
     let mode: HUDMode
     let style: HUDColorStyle
-    // This is a persistent sample, not an entering transient panel. Starting
-    // visible avoids a blank preview while the settings page first lays out.
-    @StateObject private var model = HUDViewModel(isPresented: true)
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12).fill(.primary.opacity(0.035))
-            if mode == .off {
-                Label("No EdgeControl overlay", systemImage: "eye.slash")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-            } else {
-                EdgeHUDView(model: model)
-            }
-        }
-        .onAppear { update() }
-        .onChange(of: mode) { _ in update() }
-        .onChange(of: style) { _ in update() }
-    }
-    private func update() {
-        model.presentation = HUDPresentation(kind: .volume, value: 0.62, message: nil)
-        model.colorStyle = style
-        // Use the live geometry resolver for a representative 180×32 pt notch
-        // rather than independently choosing an oversized preview silhouette.
+
+    static func placement(for mode: HUDMode) -> HUDPlacement {
         let geometry = HUDScreenGeometry(
             frame: NSRect(x: 0, y: 0, width: 1512, height: 982),
             visibleFrame: NSRect(x: 0, y: 40, width: 1512, height: 910), safeTop: 32,
             leftArea: NSRect(x: 0, y: 950, width: 666, height: 32),
             rightArea: NSRect(x: 846, y: 950, width: 666, height: 32))
-        let placement = HUDPlacement.resolve(mode: mode, screen: geometry)
-        model.cutoutHeight = placement.cutoutHeight
-        model.surfaceWidth = placement.contentWidth
-        model.isPresented = true
+        return HUDPlacement.resolve(mode: mode, screen: geometry)
+    }
+
+    var body: some View {
+        let placement = Self.placement(for: mode)
+        ZStack(alignment: mode == .notch ? .top : .center) {
+            RoundedRectangle(cornerRadius: 12).fill(.primary.opacity(0.035))
+            if mode == .off {
+                Image(systemName: "eye.slash").foregroundStyle(.secondary)
+                    .accessibilityLabel("HUD hidden")
+            } else {
+                EdgeHUDView(presentation: HUDPresentation(kind: .volume, value: 0.62, message: nil),
+                            isPresented: true, colorStyle: style,
+                            cutoutHeight: placement.cutoutHeight, surfaceWidth: placement.contentWidth)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityIdentifier("hud-preview-" + mode.rawValue)
     }
 }

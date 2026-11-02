@@ -6,8 +6,8 @@ set -euo pipefail
 }
 release_dir="$(cd "$1" && pwd)"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-version=1.8.1
-build=15
+version=1.8.2
+build=16
 archive="$release_dir/downloaded/EdgeControl-$version-macOS.zip"
 (cd "$release_dir/downloaded" && shasum -a 256 -c "$release_dir/SHA256SUMS")
 # Keep extracted bundles outside Documents/File Provider managed directories.

@@ -97,3 +97,7 @@ Brightness sessions capture backend display identity after initial reading. HUD 
 ### Compact refinement (1.8.1)
 
 The capsule again uses 144×40 pt (212×40 for errors). Notch geometry adds only 8 pt total width to the reported cutout, subject to the content minimum, and 24 pt below it; all content remains outside the physical cutout. The notch fades without scaling to avoid separating its silhouette from the hardware. Preview and live placement share the same resolver. Off is a visibility setting, not a third-party transport. Alcove HUD dispatch is not implemented.
+
+### Presentation state and glass (1.8.2)
+
+EdgeHUDView renders immutable inputs. LiveEdgeHUDView observes the live controller model, while HUDStylePreview derives its geometry directly from mode and style; there is no preview StateObject or onChange copy. Repeated changes in one hosted view are covered by rendered silhouette assertions. The production settings content factory is reused in snapshots so the NSVisualEffectView and appearance-aware scrim are included. Settings no longer cover the backdrop with an opaque SwiftUI root. Liquid Glass is limited to navigation and preview controls on macOS 26+; content cards use regular material, and Reduce Transparency provides solid backgrounds. MenuBarExtra retains its system material with an added 18% neutral scrim. No gesture, device-write or haptic scheduling changes.

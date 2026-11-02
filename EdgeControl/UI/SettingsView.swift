@@ -19,6 +19,7 @@ struct SettingsView: View {
     @ObservedObject var model: EdgeControlAppModel
     @ObservedObject var settings: AppSettings
     @State private var selectedPage: Page
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(model: EdgeControlAppModel, settings: AppSettings, initialPage: Page = .gestures) {
         self.model = model
@@ -29,32 +30,30 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("EdgeControl").font(.system(size: 22, weight: .semibold))
-                    Text("Make the edges yours.").foregroundStyle(.secondary).font(.system(size: 12))
-                }
+                Text("EdgeControl").font(.system(size: 22, weight: .semibold))
                 Spacer()
                 Toggle("Enabled", isOn: $settings.masterEnabled)
                     .toggleStyle(.switch).controlSize(.small)
             }
-            .padding(.horizontal, 24).padding(.top, 38).padding(.bottom, 18)
+            .padding(.horizontal, 24).padding(.top, 38).padding(.bottom, 16)
 
             HStack(spacing: 6) {
                 ForEach(Page.allCases) { page in
                     Button { selectedPage = page } label: {
                         Label(page.title, systemImage: page.icon)
                             .font(.system(size: 13, weight: .medium))
-                            .frame(maxWidth: .infinity, minHeight: 34)
+                            .frame(maxWidth: .infinity, minHeight: 32)
                             .background(selectedPage == page ? Color.primary.opacity(0.09) : .clear,
-                                        in: RoundedRectangle(cornerRadius: 9))
+                                        in: Capsule())
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(selectedPage == page ? .isSelected : [])
                 }
             }
+            .padding(4)
+            .modifier(EdgeNavigationGlass())
             .padding(.horizontal, 24).padding(.bottom, 14)
-            Divider().opacity(0.5)
             // Only the selected page exists: hidden controls cannot retain focus.
             ScrollView {
                 VStack(spacing: 16) {
@@ -63,43 +62,50 @@ struct SettingsView: View {
                     case .feedback: feedbackPage
                     case .general: generalPage
                     }
-                }.padding(24).frame(maxWidth: .infinity)
+                }.padding(.horizontal, 24).padding(.top, 6).padding(.bottom, 24).frame(maxWidth: .infinity)
             }.id(selectedPage)
         }
         .frame(minWidth: 560, minHeight: 540)
-        .background(Color(nsColor: .windowBackgroundColor))
+        // The AppKit window already supplies active behind-window vibrancy.
+        // An opaque SwiftUI background here would hide it completely.
+        .background(Color(nsColor: .windowBackgroundColor).opacity(reduceTransparency ? 1 : 0.08))
     }
 
     private var gesturesPage: some View {
         VStack(spacing: 16) {
-            TrackpadGuide(left: settings.leftEdgeAction, right: settings.rightEdgeAction,
-                          lowerHalfOnly: settings.lowerHalfOnly)
             SettingsCard(title: "Edge actions", systemImage: "rectangle.split.2x1") {
-                SettingsRow(title: "Left edge") { actionPicker("Left edge", selection: $settings.leftEdgeAction) }
-                Divider()
-                SettingsRow(title: "Right edge") { actionPicker("Right edge", selection: $settings.rightEdgeAction) }
-                Text("Start at an edge, then slide up or down to adjust.").settingsCaption()
+                HStack(spacing: 20) {
+                    TrackpadGuide(left: settings.leftEdgeAction, right: settings.rightEdgeAction,
+                                  lowerHalfOnly: settings.lowerHalfOnly).frame(width: 150)
+                    VStack(spacing: 14) {
+                        SettingsRow(title: "Left edge") { actionPicker("Left edge", selection: $settings.leftEdgeAction) }
+                        Divider()
+                        SettingsRow(title: "Right edge") { actionPicker("Right edge", selection: $settings.rightEdgeAction) }
+                    }
+                }
             }
+            .help("Start at an edge, then slide up or down.")
             SettingsCard(title: "Gesture feel", systemImage: "slider.horizontal.3") {
-                Text("Adjustment speed").font(.system(size: 13, weight: .medium))
+                Text("Speed").font(.system(size: 13, weight: .medium))
                 Picker("Adjustment speed", selection: $settings.adjustmentSpeed) {
                     ForEach(AdjustmentSpeed.allCases) { Text($0.title).tag($0) }
                 }.labelsHidden().pickerStyle(.segmented)
-                Text("Choose how much the value changes as you slide.").settingsCaption()
+                .help("How much the value changes as you slide.")
                 Divider()
-                Text("Accidental-touch protection").font(.system(size: 13, weight: .medium))
+                Text("Touch protection").font(.system(size: 13, weight: .medium))
                 Picker("Accidental-touch protection", selection: Binding(
                     get: { settings.falseTouchProtection }, set: { model.setFalseTouchProtection($0) })) {
                     ForEach(FalseTouchProtection.allCases) { Text($0.title).tag($0) }
                 }.labelsHidden().pickerStyle(.segmented)
-                Text("Stronger protection uses a narrower starting area and waits longer after typing.").settingsCaption()
+                .help("Stronger protection narrows the starting area and waits longer after typing.")
                 Divider()
-                SettingsRow(title: "Start in the lower half only", detail: "The highlighted area above follows this setting.") {
+                SettingsRow(title: "Lower half only") {
                     Toggle("Start in lower half only", isOn: Binding(get: { settings.lowerHalfOnly }, set: { model.setLowerHalfOnly($0) }))
                         .labelsHidden().toggleStyle(.switch).controlSize(.small)
                 }
             }
-            SettingsCard(title: "Trackpad", systemImage: "trackpad") {
+            DisclosureGroup("Trackpad") {
+              VStack(spacing: 10) {
                 SettingsRow(title: "Input source") {
                     Picker("Input source", selection: Binding(get: { settings.trackpadPreference }, set: { model.setTrackpadPreference($0) })) {
                         ForEach(TrackpadPreference.allCases) { Text($0.title).tag($0) }
@@ -110,13 +116,15 @@ struct SettingsView: View {
                     Spacer()
                     Button("Rescan") { model.rescanTrackpads() }
                 }
+              }.padding(.top, 10)
             }
+            .font(.system(size: 12)).padding(.horizontal, 4)
         }
     }
 
     private var feedbackPage: some View {
         VStack(spacing: 16) {
-            SettingsCard(title: "On-screen feedback", systemImage: "rectangle.inset.filled") {
+            SettingsCard(title: "HUD", systemImage: "rectangle.inset.filled") {
                 Picker("HUD style", selection: $settings.hudMode) {
                     ForEach(HUDMode.allCases) { Text($0.title).tag($0) }
                 }.labelsHidden().pickerStyle(.segmented)
@@ -124,43 +132,30 @@ struct SettingsView: View {
                     .frame(height: 100)
                 Text(hudDescription).settingsCaption()
                 HStack {
-                    Button("Preview volume") { model.previewHUD(kind: .volume) }
-                    Button("Preview brightness") { model.previewHUD(kind: .brightness) }
+                    Button { model.previewHUD(kind: .volume) } label: { Label("Volume", systemImage: "speaker.wave.2") }
+                    Button { model.previewHUD(kind: .brightness) } label: { Label("Brightness", systemImage: "sun.max") }
                     Spacer()
-                }.disabled(!settings.showHUD)
-                Text("Previews do not change volume or brightness.").settingsCaption()
-                DisclosureGroup("Color accents") {
-                    VStack(spacing: 10) {
+                }.modifier(EdgePreviewButtonStyle()).disabled(!settings.showHUD)
+                    .help("Preview only — volume and brightness stay unchanged.")
+                DisclosureGroup("Color") {
                         Picker("HUD color style", selection: $settings.hudColorStyle) {
                             ForEach(HUDColorStyle.allCases) { Text($0.title).tag($0) }
-                        }.labelsHidden().pickerStyle(.segmented)
-                        HUDPalettePreview(style: settings.hudColorStyle)
-                    }.padding(.top, 10)
+                        }.labelsHidden().pickerStyle(.segmented).padding(.top, 8)
                 }.disabled(!settings.showHUD)
             }
-            SettingsCard(title: "Using another HUD app", systemImage: "rectangle.on.rectangle") {
-                if model.isAlcoveInstalled {
-                    Label("Alcove is installed", systemImage: "checkmark.circle")
-                        .font(.system(size: 13, weight: .medium))
-                }
-                Text("Off hides only EdgeControl’s overlay. It does not activate Alcove or send it HUD events.")
-                    .settingsCaption()
-                Text("If Alcove does not respond to edge gestures, use Capsule or Notch for visual feedback. Alcove’s keyboard controls are independent.")
-                    .settingsCaption()
-            }
-            SettingsCard(title: "Touch feedback", systemImage: "waveform") {
-                SettingsRow(title: "Haptic feedback") {
+            SettingsCard(title: "Haptics", systemImage: "waveform") {
+                SettingsRow(title: "Enabled") {
                     Toggle("Haptic feedback", isOn: $settings.hapticFeedback).labelsHidden().toggleStyle(.switch).controlSize(.small)
                 }
                 Picker("Haptic feel", selection: $settings.hapticStrength) {
                     ForEach(HapticStrength.allCases) { Text($0.title).tag($0) }
                 }.labelsHidden().pickerStyle(.segmented).disabled(!settings.hapticFeedback)
                 HStack {
-                    Text("Light is sparse; Strong adds a double pulse.").settingsCaption()
                     Spacer()
-                    Button("Try feedback") { model.previewHaptics() }.disabled(!settings.hapticFeedback)
+                    Button("Try haptic") { model.previewHaptics() }.disabled(!settings.hapticFeedback)
+                        .modifier(EdgePreviewButtonStyle())
+                        .help("Keep a finger on the trackpad to feel the preview.")
                 }
-                Text("Keep a finger on the trackpad to feel the preview.").settingsCaption()
             }
         }
     }
@@ -176,23 +171,22 @@ struct SettingsView: View {
                     Button("Open Login Items to approve") { model.openLoginItemsSettings() }
                 }
                 Divider()
-                SettingsRow(title: "Check for updates automatically") {
+                SettingsRow(title: "Automatic updates") {
                     Toggle("Check for updates automatically", isOn: Binding(get: { model.automaticallyChecksForUpdates }, set: { model.setAutomaticallyChecksForUpdates($0) }))
                         .labelsHidden().toggleStyle(.switch).controlSize(.small)
                 }
                 HStack {
-                    Text("Updates use GitHub. No account or analytics.").settingsCaption()
                     Spacer()
-                    Button("Check now") { model.checkForUpdates() }
+                    Button("Check now") { model.checkForUpdates() }.help("Check GitHub for a new version.")
                 }
             }
             SettingsCard(title: "External display", systemImage: "display") {
-                SettingsRow(title: "Enable DDC brightness", detail: "Experimental. Used when a controllable built-in display is unavailable.") {
+                SettingsRow(title: "DDC brightness", detail: "Experimental · external displays") {
                     Toggle("Enable DDC brightness", isOn: Binding(get: { settings.externalDDCEnabled }, set: { model.setExternalDDCEnabled($0) }))
                         .labelsHidden().toggleStyle(.switch).controlSize(.small)
                 }
-                Text("Brightness feedback appears on the display being adjusted. Volume feedback stays on the screen where your gesture begins.").settingsCaption()
             }
+            .help("Used when a controllable built-in display is unavailable.")
             if let error = model.lastError {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .font(.system(size: 12)).foregroundStyle(.orange).textSelection(.enabled)
@@ -200,18 +194,16 @@ struct SettingsView: View {
             VStack(spacing: 8) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 48, height: 48)
                 Text("EdgeControl · \(appVersion)").font(.system(size: 14, weight: .semibold))
-                Text("Two edges. Two controls.").foregroundStyle(.secondary)
                 Link("Source & support ↗", destination: URL(string: "https://github.com/leecdiang/EdgeControl")!)
-                Text("By leecdiang · Independent software, not affiliated with Apple.").settingsCaption()
             }.font(.system(size: 12)).frame(maxWidth: .infinity).padding(.vertical, 14)
         }
     }
 
     private var hudDescription: String {
         switch settings.hudMode {
-        case .capsule: return "A quiet, floating indicator near the bottom of the screen. Follows system appearance."
-        case .notch: return "Expands below the camera housing. On screens without a notch, uses a small capsule at the top."
-        case .off: return "EdgeControl stays visually silent. Gesture control and haptics keep working."
+        case .capsule: return "Bottom of screen"
+        case .notch: return "At the notch · top capsule on other displays"
+        case .off: return "Hides this HUD. Does not activate Alcove."
         }
     }
 
@@ -238,21 +230,17 @@ private struct TrackpadGuide: View {
     let lowerHalfOnly: Bool
     var body: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 20) {
-                Label(left.title, systemImage: left.systemImage).frame(maxWidth: .infinity)
-                Label(right.title, systemImage: right.systemImage).frame(maxWidth: .infinity)
-            }.font(.system(size: 12, weight: .medium))
             ZStack {
                 RoundedRectangle(cornerRadius: 16).fill(.primary.opacity(0.035))
                 RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.12), lineWidth: 1)
                 HStack {
                     strip(enabled: left != .disabled)
                     Spacer()
-                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 22, weight: .light)).foregroundStyle(.tertiary)
+                    Image(systemName: "arrow.up.arrow.down").font(.system(size: 16, weight: .light)).foregroundStyle(.tertiary)
                     Spacer()
                     strip(enabled: right != .disabled)
                 }.padding(7)
-            }.frame(width: 260, height: 140)
+            }.frame(width: 150, height: 96)
         }
         .frame(maxWidth: .infinity).padding(.vertical, 4)
         .accessibilityElement(children: .ignore)
@@ -262,8 +250,8 @@ private struct TrackpadGuide: View {
         VStack(spacing: 0) {
             if lowerHalfOnly { Spacer(minLength: 0) }
             Capsule().fill(enabled ? Color.accentColor.opacity(0.45) : Color.secondary.opacity(0.12))
-                .frame(width: 8, height: lowerHalfOnly ? 58 : 120)
-        }.frame(height: 126)
+                .frame(width: 5, height: lowerHalfOnly ? 38 : 76)
+        }.frame(height: 82)
     }
 }
 
@@ -294,21 +282,18 @@ private struct SettingsCard<Content: View>: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                // Slightly more solid than the window glass so cards read as a
-                // distinct layer; near-opaque when Reduce Transparency is on.
-                .fill(
-                    Color(nsColor: .controlBackgroundColor)
-                        .opacity(reduceTransparency ? 1 : 0.65)
-                )
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            } else {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(.regularMaterial)
+            }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.primary.opacity(0.10), lineWidth: 0.6)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(.primary.opacity(0.06), lineWidth: 0.5)
         }
-        // A soft shadow lifts the cards off the glass for depth without
-        // adding any decorative gradient or glow.
-
     }
 }
 

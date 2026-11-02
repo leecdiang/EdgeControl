@@ -1105,8 +1105,8 @@ final class NativeUISnapshotTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         for (label, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             for page in SettingsView.Page.allCases {
-                let view = NSHostingView(rootView: SettingsView(model: model, settings: settings, initialPage: page))
-                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 960),
+                let view = makeSettingsWindowContent(SettingsView(model: model, settings: settings, initialPage: page))
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 620, height: 640),
                     styleMask: [.titled], backing: .buffered, defer: false)
                 window.isReleasedWhenClosed = false
                 window.appearance = NSAppearance(named: appearance)
@@ -1125,7 +1125,21 @@ final class NativeUISnapshotTests: XCTestCase {
                 add(attachment)
                 window.close()
             }
-            for mode in [HUDMode.capsule, .notch] {
+            let menuView = NSHostingView(rootView: MenuBarMenuView().environmentObject(model))
+            let menuWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 304, height: 250),
+                styleMask: [.borderless], backing: .buffered, defer: false)
+            menuWindow.isReleasedWhenClosed = false
+            menuWindow.appearance = NSAppearance(named: appearance)
+            menuWindow.contentView = menuView
+            menuWindow.orderFrontRegardless()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            menuView.layoutSubtreeIfNeeded()
+            let menuRep = try XCTUnwrap(menuView.bitmapImageRepForCachingDisplay(in: menuView.bounds))
+            menuView.cacheDisplay(in: menuView.bounds, to: menuRep)
+            try XCTUnwrap(menuRep.representation(using: .png, properties: [:]))
+                .write(to: directory.appendingPathComponent("menu-\(label).png"))
+            menuWindow.close()
+            for mode in [HUDMode.capsule, .notch, .off] {
                 let view = NSHostingView(rootView: HUDStylePreview(mode: mode, style: .system).frame(width: 360, height: 140))
                 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 140),
                     styleMask: [.borderless], backing: .buffered, defer: false)
@@ -1148,19 +1162,26 @@ final class NativeUISnapshotTests: XCTestCase {
         }
         // Compact native rendering evidence, also retrievable through text-only
         // CI log tooling. Original PNGs remain in the artifact and xcresult.
-        let sheet = NSImage(size: NSSize(width: 960, height: 1120))
+        let sheet = NSImage(size: NSSize(width: 960, height: 1180))
         sheet.lockFocus()
         NSColor.windowBackgroundColor.setFill()
-        NSRect(x: 0, y: 0, width: 960, height: 1120).fill()
+        NSRect(x: 0, y: 0, width: 960, height: 1180).fill()
         for (row, appearance) in ["light", "dark"].enumerated() {
             for (column, page) in SettingsView.Page.allCases.enumerated() {
                 let image = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("settings-\(page.rawValue)-\(appearance).png")))
-                image.draw(in: NSRect(x: CGFloat(column * 320 + 5), y: CGFloat(1120 - (row + 1) * 480), width: 310, height: 480))
+                image.draw(in: NSRect(x: CGFloat(column * 320 + 5), y: CGFloat(1180 - (row + 1) * 320), width: 310, height: 320))
             }
         }
-        for (index, key) in ["capsule-light", "notch-light", "capsule-dark", "notch-dark"].enumerated() {
-            let image = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("hud-\(key).png")))
-            image.draw(in: NSRect(x: CGFloat(index * 240), y: 25, width: 240, height: 100))
+        for (row, appearance) in ["light", "dark"].enumerated() {
+            for (column, mode) in HUDMode.allCases.enumerated() {
+                let image = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("hud-\(mode.rawValue)-\(appearance).png")))
+                let x = CGFloat(column * 320), y = CGFloat(340 - row * 125)
+                image.draw(in: NSRect(x: x, y: y, width: 320, height: 124))
+                ("\(mode.title) · \(appearance)" as NSString).draw(at: NSPoint(x: x + 12, y: y + 105),
+                    withAttributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.labelColor])
+            }
+            let menu = try XCTUnwrap(NSImage(contentsOf: directory.appendingPathComponent("menu-\(appearance).png")))
+            menu.draw(in: NSRect(x: CGFloat(row * 360 + 140), y: 8, width: 243, height: 200))
         }
         sheet.unlockFocus()
         let bitmap = try XCTUnwrap(NSBitmapImageRep(data: XCTUnwrap(sheet.tiffRepresentation)))
@@ -1170,5 +1191,74 @@ final class NativeUISnapshotTests: XCTestCase {
         for start in stride(from: 0, to: encoded.count, by: 4000) {
             print("EDGE_UI_IMAGE_CHUNK:\(start):" + String(encoded.dropFirst(start).prefix(4000)))
         }
+    }
+}
+
+@MainActor
+private struct HUDPreviewSwitchHarness: View {
+    @ObservedObject var settings: AppSettings
+    var body: some View {
+        HUDStylePreview(mode: settings.hudMode, style: .system).frame(width: 360, height: 140)
+    }
+}
+
+@MainActor
+final class HUDPreviewSwitchTests: XCTestCase {
+    func testSwitchingModesInOneHostedViewNeverShowsPreviousShape() throws {
+        let name = "EdgeControlTests.PreviewSwitch." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = AppSettings(defaults: defaults)
+        let view = NSHostingView(rootView: HUDPreviewSwitchHarness(settings: settings).environment(\.colorScheme, .light))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 140),
+            styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .aqua)
+        window.backgroundColor = .white
+        window.contentView = view
+        window.orderFrontRegardless()
+        defer { window.close() }
+        for mode in [HUDMode.capsule, .notch, .off, .capsule, .notch, .capsule] {
+            settings.hudMode = mode
+            RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+            view.layoutSubtreeIfNeeded()
+            let rep = try XCTUnwrap(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.cacheDisplay(in: view.bounds, to: rep)
+            var dark = 0, total = 0
+            for y in stride(from: 0, to: rep.pixelsHigh, by: 2) {
+                for x in stride(from: 0, to: rep.pixelsWide, by: 2) {
+                    let c = try XCTUnwrap(rep.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB))
+                    if c.alphaComponent > 0.9 && max(c.redComponent, max(c.greenComponent, c.blueComponent)) < 0.2 { dark += 1 }
+                    total += 1
+                }
+            }
+            let fraction = Double(dark) / Double(total)
+            if mode == .notch {
+                XCTAssertGreaterThan(fraction, 0.08, "Notch must render its black attached silhouette")
+            } else {
+                XCTAssertLessThan(fraction, 0.04, "\(mode) must not retain the notch silhouette")
+            }
+        }
+    }
+
+    func testSettingsBackdropTracksWindowAppearance() throws {
+        let view = makeSettingsWindowContent(Color.clear.frame(width: 100, height: 100))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
+            styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = view
+        defer { window.close() }
+        XCTAssertTrue(view.subviews.first is NSVisualEffectView)
+        var values: [CGFloat] = []
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            window.appearance = NSAppearance(named: appearance)
+            window.orderFrontRegardless()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            let cg = try XCTUnwrap(view.subviews[1].layer?.backgroundColor)
+            let c = try XCTUnwrap(NSColor(cgColor: cg)?.usingColorSpace(.deviceRGB))
+            values.append(c.redComponent)
+            XCTAssertEqual(c.alphaComponent, CGFloat(EdgeUITheme.settingsNeutralScrimOpacity), accuracy: 0.01)
+        }
+        XCTAssertGreaterThan(values[0], values[1])
     }
 }
