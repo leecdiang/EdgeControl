@@ -10,4 +10,14 @@ The existing pearl-glass design is retained. Blue and orange inward arrows cross
 
 ## Checks
 
-Required checks: existing 151 XCTest methods, eight update-feed regressions, actual Sparkle parsing and installer-selector integration, universal Release compilation, asset-catalog compilation, ZIP/DMG integrity and code signatures. Repository invariants, shell syntax and whitespace checks run locally. CI and screenshot evidence are recorded in the PR. No hardware-control, gesture or haptic code changes.
+Required checks: 154 XCTest methods, eight update-feed regressions, actual Sparkle parsing and installer-selector integration, universal Release compilation, asset-catalog compilation, ZIP/DMG integrity and code signatures. Repository invariants, shell syntax and whitespace checks run locally. CI and screenshot evidence are recorded in the PR. No hardware-control, recognition or haptic code changes.
+
+## Notch motion follow-up
+
+The previous outline spring and separately delayed content fade could look like two distinct steps. A single animatable expansion now controls outline width, wing centers and a continuous smoothstep opacity curve. Each wing is clipped independently, preserving the physical camera gap throughout motion. A 0.40 s critically damped spring replaces the 0.32 s outline spring; there is no content delay or blur animation. Reduce Motion still uses a short opacity fade without horizontal expansion.
+
+The controller commits its collapsed layout and gates reveal for one render opportunity. High-frequency value updates cannot bypass that gate. A new value during retraction reverses the existing presentation without ordering another window front. Immediate hide cancels pending reveal and disables implicit animation.
+
+Gesture lifetime now owns the HUD timeout: it stays visible through stationary pauses and starts the 650 ms grace period on lift. Preview calls do not open a held gesture. Error messages retain the longer 1.5 s timeout. Three controller regressions cover first-frame bursts and cancellation, held pauses and interrupted retraction, and preview/error dismissal. Existing native snapshots cover camera clearance, retraction and Reduce Motion; actual hardware timing and perceived smoothness still require user observation.
+
+The local xcodebuild test attempt could not resolve packages because the sandbox denied SwiftPM diagnostics access under the user's Library cache. Native execution therefore uses macOS CI; no local XCTest success is claimed for that attempt.

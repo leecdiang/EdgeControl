@@ -1127,6 +1127,61 @@ final class FeedbackSettingsMigrationTests: XCTestCase {
 
 @MainActor
 final class NativeUISnapshotTests: XCTestCase {
+    func testHUDValueBurstWaitsForInitialLayoutAndHideCancelsReveal() async throws {
+        let controller = HUDController()
+        defer { controller.hideImmediately() }
+        for i in 0..<100 {
+            controller.show(HUDPresentation(kind: .volume, value: Double(i) / 100, message: nil))
+        }
+        XCTAssertFalse(controller.debugIsPresented, "Values must not bypass the collapsed first frame")
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(controller.debugIsPresented)
+        XCTAssertEqual(controller.debugMetrics.orderFrontCount, 1)
+        controller.hideImmediately()
+        controller.show(HUDPresentation(kind: .volume, value: 0.5, message: nil))
+        controller.hideImmediately()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertFalse(controller.debugIsPresented, "A cancelled reveal must not bring back a hidden HUD")
+    }
+
+    func testHUDHeldGestureSurvivesPauseAndReversesRetractionInSameWindow() async throws {
+        let controller = HUDController()
+        defer { controller.hideImmediately() }
+        controller.setMode(.notch)
+        controller.beginGesture()
+        controller.show(HUDPresentation(kind: .brightness, value: 0.4, message: nil))
+        try await Task.sleep(nanoseconds: 800_000_000)
+        XCTAssertTrue(controller.debugIsPresented, "A stationary finger must not dismiss an active gesture")
+        controller.endGesture()
+        try await Task.sleep(nanoseconds: 750_000_000)
+        XCTAssertFalse(controller.debugIsPresented)
+        controller.beginGesture()
+        controller.show(HUDPresentation(kind: .brightness, value: 0.6, message: nil))
+        XCTAssertTrue(controller.debugIsPresented)
+        // Wait past the old orderOut deadline. Cancellation must keep the same
+        // window alive and avoid restarting the reveal from a collapsed pose.
+        try await Task.sleep(nanoseconds: 700_000_000)
+        XCTAssertTrue(controller.debugIsPresented)
+        XCTAssertEqual(controller.debugMetrics.presentCount, 1)
+        XCTAssertEqual(controller.debugMetrics.orderFrontCount, 1)
+        XCTAssertEqual(controller.debugMetrics.dismissCount, 0)
+    }
+
+    func testHUDPreviewAutoDismissesAndGestureEndPreservesErrorTimeout() async throws {
+        let controller = HUDController()
+        defer { controller.hideImmediately() }
+        controller.show(HUDPresentation(kind: .volume, value: 0.5, message: nil))
+        try await Task.sleep(nanoseconds: 750_000_000)
+        XCTAssertFalse(controller.debugIsPresented, "A settings preview must still auto-dismiss")
+        controller.beginGesture()
+        controller.show(HUDPresentation(kind: .volume, value: nil, message: "Unavailable"))
+        controller.endGesture()
+        try await Task.sleep(nanoseconds: 800_000_000)
+        XCTAssertTrue(controller.debugIsPresented, "Errors need the full readable timeout after lift")
+        try await Task.sleep(nanoseconds: 800_000_000)
+        XCTAssertFalse(controller.debugIsPresented)
+    }
+
     func testNotchWingsKeepCameraClearAndRecoverFromInterruptedRetraction() throws {
         func content(_ shown: Bool, _ reduced: Bool = false) -> some View {
             EdgeHUDView(presentation: HUDPresentation(kind: .brightness, value: 0.62, message: nil),
@@ -1143,7 +1198,7 @@ final class NativeUISnapshotTests: XCTestCase {
         window.orderFrontRegardless()
         defer { window.close() }
         var frames: [NSImage] = []
-        for (index, state) in [(false, 0.1), (true, 0.10), (true, 0.65),
+        for (index, state) in [(false, 0.1), (true, 0.16), (true, 0.65),
                                 (false, 0.10), (true, 0.65), (false, 0.65)].enumerated() {
             view.rootView = content(state.0)
             RunLoop.main.run(until: Date().addingTimeInterval(state.1))
@@ -1153,10 +1208,24 @@ final class NativeUISnapshotTests: XCTestCase {
             let image = NSImage(size: view.bounds.size)
             image.addRepresentation(rep)
             frames.append(image)
-            if index == 2 || index == 4 {
-                // Camera occupies x=104...284. No text or progress may enter it.
+            if index == 1 || index == 3 {
+                // Check a rendered intermediate silhouette, not just the two
+                // endpoints: removing interpolation must fail this regression.
                 let scale = CGFloat(rep.pixelsWide) / 388
-                for x in stride(from: 110, to: 278, by: 4) {
+                let darkColumns = (0..<388).filter { x in
+                    guard let c = rep.colorAt(x: Int(CGFloat(x) * scale), y: Int(3 * scale))?.usingColorSpace(.deviceRGB) else { return false }
+                    return max(c.redComponent, max(c.greenComponent, c.blueComponent)) < 0.1
+                }
+                let span = try XCTUnwrap(darkColumns.last) - XCTUnwrap(darkColumns.first)
+                print("Notch intermediate silhouette \(index): \(span) pt")
+                XCTAssertGreaterThan(span, 185, "Transition must have left its collapsed endpoint")
+                XCTAssertLessThan(span, 348, "Transition must interpolate instead of jumping to full width")
+            }
+            do {
+                // Camera occupies x=104...284. Check its interior in every
+                // sampled frame, including expansion and interrupted collapse.
+                let scale = CGFloat(rep.pixelsWide) / 388
+                for x in stride(from: 120, to: 268, by: 4) {
                     let c = try XCTUnwrap(rep.colorAt(x: Int(CGFloat(x) * scale), y: Int(16 * scale))?.usingColorSpace(.deviceRGB))
                     XCTAssertLessThan(max(c.redComponent, max(c.greenComponent, c.blueComponent)), 0.05)
                 }

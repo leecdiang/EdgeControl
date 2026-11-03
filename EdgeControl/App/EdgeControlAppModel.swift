@@ -236,8 +236,7 @@ final class EdgeControlAppModel: ObservableObject {
     func previewHUD(kind: HUDKind = .volume) {
         guard session == nil, settings.showHUD else { return }
         let id = (settingsWindow?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
-        hudController.beginGesture(displayID: id)
-        hudController.show(HUDPresentation(kind: kind, value: 0.62, message: nil))
+        hudController.show(HUDPresentation(kind: kind, value: 0.62, message: nil), preferredDisplayID: id)
     }
 
     func previewHaptics() {
@@ -574,6 +573,7 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func finishSession() {
         session = nil
+        hudController.endGesture()
         cursorController.restore()
         hapticEngine.endGesture()
     }
