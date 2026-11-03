@@ -2,7 +2,9 @@
 
 > Two edges. Two controls. Nothing else.
 
-[![Downloads](https://img.shields.io/github/downloads/leecdiang/EdgeControl/total?style=flat-square&label=Downloads&color=2ea44f)](https://github.com/leecdiang/EdgeControl/releases) · [**中文**](README_zh.md)
+[![Package downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fleecdiang%2FEdgeControl%2Fdownload-stats%2Fdownloads.json&style=flat-square)](https://github.com/leecdiang/EdgeControl/releases) · [**中文**](README_zh.md)
+
+<sub>DMG + ZIP package downloads across public releases; includes repeat downloads and updates, not unique users. Refreshed every 6 hours and on release publication.</sub>
 
 <img src="assets/icon-512.png" alt="EdgeControl icon" width="128" height="128" align="left">
 
