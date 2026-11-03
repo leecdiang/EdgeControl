@@ -1,6 +1,32 @@
 import AppKit
 import SwiftUI
 
+/// A shared two-edge template symbol, drawn in points for every backing scale.
+/// Keeping the menu bar and popover on the same image avoids mismatched branding.
+@MainActor
+enum EdgeControlSymbol {
+    static let image: NSImage = {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            NSColor.black.setStroke()
+            let path = NSBezierPath()
+            path.lineWidth = 1.5
+            path.lineCapStyle = .round
+            for (x, thumbY) in [(CGFloat(5), CGFloat(11)), (CGFloat(13), CGFloat(7))] {
+                path.move(to: NSPoint(x: x, y: 2.5))
+                path.line(to: NSPoint(x: x, y: thumbY - 2.25))
+                path.move(to: NSPoint(x: x, y: thumbY + 2.25))
+                path.line(to: NSPoint(x: x, y: 15.5))
+                path.appendOval(in: NSRect(x: x - 2.25, y: thumbY - 2.25, width: 4.5, height: 4.5))
+            }
+            path.stroke()
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "EdgeControl"
+        return image
+    }()
+}
+
 /// Shared visual constants for the small, translucent surfaces in EdgeControl.
 enum EdgeUITheme {
     static let controlAccent = Color(nsColor: .controlAccentColor)

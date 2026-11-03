@@ -8,8 +8,8 @@ signer="$2"
 expected_commit="$3"
 [[ "$run_id" =~ ^[0-9]+$ && -x "$signer" && "$expected_commit" =~ ^[0-9a-f]{40}$ ]] || exit 2
 repo="leecdiang/EdgeControl"
-version="1.8.4"
-build="18"
+version="1.8.5"
+build="19"
 tag="v$version"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 project_root="$(cd "$script_dir/.." && pwd)"
@@ -54,10 +54,10 @@ signature="$("$signer" -p "$archive")"
 public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")"
 xcrun swift -sdk "$(xcrun --show-sdk-path)" -module-cache-path "$release_dir/module-cache" "$script_dir/verify_update.swift" "$archive" "$public_key" "$signature"
 mkdir "$release_dir/previous"
-gh release download v1.8.3 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
+gh release download v1.8.4 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
 python3 "$script_dir/appcast.py" "$release_dir/previous/appcast.xml" "$release_dir/assets/appcast.xml" \
   --version "$version" --build "$build" --archive "$archive" --signature "$signature" \
-  --description 'Repairs update-feed parsing and introduces a refined glass trackpad icon.'
+  --description 'Two-edge menu symbol and glass artwork showing inward entry followed by vertical adjustment.'
 sparkle_root="$(cd "$(dirname "$signer")/.." && pwd)"
 bash "$script_dir/validate_appcast.sh" "$release_dir/assets/appcast.xml" "$build" \
   "$sparkle_root/Sparkle.xcframework/macos-arm64_x86_64"
