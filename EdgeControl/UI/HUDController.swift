@@ -181,6 +181,10 @@ final class HUDController {
     private var pinnedScreenID: UInt64?
     private var lastPresentation: HUDPresentation?
     private var mode: HUDMode = .capsule
+    private var isGestureActive = false
+
+    // Read-only observation for controller lifecycle tests, without hardware input.
+    var debugIsPresented: Bool { viewModel.isPresented }
 
     func setMode(_ mode: HUDMode) {
         guard self.mode != mode else { return }
@@ -189,8 +193,20 @@ final class HUDController {
     }
 
     func beginGesture(displayID: UInt32? = nil) {
+        isGestureActive = true
+        dismissTask?.cancel()
         pinnedScreenID = displayID.map(UInt64.init)
         pinnedScreenID = currentScreen().id
+    }
+
+    func endGesture() {
+        guard isGestureActive else { return }
+        isGestureActive = false
+        // Errors retain their longer timeout; a normal HUD starts its grace
+        // period on lift, not while the finger pauses during an adjustment.
+        if lifecycle.isVisible, lastPresentation?.value != nil {
+            scheduleDismiss(after: 650_000_000)
+        }
     }
 
     private(set) var colorStyle: HUDColorStyle = .system
@@ -291,20 +307,31 @@ final class HUDController {
         debugMetrics.updateCount = lifecycle.updateCount
         if plan.isNewPresentation {
             presentationTask?.cancel()
-            presentationTask = Task { @MainActor [weak viewModel] in
-                await Task.yield()
+            // Commit the collapsed layout before revealing. Task.yield alone
+            // may resume within the same render pass, and a burst of values
+            // must not bypass this first-frame gate.
+            panel.contentView?.layoutSubtreeIfNeeded()
+            panel.displayIfNeeded()
+            presentationTask = Task { @MainActor [weak self] in
+                do { try await Task.sleep(nanoseconds: 16_000_000) }
+                catch { return }
                 guard !Task.isCancelled else { return }
-                viewModel?.isPresented = true
+                self?.viewModel.isPresented = true
+                self?.presentationTask = nil
             }
-        } else {
+        } else if presentationTask == nil, !viewModel.isPresented {
             withTransaction(Transaction(animation: nil)) {
                 viewModel.isPresented = true
             }
         }
 
-        let visibleNanoseconds: UInt64 = presentation.value == nil
-            ? 1_500_000_000
-            : 650_000_000
+        if presentation.value == nil || !isGestureActive {
+            scheduleDismiss(after: presentation.value == nil ? 1_500_000_000 : 650_000_000)
+        }
+    }
+
+    private func scheduleDismiss(after visibleNanoseconds: UInt64) {
+        dismissTask?.cancel()
         dismissTask = Task { [weak self] in
             do {
                 try await Task.sleep(nanoseconds: visibleNanoseconds)
@@ -332,7 +359,11 @@ final class HUDController {
     func hideImmediately() {
         dismissTask?.cancel()
         presentationTask?.cancel()
-        withTransaction(Transaction(animation: nil)) {
+        presentationTask = nil
+        isGestureActive = false
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
             viewModel.isPresented = false
         }
         panel.orderOut(nil)
@@ -415,7 +446,7 @@ struct EdgeHUDView: View {
             .scaleEffect(isPresented || reduceMotion || isNotch ? 1 : 0.96)
             .opacity(isPresented || (isNotch && !reduceMotion) ? 1 : 0)
             .animation(reduceMotion ? .linear(duration: 0.10)
-                : (isNotch ? .spring(response: 0.32, dampingFraction: 1) : .easeOut(duration: 0.14)), value: isPresented)
+                : (isNotch ? .spring(response: 0.40, dampingFraction: 1) : .easeOut(duration: 0.14)), value: isPresented)
             .frame(width: width + 32, height: contentHeight + (isNotch ? 16 : 32),
                    alignment: cutoutHeight > 0 ? .top : .center)
             .accessibilityElement(children: .ignore)
@@ -425,50 +456,30 @@ struct EdgeHUDView: View {
 
     @ViewBuilder private var surface: some View {
         if cutoutHeight > 0 {
-            ZStack(alignment: .top) {
-                AttachedHUDShape().fill(.black)
-                    .frame(width: isPresented || reduceMotion ? width : cutoutWidth,
-                           height: cutoutHeight)
-                notchContent
-                    .frame(width: width, height: cutoutHeight)
-                    .opacity(isPresented ? 1 : 0)
-                    .blur(radius: isPresented || reduceMotion ? 0 : 3)
-                    // Reveal only after there is room for complete glyphs;
-                    // hide before the retracting mask reaches either wing.
-                    .animation(.easeOut(duration: reduceMotion ? 0.10 : (isPresented ? 0.10 : 0.06))
-                        .delay(isPresented && !reduceMotion ? 0.22 : 0), value: isPresented)
-                    .mask {
-                        AttachedHUDShape()
-                            .frame(width: isPresented || reduceMotion ? width : cutoutWidth,
-                                   height: cutoutHeight)
-                    }
-            }
-                .frame(width: width, height: cutoutHeight, alignment: .top)
-                .environment(\.colorScheme, .dark)
+            AttachedHUDSurface(expansion: isPresented || reduceMotion ? 1 : 0,
+                               width: width, cutoutWidth: cutoutWidth, height: cutoutHeight,
+                               leading: notchLabel,
+                               trailing: EdgeHUDProgress(value: presentation.value ?? 0,
+                                   tint: colorStyle == .system ? .white : accentColor, height: 4)
+                                   .frame(width: 62))
+            .environment(\.colorScheme, .dark)
         } else {
             content.frame(width: width, height: contentHeight)
                 .modifier(EdgeHUDGlassModifier(tint: glassTint, reduceTransparency: reduceTransparency))
         }
     }
 
-    private var notchContent: some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Image(systemName: symbolName)
-                    .font(.system(size: 12, weight: .semibold))
-                    .frame(width: 15)
-                Text(presentation.kind == .volume ? "Sound" : "Display")
-                    .font(.system(size: 11, weight: .medium))
-                    .lineLimit(1)
-            }
-            .foregroundStyle(.white)
-            .frame(width: HUDLayout.notchWingWidth)
-            Color.clear.frame(width: cutoutWidth)
-            EdgeHUDProgress(value: presentation.value ?? 0,
-                            tint: colorStyle == .system ? .white : accentColor, height: 4)
-                .frame(width: 62)
-                .frame(width: HUDLayout.notchWingWidth)
+    private var notchLabel: some View {
+        HStack(spacing: 6) {
+            Image(systemName: symbolName)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 15)
+            Text(presentation.kind == .volume ? "Sound" : "Display")
+                .font(.system(size: 11, weight: .medium))
+                .lineLimit(1)
         }
+        .foregroundStyle(.white)
+        .fixedSize()
     }
 
     @ViewBuilder
@@ -655,6 +666,47 @@ private struct CapsuleVisualEffect: NSViewRepresentable {
         nsView.blendingMode = .behindWindow
         nsView.state = .active
         nsView.needsLayout = true
+    }
+}
+
+/// One interpolated value drives the outline, wing positions and content fade.
+/// Reversing an in-flight spring therefore reverses everything at its current
+/// position, without scheduling a second, delayed content animation.
+private struct AttachedHUDSurface<Leading: View, Trailing: View>: View, Animatable {
+    var expansion: CGFloat
+    let width: CGFloat
+    let cutoutWidth: CGFloat
+    let height: CGFloat
+    let leading: Leading
+    let trailing: Trailing
+
+    var animatableData: CGFloat {
+        get { expansion }
+        set { expansion = newValue }
+    }
+
+    var body: some View {
+        let progress = min(1, max(0, expansion))
+        let wingWidth = max(0, (width - cutoutWidth) / 2) * progress
+        // Smoothstep keeps opacity continuous at both ends. Content travels
+        // with the wings and becomes readable as space opens around the camera.
+        let reveal = min(1, max(0, (progress - 0.65) / 0.35))
+        let opacity = Double(reveal * reveal * (3 - 2 * reveal))
+        ZStack {
+            AttachedHUDShape().fill(.black)
+            HStack(spacing: 0) {
+                leading.frame(width: wingWidth).clipped()
+                Color.clear.frame(width: cutoutWidth)
+                trailing.frame(width: wingWidth).clipped()
+            }
+            .opacity(opacity)
+        }
+        .frame(width: cutoutWidth + wingWidth * 2, height: height)
+        .clipShape(AttachedHUDShape())
+        .frame(width: width, height: height, alignment: .top)
+        // Derived geometry already follows animatableData; never start another
+        // animation for these values or for the live volume/brightness value.
+        .transaction { $0.animation = nil }
     }
 }
 

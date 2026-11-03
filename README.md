@@ -161,9 +161,9 @@ Settings now group Gestures, Feedback and General. HUD choices are Capsule, Notc
 
 Restores the 1.7.7 capsule size (144×40 pt; 212×40 for errors). Notch feedback uses a 24 pt content strip below the cutout, only 4 pt of shoulder per side, smaller symbols and a 3 pt indicator. Off hides EdgeControl only: it does not activate Alcove. No integration or media-key injection is added. See [validation](VALIDATION_1.8.1.md).
 
-### 1.8.5: artwork that explains the gesture
+### 1.8.5: gesture artwork and continuous notch motion
 
-The menu bar and menu panel share a two-edge symbol. The pearl-glass app icon now shows inward entry arrows turning into vertical adjustment tracks, while keeping its quiet blue/orange identity. App-owned windows explicitly load the current bundle's artwork on launch. See [validation](VALIDATION_1.8.5.md).
+The menu bar and menu panel share a two-edge symbol. The pearl-glass app icon now shows inward entry arrows turning into vertical adjustment tracks, while keeping its quiet blue/orange identity. App-owned windows explicitly load the current bundle's artwork on launch. The notch uses one reversible expansion for its outline and content, and remains visible through pauses until the gesture ends. See [validation](VALIDATION_1.8.5.md).
 
 ### 1.8.4: reliable update feeds and a refined icon
 

@@ -57,7 +57,7 @@ mkdir "$release_dir/previous"
 gh release download v1.8.4 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
 python3 "$script_dir/appcast.py" "$release_dir/previous/appcast.xml" "$release_dir/assets/appcast.xml" \
   --version "$version" --build "$build" --archive "$archive" --signature "$signature" \
-  --description 'Two-edge menu symbol and glass artwork showing inward entry followed by vertical adjustment.'
+  --description 'Two-edge gesture artwork and a continuous, reversible notch animation that stays visible until finger lift.'
 sparkle_root="$(cd "$(dirname "$signer")/.." && pwd)"
 bash "$script_dir/validate_appcast.sh" "$release_dir/assets/appcast.xml" "$build" \
   "$sparkle_root/Sparkle.xcframework/macos-arm64_x86_64"
