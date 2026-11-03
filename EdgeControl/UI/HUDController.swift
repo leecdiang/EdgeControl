@@ -279,17 +279,14 @@ final class HUDController {
         )
 
         withTransaction(Transaction(animation: nil)) {
-            viewModel.presentation = presentation
-            viewModel.cutoutHeight = placement.cutoutHeight
-            viewModel.cutoutWidth = placement.cutoutWidth
-            viewModel.surfaceWidth = placement.contentWidth
+            if viewModel.presentation != presentation { viewModel.presentation = presentation }
+            updateGeometry(placement)
             if plan.isNewPresentation {
                 viewModel.isPresented = false
             }
         }
 
-        panel.appearance = placement.attachedToNotch ? NSAppearance(named: .darkAqua) : NSApp.effectiveAppearance
-        panel.level = placement.attachedToNotch ? .statusBar : .floating
+        updateWindowStyle(placement)
         if plan.shouldResize {
             panel.setContentSize(requiredSize)
             debugMetrics.resizeCount += 1
@@ -380,17 +377,29 @@ final class HUDController {
         // Geometry can change even if the display ID is unchanged.
         guard panel.frame != placement.frame || viewModel.cutoutHeight != placement.cutoutHeight else { return }
         withTransaction(Transaction(animation: nil)) {
-            viewModel.cutoutHeight = placement.cutoutHeight
-            viewModel.cutoutWidth = placement.cutoutWidth
-            viewModel.surfaceWidth = placement.contentWidth
+            updateGeometry(placement)
         }
-        panel.level = placement.attachedToNotch ? .statusBar : .floating
-        panel.appearance = placement.attachedToNotch ? NSAppearance(named: .darkAqua) : NSApp.effectiveAppearance
+        updateWindowStyle(placement)
         panel.setFrame(placement.frame, display: true)
         let id = screenID(screen)
         pinnedScreenID = id
         lifecycle.updateScreenFrame(placement.frame, screenID: id)
         debugMetrics.positionCount += 1
+    }
+
+    private func updateGeometry(_ placement: HUDPlacement) {
+        // Touch values can arrive faster than display refresh. Only publish
+        // geometry when it changes so value feedback does not churn layout.
+        if viewModel.cutoutHeight != placement.cutoutHeight { viewModel.cutoutHeight = placement.cutoutHeight }
+        if viewModel.cutoutWidth != placement.cutoutWidth { viewModel.cutoutWidth = placement.cutoutWidth }
+        if viewModel.surfaceWidth != placement.contentWidth { viewModel.surfaceWidth = placement.contentWidth }
+    }
+
+    private func updateWindowStyle(_ placement: HUDPlacement) {
+        let appearance = placement.attachedToNotch ? NSAppearance(named: .darkAqua) : NSApp.effectiveAppearance
+        if panel.appearance?.name != appearance?.name { panel.appearance = appearance }
+        let level: NSWindow.Level = placement.attachedToNotch ? .statusBar : .floating
+        if panel.level != level { panel.level = level }
     }
 
     private func screenID(_ screen: NSScreen) -> UInt64? {
