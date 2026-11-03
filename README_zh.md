@@ -2,7 +2,9 @@
 
 > 两个边缘，两种控制，仅此而已。
 
-[![Downloads](https://img.shields.io/github/downloads/leecdiang/EdgeControl/total?style=flat-square&label=Downloads&color=2ea44f)](https://github.com/leecdiang/EdgeControl/releases) · [**English**](README.md)
+[![安装包下载](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fleecdiang%2FEdgeControl%2Fdownload-stats%2Fdownloads.json&style=flat-square&label=%E5%AE%89%E8%A3%85%E5%8C%85%E4%B8%8B%E8%BD%BD)](https://github.com/leecdiang/EdgeControl/releases) · [**English**](README.md)
+
+<sub>统计公开版本的 DMG 与 ZIP 安装包下载次数，包含重复下载和更新，不代表独立用户数。每 6 小时及发布新版本时刷新。</sub>
 
 <img src="assets/icon-512.png" alt="EdgeControl 图标" width="128" height="128" align="left">
 
