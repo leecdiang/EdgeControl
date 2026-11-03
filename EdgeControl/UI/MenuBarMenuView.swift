@@ -123,8 +123,10 @@ private struct MenuBarSettingsContent: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(.primary.opacity(0.075))
-                Image(systemName: "slider.vertical.3")
-                    .font(.system(size: 15, weight: .semibold))
+                Image(nsImage: EdgeControlSymbol.image)
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(width: 18, height: 18)
                     .foregroundStyle(.primary)
             }
             .frame(width: 32, height: 32)

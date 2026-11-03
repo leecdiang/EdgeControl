@@ -45,6 +45,11 @@ struct EdgeControlApp: App {
 
         let store = AppModelStore(createModel: createModel)
         _store = StateObject(wrappedValue: store)
+        // App-owned windows use this bundle's artwork even if an external
+        // launcher still has an older icon cached for the installation path.
+        if createModel, let icon = NSImage(named: NSImage.Name("AppIcon")) {
+            NSApplication.shared.applicationIconImage = icon
+        }
         // Hosted unit tests must remain independent of real trackpad hardware.
         if createModel, !isHostedUnitTest {
             store.model?.start()
@@ -64,7 +69,12 @@ struct EdgeControlApp: App {
             }
         } label: {
             if store.model != nil {
-                Label("EdgeControl", systemImage: "slider.vertical.3")
+                Label {
+                    Text("EdgeControl")
+                } icon: {
+                    Image(nsImage: EdgeControlSymbol.image)
+                        .renderingMode(.template)
+                }
             }
         }
         .menuBarExtraStyle(.window)
