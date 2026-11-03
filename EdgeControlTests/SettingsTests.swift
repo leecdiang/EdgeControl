@@ -1208,10 +1208,24 @@ final class NativeUISnapshotTests: XCTestCase {
             let image = NSImage(size: view.bounds.size)
             image.addRepresentation(rep)
             frames.append(image)
-            if index == 2 || index == 4 {
-                // Camera occupies x=104...284. No text or progress may enter it.
+            if index == 1 || index == 3 {
+                // Check a rendered intermediate silhouette, not just the two
+                // endpoints: removing interpolation must fail this regression.
                 let scale = CGFloat(rep.pixelsWide) / 388
-                for x in stride(from: 110, to: 278, by: 4) {
+                let darkColumns = (0..<388).filter { x in
+                    guard let c = rep.colorAt(x: Int(CGFloat(x) * scale), y: Int(3 * scale))?.usingColorSpace(.deviceRGB) else { return false }
+                    return max(c.redComponent, max(c.greenComponent, c.blueComponent)) < 0.1
+                }
+                let span = try XCTUnwrap(darkColumns.last) - XCTUnwrap(darkColumns.first)
+                print("Notch intermediate silhouette \(index): \(span) pt")
+                XCTAssertGreaterThan(span, 185, "Transition must have left its collapsed endpoint")
+                XCTAssertLessThan(span, 348, "Transition must interpolate instead of jumping to full width")
+            }
+            do {
+                // Camera occupies x=104...284. Check its interior in every
+                // sampled frame, including expansion and interrupted collapse.
+                let scale = CGFloat(rep.pixelsWide) / 388
+                for x in stride(from: 120, to: 268, by: 4) {
                     let c = try XCTUnwrap(rep.colorAt(x: Int(CGFloat(x) * scale), y: Int(16 * scale))?.usingColorSpace(.deviceRGB))
                     XCTAssertLessThan(max(c.redComponent, max(c.greenComponent, c.blueComponent)), 0.05)
                 }
