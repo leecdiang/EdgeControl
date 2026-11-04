@@ -2,6 +2,39 @@ import XCTest
 @testable import EdgeControl
 
 final class GestureEngineTests: XCTestCase {
+    func testRegressingDeviceTimeRejectsCandidateUntilLift() {
+        let engine = GestureEngine()
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.001, y: 0.50, after: 1)
+        trace.contact(x: 0.017, y: 0.53, after: -0.01)
+        trace.contact(x: 0.017, y: 0.56, after: 0.04)
+        XCTAssertTrue(trace.events(using: engine).isEmpty)
+        XCTAssertEqual(engine.state, .rejected(.invalidInput))
+        var recovery = SyntheticTouchTrace()
+        recovery.lift()
+        recovery.contact(x: 0.001, y: 0.5)
+        recovery.contact(x: 0.017, y: 0.53)
+        XCTAssertEqual(recovery.events(using: engine), [.began(edge: .left)])
+    }
+
+    func testRegressingDeviceTimeCancelsActiveGesture() {
+        let engine = GestureEngine()
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.001, y: 0.5)
+        trace.contact(x: 0.017, y: 0.53)
+        trace.contact(x: 0.017, y: 0.56, after: -0.001)
+        trace.contact(x: 0.017, y: 0.58)
+        XCTAssertEqual(trace.events(using: engine), [.began(edge: .left), .cancelled(edge: .left)])
+        XCTAssertEqual(engine.state, .rejected(.invalidInput))
+    }
+
+    func testEqualDeviceTimesRemainValid() {
+        var trace = SyntheticTouchTrace()
+        trace.contact(x: 0.001, y: 0.5)
+        trace.contact(x: 0.017, y: 0.53, after: 0)
+        XCTAssertEqual(trace.events(using: GestureEngine()), [.began(edge: .left)])
+    }
+
     func testLeftIngressThenImmediateUpActivatesLeft() {
         var trace = SyntheticTouchTrace()
         trace.contact(x: 0.001, y: 0.50)

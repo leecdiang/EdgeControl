@@ -50,6 +50,7 @@ final class EdgeControlAppModel: ObservableObject {
     static let maximumFrameAge: TimeInterval = 0.150
     var isControlling: Bool { session != nil }
     var isCursorFrozen: Bool { cursorController.isFrozen }
+    var isTouchWatchdogRunning: Bool { touchWatchdogTask != nil }
     @Published private(set) var automaticallyChecksForUpdates = false
 
     private lazy var systemEventMonitor = SystemEventMonitor(
@@ -124,7 +125,6 @@ final class EdgeControlAppModel: ObservableObject {
         refreshLaunchAtLoginState()
         runVolumeProbeIfRequested()
         runBrightnessProbeIfRequested()
-        startTouchWatchdog()
         startTouchInput()
     }
 
@@ -134,8 +134,7 @@ final class EdgeControlAppModel: ObservableObject {
         trackpadManager.stop()
         hasLiveTouchContacts = false
         discardTouchFramesUntilLift = false
-        touchWatchdogTask?.cancel()
-        touchWatchdogTask = nil
+        stopTouchWatchdog()
         touchStatus = .stopped
         gestureEngine = Self.makeGestureEngine(settings: settings)
         hasStarted = false
@@ -199,6 +198,7 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func rebuildGestureEngineAfterAdmissionChange() {
         finishSession()
+        stopTouchWatchdog()
         // Rebuilding while a finger is down must never reinterpret that
         // existing contact as a fresh edge birth. Preserve a watchdog latch
         // even though that recovery path has already cleared the live flag.
@@ -219,6 +219,7 @@ final class EdgeControlAppModel: ObservableObject {
     func rescanTrackpads() {
         guard hasStarted else { return }
         finishSession()
+        stopTouchWatchdog()
         hapticEngine.resetAfterWake()
         trackpadManager.stop()
         frameGeneration &+= 1
@@ -310,26 +311,40 @@ final class EdgeControlAppModel: ObservableObject {
     /// silence; if it was Active, this also restores cursor and haptic state.
     /// The intended gesture is continuous, so 750ms is deliberately much longer
     /// than normal frame gaps.
-    private func startTouchWatchdog() {
-        touchWatchdogTask?.cancel()
+    private func updateTouchWatchdog() {
+        guard settings.masterEnabled, hasLiveTouchContacts, !discardTouchFramesUntilLift else {
+            stopTouchWatchdog()
+            return
+        }
+        guard touchWatchdogTask == nil else { return }
         touchWatchdogTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 250_000_000)
                 guard !Task.isCancelled, let self else { return }
-                guard self.hasLiveTouchContacts || self.session != nil else { continue }
-
-                let silence = ProcessInfo.processInfo.systemUptime - self.lastTouchFrameUptime
-                if silence >= 0.750 {
-                    self.finishSession()
-                    self.hasLiveTouchContacts = false
-                    self.discardTouchFramesUntilLift = true
-                    self.gestureEngine = Self.makeGestureEngine(settings: self.settings)
-                    #if EDGE_DEBUG_LOGGING
-                    print("[EdgeControl][Trackpad] live touch reset after callback silence")
-                    #endif
-                }
+                self.checkTouchWatchdog()
             }
         }
+    }
+
+    private func stopTouchWatchdog() {
+        touchWatchdogTask?.cancel()
+        touchWatchdogTask = nil
+    }
+
+    // Uses the same monotonic clock as frame admission; callable without real
+    // hardware or wall-clock sleeps by lifecycle regression tests.
+    func checkTouchWatchdog() {
+        guard hasLiveTouchContacts || session != nil else { return }
+        let silence = inputNow() - lastTouchFrameUptime
+        guard silence >= 0.750 else { return }
+        finishSession()
+        hasLiveTouchContacts = false
+        discardTouchFramesUntilLift = true
+        gestureEngine = Self.makeGestureEngine(settings: settings)
+        stopTouchWatchdog()
+        #if EDGE_DEBUG_LOGGING
+        print("[EdgeControl][Trackpad] live touch reset after callback silence")
+        #endif
     }
 
     /// Debug-only: EDGE_HAPTIC_PATTERN_TEST=1 pulses the given actuator pattern
@@ -369,6 +384,7 @@ final class EdgeControlAppModel: ObservableObject {
 
     private func handleWake() {
         finishSession()
+        stopTouchWatchdog()
         hasLiveTouchContacts = false
         discardTouchFramesUntilLift = false
         gestureEngine = Self.makeGestureEngine(settings: settings)
@@ -399,16 +415,25 @@ final class EdgeControlAppModel: ObservableObject {
         return { [weak self] frame in
             guard mailbox.submit(frame) else { return }
             Task { @MainActor [weak self] in
+                var processed = 0
                 while let delivery = mailbox.next() {
                     guard let self else { return }
                     guard generation == self.frameGeneration else { continue }
                     self.consume(delivery.frame, generation: generation, discontinuity: delivery.discontinuity)
+                    processed += 1
+                    if processed == 8 {
+                        // A replenished mailbox must offer the main actor a
+                        // scheduling point for settings, HUD and cancellation.
+                        processed = 0
+                        await Task.yield()
+                    }
                 }
             }
         }
     }
 
     private func cancelTouchLifecycle(requireLift: Bool = false) {
+        stopTouchWatchdog()
         discardTouchFramesUntilLift = requireLift || discardTouchFramesUntilLift || hasLiveTouchContacts || session != nil
         finishSession()
         gestureEngine = Self.makeGestureEngine(settings: settings)
@@ -418,6 +443,7 @@ final class EdgeControlAppModel: ObservableObject {
     // Internal for deterministic lifecycle tests with injected hardware adapters.
     func consume(_ frame: TouchFrame, generation: UInt64, discontinuity: Bool = false) {
         guard generation == frameGeneration else { return }
+        defer { updateTouchWatchdog() }
         if discontinuity { cancelTouchLifecycle(requireLift: true) }
         let age = inputNow() - frame.receivedAtUptime
         guard age.isFinite, age >= 0, age <= Self.maximumFrameAge else {
@@ -445,8 +471,7 @@ final class EdgeControlAppModel: ObservableObject {
             return
         }
         // Do not query keyboard timing while the product master switch is off.
-        let blockNewGestureForRecentTyping = settings.masterEnabled
-            && !frame.contacts.isEmpty
+        let blockNewGestureForRecentTyping = !frame.contacts.isEmpty
             && gestureEngine.isAwaitingActivation
             && keyboardActivityGuard.shouldBlock(
                 for: settings.falseTouchProtection.typingSuppressionInterval
@@ -512,7 +537,7 @@ final class EdgeControlAppModel: ObservableObject {
             }
             _ = cursorController.freeze()
             showHUD(action: action, value: initialValue, message: nil)
-            lastError = nil
+            if lastError != nil { lastError = nil }
         } catch {
             showHUD(action: action, value: nil, message: error.localizedDescription)
             lastError = error.localizedDescription
@@ -563,7 +588,7 @@ final class EdgeControlAppModel: ObservableObject {
                 )
             }
             showHUD(action: session.action, value: target, message: nil)
-            lastError = nil
+            if lastError != nil { lastError = nil }
         } catch {
             showHUD(action: session.action, value: nil, message: error.localizedDescription)
             lastError = error.localizedDescription

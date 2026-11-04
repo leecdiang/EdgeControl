@@ -1,6 +1,7 @@
 import AppKit
 import CoreAudio
 import CoreGraphics
+import Combine
 import XCTest
 import SwiftUI
 @testable import EdgeControl
@@ -842,7 +843,7 @@ final class InputLifecycleTests: XCTestCase {
         TouchFrame(contacts: y.map { [TouchContact(id: 1, x: 0.001, y: $0, timestamp: timestamp, phase: .moved)] } ?? [],
                    timestamp: timestamp, receivedAtUptime: receipt)
     }
-    private func model() -> (EdgeControlAppModel, AppSettings, RecordingAudioTransport) {
+    private func model(now: @escaping () -> TimeInterval = { 10 }) -> (EdgeControlAppModel, AppSettings, RecordingAudioTransport) {
         let name = "EdgeControlTests.Input." + UUID().uuidString
         let defaults = UserDefaults(suiteName: name)!
         addTeardownBlock { defaults.removePersistentDomain(forName: name) }
@@ -853,7 +854,7 @@ final class InputLifecycleTests: XCTestCase {
             keyboardActivityGuard: RecentKeyboardActivityGuard { 999 },
             volumeController: VolumeController(transport: transport),
             cursorController: CursorController(associate: { _ in .success }),
-            updateController: UpdateController(startingUpdater: false), inputNow: { 10 })
+            updateController: UpdateController(startingUpdater: false), inputNow: now)
         return (model, settings, transport)
     }
     private func activate(_ model: EdgeControlAppModel) {
@@ -929,6 +930,74 @@ final class InputLifecycleTests: XCTestCase {
         model.consume(frame(0.56, timestamp: 1.04), generation: 0)
         XCTAssertFalse(model.isControlling); XCTAssertFalse(model.isCursorFrozen)
         XCTAssertTrue(transport.writes.isEmpty)
+    }
+    func testWatchdogOnlyRunsDuringLiveEnabledContacts() {
+        let (model, settings, _) = model()
+        defer { model.stop() }
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        model.consume(frame(nil), generation: 0)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        model.consume(frame(0.5), generation: 0)
+        XCTAssertTrue(model.isTouchWatchdogRunning, "Candidates also need disconnect protection")
+        model.consume(frame(nil), generation: 0)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        activate(model)
+        settings.masterEnabled = false
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        model.consume(frame(0.56, timestamp: 1.04), generation: 0)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        settings.masterEnabled = true
+        model.consume(frame(nil), generation: 0)
+        activate(model)
+        XCTAssertTrue(model.isTouchWatchdogRunning)
+        model.stop()
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+    }
+    func testWatchdogSilenceRestoresCursorAndRequiresFreshLift() {
+        var now = 10.0
+        let (model, _, transport) = model(now: { now })
+        defer { model.stop() }
+        activate(model)
+        now = 10.749
+        model.checkTouchWatchdog()
+        XCTAssertTrue(model.isControlling)
+        now = 10.750
+        model.checkTouchWatchdog()
+        XCTAssertFalse(model.isControlling)
+        XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        model.consume(frame(0.56, receipt: now, timestamp: 1.04), generation: 0)
+        XCTAssertTrue(transport.writes.isEmpty)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        model.consume(frame(nil, receipt: now), generation: 0)
+        model.consume(frame(0.5, receipt: now), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 1.02), generation: 0)
+        XCTAssertTrue(model.isControlling)
+        XCTAssertTrue(model.isTouchWatchdogRunning)
+    }
+    func testInvalidFrameAndAdmissionChangesCancelWatchdog() {
+        let (model, _, _) = model()
+        defer { model.stop() }
+        activate(model)
+        model.setLowerHalfOnly(true)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        model.consume(frame(nil), generation: 0)
+        activate(model)
+        model.consume(frame(0.56, receipt: 1), generation: 0)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+    }
+    func testSuccessfulMovementDoesNotPublishUnchangedNilError() {
+        let (model, _, transport) = model()
+        defer { model.stop() }
+        var notifications = 0
+        let subscription = model.$lastError.dropFirst().sink { _ in notifications += 1 }
+        defer { subscription.cancel() }
+        activate(model)
+        for i in 1...10 {
+            model.consume(frame(0.53 + Double(i) * 0.005, timestamp: 1.02 + Double(i) * 0.01), generation: 0)
+        }
+        XCTAssertFalse(transport.writes.isEmpty)
+        XCTAssertEqual(notifications, 0)
     }
     func testMailboxPreservesOrderAndSchedulesOneConsumer() {
         let mailbox = TouchFrameMailbox(capacity: 3)
@@ -1127,6 +1196,32 @@ final class FeedbackSettingsMigrationTests: XCTestCase {
 
 @MainActor
 final class NativeUISnapshotTests: XCTestCase {
+    func testHUDModeChangesPreserveHeldGestureUntilLift() async throws {
+        let controller = HUDController()
+        defer { controller.hideImmediately() }
+        controller.beginGesture()
+        let presentation = HUDPresentation(kind: .volume, value: 0.5, message: nil)
+        controller.show(presentation)
+        for mode in [HUDMode.notch, .off, .capsule] {
+            controller.setMode(mode)
+            controller.show(presentation)
+            try await Task.sleep(nanoseconds: 800_000_000)
+            XCTAssertEqual(controller.debugIsPresented, mode != .off,
+                           "Changing presentation must not end the input gesture")
+        }
+        controller.endGesture()
+        try await Task.sleep(nanoseconds: 750_000_000)
+        XCTAssertFalse(controller.debugIsPresented)
+    }
+
+    func testCapsuleWindowOrdersOutAfterShortFade() async throws {
+        let controller = HUDController()
+        defer { controller.hideImmediately() }
+        controller.show(HUDPresentation(kind: .volume, value: 0.5, message: nil))
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        XCTAssertEqual(controller.debugMetrics.dismissCount, 1)
+    }
+
     func testHUDValueBurstWaitsForInitialLayoutAndHideCancelsReveal() async throws {
         let controller = HUDController()
         defer { controller.hideImmediately() }

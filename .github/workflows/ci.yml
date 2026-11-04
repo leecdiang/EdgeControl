@@ -27,6 +27,9 @@ jobs:
       - name: Run unit tests
         run: ./Scripts/build_release.sh test
 
+      - name: Test DisplayServices symbol caching without hardware
+        run: bash Scripts/test_display_services_cache.sh
+
       - name: Validate update feeds with the pinned Sparkle parser
         run: bash Scripts/test_appcast.sh
 

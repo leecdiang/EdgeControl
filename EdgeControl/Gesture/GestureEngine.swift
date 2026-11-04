@@ -44,6 +44,7 @@ final class GestureEngine {
     let configuration: GestureConfiguration
     private(set) var state: State = .idle
     private var multiTouchLatched = false
+    private var lastFrameTimestamp: TimeInterval?
 
     init(configuration: GestureConfiguration = .default) {
         self.configuration = configuration
@@ -70,7 +71,8 @@ final class GestureEngine {
             $0.phase != .ended && $0.phase != .cancelled
         }
 
-        if !frame.timestamp.isFinite || liveContacts.contains(where: {
+        if !frame.timestamp.isFinite || (!liveContacts.isEmpty &&
+            lastFrameTimestamp.map { frame.timestamp < $0 } == true) || liveContacts.contains(where: {
             !$0.x.isFinite || !$0.y.isFinite || !$0.timestamp.isFinite
         }) {
             let events: [EdgeGestureEvent]
@@ -95,6 +97,7 @@ final class GestureEngine {
             debug(frame, note: wasCancelled ? "all contacts cancelled" : "all contacts lifted")
             return events
         }
+        lastFrameTimestamp = frame.timestamp
 
         if multiTouchLatched {
             state = .multiTouchRejected
@@ -197,7 +200,12 @@ final class GestureEngine {
             return []
         }
 
-        guard timestamp - candidate.birthTimestamp <= configuration.entryTimeout else {
+        let elapsed = timestamp - candidate.birthTimestamp
+        guard elapsed >= 0 else {
+            state = .rejected(.invalidInput)
+            return []
+        }
+        guard elapsed <= configuration.entryTimeout else {
             state = .rejected(.entryTimedOut)
             return []
         }
@@ -324,6 +332,7 @@ final class GestureEngine {
     }
 
     private func resetAfterAllContactsLifted() {
+        lastFrameTimestamp = nil
         multiTouchLatched = false
         state = .idle
     }
