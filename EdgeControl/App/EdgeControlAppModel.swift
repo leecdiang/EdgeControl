@@ -44,6 +44,7 @@ final class EdgeControlAppModel: ObservableObject {
     private var lastTouchFrameUptime = ProcessInfo.processInfo.systemUptime
     private var hasLiveTouchContacts = false
     private var discardTouchFramesUntilLift = false
+    private var touchAdmissionUptime: TimeInterval = -.infinity
     private var touchWatchdogTask: Task<Void, Never>?
     private var frameGeneration: UInt64 = 0
     private let inputNow: () -> TimeInterval
@@ -86,20 +87,22 @@ final class EdgeControlAppModel: ObservableObject {
             .store(in: &settingsCancellables)
         // Published sends before assignment. Use each incoming value directly,
         // and perform teardown synchronously rather than waiting for movement.
-        settings.$masterEnabled.dropFirst().removeDuplicates().sink { [weak self] enabled in
-            if !enabled { self?.cancelTouchLifecycle() }
+        settings.$masterEnabled.removeDuplicates().dropFirst().sink { [weak self] _ in
+            // Also fence re-enablement: queued births received while disabled
+            // must not become eligible merely because their drain runs later.
+            self?.invalidateTouchAdmission()
         }.store(in: &settingsCancellables)
         settings.$volumeEnabled.dropFirst().removeDuplicates().sink { [weak self] enabled in
-            if !enabled && self?.session?.action == .volume { self?.cancelTouchLifecycle() }
+            if !enabled && self?.session?.action == .volume { self?.invalidateTouchAdmission() }
         }.store(in: &settingsCancellables)
         settings.$brightnessEnabled.dropFirst().removeDuplicates().sink { [weak self] enabled in
-            if !enabled && self?.session?.action == .brightness { self?.cancelTouchLifecycle() }
+            if !enabled && self?.session?.action == .brightness { self?.invalidateTouchAdmission() }
         }.store(in: &settingsCancellables)
         settings.$leftEdgeAction.dropFirst().removeDuplicates().sink { [weak self] _ in
-            if self?.session?.edge == .left { self?.cancelTouchLifecycle() }
+            if self?.session?.edge == .left { self?.invalidateTouchAdmission() }
         }.store(in: &settingsCancellables)
         settings.$rightEdgeAction.dropFirst().removeDuplicates().sink { [weak self] _ in
-            if self?.session?.edge == .right { self?.cancelTouchLifecycle() }
+            if self?.session?.edge == .right { self?.invalidateTouchAdmission() }
         }.store(in: &settingsCancellables)
         settings.$hapticFeedback.dropFirst().removeDuplicates().sink { [weak self] enabled in
             if !enabled { self?.hapticEngine.endGesture() }
@@ -197,6 +200,7 @@ final class EdgeControlAppModel: ObservableObject {
     }
 
     private func rebuildGestureEngineAfterAdmissionChange() {
+        touchAdmissionUptime = inputNow()
         finishSession()
         stopTouchWatchdog()
         // Rebuilding while a finger is down must never reinterpret that
@@ -415,21 +419,16 @@ final class EdgeControlAppModel: ObservableObject {
         return { [weak self] frame in
             guard mailbox.submit(frame) else { return }
             Task { @MainActor [weak self] in
-                var processed = 0
-                while let delivery = mailbox.next() {
-                    guard let self else { return }
-                    guard generation == self.frameGeneration else { continue }
-                    self.consume(delivery.frame, generation: generation, discontinuity: delivery.discontinuity)
-                    processed += 1
-                    if processed == 8 {
-                        // A replenished mailbox must offer the main actor a
-                        // scheduling point for settings, HUD and cancellation.
-                        processed = 0
-                        await Task.yield()
-                    }
+                await mailbox.drain { [weak self] delivery in
+                    self?.consume(delivery.frame, generation: generation, discontinuity: delivery.discontinuity)
                 }
             }
         }
+    }
+
+    private func invalidateTouchAdmission() {
+        touchAdmissionUptime = inputNow()
+        cancelTouchLifecycle()
     }
 
     private func cancelTouchLifecycle(requireLift: Bool = false) {
@@ -450,6 +449,18 @@ final class EdgeControlAppModel: ObservableObject {
             cancelTouchLifecycle(requireLift: true)
             hasLiveTouchContacts = false
             return
+        }
+        guard frame.receivedAtUptime >= touchAdmissionUptime else {
+            // Even a recent empty frame from before the settings change is
+            // not evidence of a lift in the new admission epoch.
+            if !frame.contacts.isEmpty { cancelTouchLifecycle(requireLift: true) }
+            return
+        }
+        if (hasLiveTouchContacts || session != nil),
+           frame.receivedAtUptime - lastTouchFrameUptime >= 0.750 {
+            // The main actor may run this fresh callback before its delayed
+            // watchdog. Detect the gap before replacing the previous receipt.
+            checkTouchWatchdog()
         }
         lastTouchFrameUptime = frame.receivedAtUptime
 

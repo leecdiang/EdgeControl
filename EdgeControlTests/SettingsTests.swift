@@ -975,6 +975,193 @@ final class InputLifecycleTests: XCTestCase {
         XCTAssertTrue(model.isControlling)
         XCTAssertTrue(model.isTouchWatchdogRunning)
     }
+    func testFreshResumedFrameCannotHideSilenceBeforeWatchdogRuns() {
+        var now = 10.0
+        let (model, _, transport) = model(now: { now })
+        defer { model.stop() }
+        activate(model)
+        // The main actor has not run its watchdog yet. This receipt is fresh,
+        // but the previous contact has been silent for more than 750 ms.
+        now = 10.8
+        model.consume(frame(0.56, receipt: now, timestamp: 1.8), generation: 0)
+        XCTAssertFalse(model.isControlling)
+        XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertTrue(transport.writes.isEmpty)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        model.consume(frame(nil, receipt: now, timestamp: 1.81), generation: 0)
+        model.consume(frame(0.5, receipt: now, timestamp: 1.82), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 1.84), generation: 0)
+        XCTAssertTrue(model.isControlling)
+    }
+    func testQueuedBirthDuringMasterOffCannotActivateAfterReenable() {
+        var now = 10.0
+        let (model, settings, transport) = model(now: { now })
+        defer { model.stop() }
+        settings.masterEnabled = false
+        now = 10.05
+        settings.masterEnabled = true
+        model.consume(frame(0.5, receipt: 10.01, timestamp: 1), generation: 0)
+        model.consume(frame(0.53, receipt: 10.02, timestamp: 1.02), generation: 0)
+        XCTAssertFalse(model.isControlling)
+        model.consume(frame(0.56, receipt: now, timestamp: 1.04), generation: 0)
+        XCTAssertTrue(transport.writes.isEmpty)
+        // A recent but pre-toggle lift must not clear the new admission latch.
+        model.consume(frame(nil, receipt: 10.03, timestamp: 1.05), generation: 0)
+        model.consume(frame(0.5, receipt: now, timestamp: 1.06), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 1.08), generation: 0)
+        XCTAssertFalse(model.isControlling)
+        model.consume(frame(nil, receipt: now, timestamp: 1.09), generation: 0)
+        model.consume(frame(0.5, receipt: now, timestamp: 1.10), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 1.12), generation: 0)
+        XCTAssertTrue(model.isControlling)
+    }
+    func testIdleReenableAllowsFreshBirthAndDuplicateSettingKeepsSession() {
+        var now = 10.0
+        let (model, settings, _) = model(now: { now })
+        defer { model.stop() }
+        settings.masterEnabled = false
+        now = 10.01
+        settings.masterEnabled = true
+        model.consume(frame(0.5, receipt: now), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 1.02), generation: 0)
+        XCTAssertTrue(model.isControlling)
+        now = 10.02
+        settings.masterEnabled = true
+        XCTAssertTrue(model.isControlling)
+        XCTAssertTrue(model.isTouchWatchdogRunning)
+    }
+    func testCancelledWatchdogCannotTearDownRearmedLifecycle() async throws {
+        var now = 10.0
+        let (model, _, _) = model(now: { now })
+        defer { model.stop() }
+        activate(model)
+        model.consume(frame(nil), generation: 0)
+        now = 11
+        model.consume(frame(0.5, receipt: now, timestamp: 2), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 2.02), generation: 0)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertTrue(model.isControlling)
+        XCTAssertTrue(model.isTouchWatchdogRunning)
+        now = 11.8
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertFalse(model.isControlling)
+        XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+    }
+
+    private func queuedGesture() -> TouchFrameMailbox {
+        let mailbox = TouchFrameMailbox()
+        _ = mailbox.submit(frame(0.5, timestamp: 1))
+        _ = mailbox.submit(frame(0.53, timestamp: 1.01))
+        for i in 2...14 {
+            _ = mailbox.submit(frame(0.53 + Double(i - 1) * 0.001, timestamp: 1 + Double(i) * 0.01))
+        }
+        _ = mailbox.submit(frame(nil, timestamp: 1.15))
+        return mailbox
+    }
+    func testBatchDrainPreservesFIFOAndDeliversLift() async {
+        let (model, _, transport) = model()
+        defer { model.stop() }
+        let mailbox = queuedGesture()
+        var timestamps: [Double] = []
+        var batches = 0
+        await mailbox.drain(consume: { delivery in
+            timestamps.append(delivery.frame.timestamp)
+            model.consume(delivery.frame, generation: 0, discontinuity: delivery.discontinuity)
+        }, betweenBatches: {
+            batches += 1
+            XCTAssertEqual(model.isControlling, batches == 1)
+            await Task.yield()
+        })
+        XCTAssertEqual(batches, 2)
+        XCTAssertEqual(timestamps.count, 16)
+        XCTAssertEqual(timestamps, timestamps.sorted())
+        let rightChannel = transport.writes.filter { $0.0 == 2 }.map { $0.1 }
+        XCTAssertEqual(rightChannel.count, 13)
+        XCTAssertEqual(rightChannel, rightChannel.sorted())
+        XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+        XCTAssertTrue(mailbox.submit(frame(nil)), "An empty drain relinquishes its scheduling token")
+    }
+    func testStopAtBatchBoundaryDiscardsRemainingGeneration() async {
+        let (model, _, transport) = model()
+        let mailbox = queuedGesture()
+        await mailbox.drain(consume: { model.consume($0.frame, generation: 0, discontinuity: $0.discontinuity) },
+                            betweenBatches: { model.stop() })
+        XCTAssertEqual(transport.writes.count, 12)
+        XCTAssertFalse(model.isControlling)
+        XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+    }
+    func testMainActorDelayAtBatchBoundaryRejectsQueuedLiftAndMovement() async {
+        var now = 10.0
+        let (model, _, transport) = model(now: { now })
+        defer { model.stop() }
+        let mailbox = queuedGesture()
+        await mailbox.drain(consume: { model.consume($0.frame, generation: 0, discontinuity: $0.discontinuity) },
+                            betweenBatches: { now = 10.3 })
+        XCTAssertEqual(transport.writes.count, 12)
+        XCTAssertFalse(model.isControlling)
+        XCTAssertFalse(model.isCursorFrozen)
+        model.consume(frame(0.5, receipt: now, timestamp: 2), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 2.02), generation: 0)
+        XCTAssertFalse(model.isControlling, "The stale queued lift cannot clear the latch")
+        model.consume(frame(nil, receipt: now, timestamp: 2.03), generation: 0)
+        model.consume(frame(0.5, receipt: now, timestamp: 2.04), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 2.06), generation: 0)
+        XCTAssertTrue(model.isControlling)
+    }
+    func testMasterToggleAtBatchBoundaryFencesQueuedFrames() async {
+        var now = 10.0
+        let (model, settings, transport) = model(now: { now })
+        defer { model.stop() }
+        let mailbox = queuedGesture()
+        var batches = 0
+        await mailbox.drain(consume: { model.consume($0.frame, generation: 0, discontinuity: $0.discontinuity) },
+                            betweenBatches: {
+            batches += 1
+            if batches == 1 {
+                now = 10.01; settings.masterEnabled = false
+                now = 10.02; settings.masterEnabled = true
+            }
+        })
+        XCTAssertEqual(transport.writes.count, 12)
+        XCTAssertFalse(model.isControlling)
+        model.consume(frame(0.5, receipt: now, timestamp: 2), generation: 0)
+        model.consume(frame(0.53, receipt: now, timestamp: 2.02), generation: 0)
+        XCTAssertFalse(model.isControlling, "The queued pre-toggle lift cannot reopen admission")
+    }
+    func testOverflowWhileDrainYieldsCancelsAndRecoversOnlyAfterLift() async {
+        let (model, _, transport) = model()
+        defer { model.stop() }
+        let mailbox = queuedGesture()
+        var injected = false
+        var discontinuities = 0
+        await mailbox.drain(consume: { delivery in
+            if delivery.discontinuity { discontinuities += 1 }
+            model.consume(delivery.frame, generation: 0, discontinuity: delivery.discontinuity)
+            if delivery.frame.timestamp == 3.03 {
+                XCTAssertTrue(model.isControlling, "A fresh lift and birth must restore admission")
+                XCTAssertTrue(model.isCursorFrozen)
+            }
+        }, betweenBatches: {
+            guard !injected else { return }
+            injected = true
+            for i in 0..<40 {
+                XCTAssertFalse(mailbox.submit(frame(0.56, timestamp: 2 + Double(i) * 0.01)),
+                               "Yielding must not let a producer schedule a second consumer")
+            }
+            _ = mailbox.submit(frame(nil, timestamp: 3))
+            _ = mailbox.submit(frame(0.5, timestamp: 3.01))
+            _ = mailbox.submit(frame(0.53, timestamp: 3.03))
+            _ = mailbox.submit(frame(nil, timestamp: 3.04))
+        })
+        XCTAssertEqual(discontinuities, 1)
+        XCTAssertEqual(transport.writes.count, 12, "Overflowed movement must not replay")
+        XCTAssertFalse(model.isControlling)
+        XCTAssertFalse(model.isCursorFrozen)
+        XCTAssertFalse(model.isTouchWatchdogRunning)
+    }
     func testInvalidFrameAndAdmissionChangesCancelWatchdog() {
         let (model, _, _) = model()
         defer { model.stop() }
@@ -1196,6 +1383,32 @@ final class FeedbackSettingsMigrationTests: XCTestCase {
 
 @MainActor
 final class NativeUISnapshotTests: XCTestCase {
+    func testModeOffDuringRevealCannotResurrectHUD() async throws {
+        let controller = HUDController()
+        defer { controller.hideImmediately() }
+        controller.beginGesture()
+        controller.show(HUDPresentation(kind: .volume, value: 0.5, message: nil))
+        controller.setMode(.off)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertFalse(controller.debugIsPresented)
+        controller.setMode(.notch)
+        controller.show(HUDPresentation(kind: .volume, value: 0.6, message: nil))
+        try await Task.sleep(nanoseconds: 800_000_000)
+        XCTAssertTrue(controller.debugIsPresented)
+    }
+    func testErrorToHeldValueCancelsOldDismissal() async throws {
+        let controller = HUDController()
+        defer { controller.hideImmediately() }
+        controller.setMode(.notch)
+        controller.show(HUDPresentation(kind: .volume, value: nil, message: "Unavailable"))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        controller.beginGesture()
+        controller.show(HUDPresentation(kind: .volume, value: 0.5, message: nil))
+        try await Task.sleep(nanoseconds: 1_800_000_000)
+        XCTAssertTrue(controller.debugIsPresented)
+        XCTAssertEqual(controller.debugMetrics.dismissCount, 0)
+        XCTAssertEqual(controller.debugMetrics.orderFrontCount, 1)
+    }
     func testHUDModeChangesPreserveHeldGestureUntilLift() async throws {
         let controller = HUDController()
         defer { controller.hideImmediately() }

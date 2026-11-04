@@ -35,7 +35,7 @@ static void *fake_dlopen(const char *path, int flags) {
 static void *fake_dlsym(void *handle, const char *name) {
     assert(handle == &token);
     symbols++;
-    if (strcmp(name, "DisplayServicesGetBrightness") == 0) return (void *)fake_get;
+    if (strcmp(name, "DisplayServicesGetBrightness") == 0) return loader_mode == 2 ? NULL : (void *)fake_get;
     assert(strcmp(name, "DisplayServicesSetBrightness") == 0);
     return loader_mode == 1 ? NULL : (void *)fake_set;
 }
@@ -57,19 +57,31 @@ static void *exercise(void *context) {
     }
     return NULL;
 }
+static void *exercise_unavailable(void *context) {
+    (void)context;
+    for (int i = 0; i < 50; i++) assert(!ec_display_services_is_available());
+    return NULL;
+}
 int main(void) {
     assert(!ec_display_services_get_brightness(42, NULL));
     assert(opens == 0);
     assert(!ec_display_services_is_available());
     assert(opens == 1 && closes == 0);
+    pthread_t unavailable[8];
+    for (int i = 0; i < 8; i++) assert(pthread_create(&unavailable[i], NULL, exercise_unavailable, NULL) == 0);
+    for (int i = 0; i < 8; i++) assert(pthread_join(unavailable[i], NULL) == 0);
+    assert(opens == 401 && symbols == 0 && closes == 0);
     loader_mode = 1;
     assert(!ec_display_services_is_available());
-    assert(opens == 2 && symbols == 2 && closes == 1);
+    assert(opens == 402 && symbols == 2 && closes == 1);
     loader_mode = 2;
+    assert(!ec_display_services_is_available());
+    assert(opens == 403 && symbols == 4 && closes == 2);
+    loader_mode = 3;
     pthread_t threads[16];
     for (int i = 0; i < 16; i++) assert(pthread_create(&threads[i], NULL, exercise, NULL) == 0);
     for (int i = 0; i < 16; i++) assert(pthread_join(threads[i], NULL) == 0);
-    assert(opens == 3 && symbols == 4 && closes == 1);
-    puts("DisplayServices cache: failed loads retry, successful load is shared, I/O errors propagate (16 threads x 100 iterations).");
+    assert(opens == 404 && symbols == 6 && closes == 2);
+    puts("DisplayServices cache: concurrent failure retry (8 x 50), missing getter/setter recovery, shared success and I/O errors (16 x 100).");
     return 0;
 }
