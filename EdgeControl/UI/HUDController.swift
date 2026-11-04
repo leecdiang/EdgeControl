@@ -188,7 +188,13 @@ final class HUDController {
 
     func setMode(_ mode: HUDMode) {
         guard self.mode != mode else { return }
+        // A visual preference change does not end the physical gesture. Keep
+        // its screen pin even through Off; the next value remains held on it.
+        let gestureActive = isGestureActive
+        let screenID = pinnedScreenID
         hideImmediately()
+        isGestureActive = gestureActive
+        pinnedScreenID = screenID
         self.mode = mode
     }
 
@@ -342,7 +348,10 @@ final class HUDController {
             do {
                 // Let the critically damped outline settle before removing its
                 // window. A new value cancels this wait and reverses in place.
-                try await Task.sleep(nanoseconds: 650_000_000)
+                let settlingTime: UInt64 = self.viewModel.cutoutHeight > 0
+                    && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                    ? 650_000_000 : 160_000_000
+                try await Task.sleep(nanoseconds: settlingTime)
             } catch {
                 return
             }
@@ -652,10 +661,8 @@ private struct EdgeHUDGlassModifier: ViewModifier {
 private final class CapsuleVisualEffectView: NSVisualEffectView {
     override func layout() {
         super.layout()
-        wantsLayer = true
-        layer?.cornerCurve = .continuous
-        layer?.cornerRadius = bounds.height / 2
-        layer?.masksToBounds = true
+        let radius = bounds.height / 2
+        if layer?.cornerRadius != radius { layer?.cornerRadius = radius }
     }
 }
 
@@ -666,15 +673,14 @@ private struct CapsuleVisualEffect: NSViewRepresentable {
         view.blendingMode = .behindWindow
         view.state = .active
         view.wantsLayer = true
+        view.layer?.cornerCurve = .continuous
         view.layer?.masksToBounds = true
         return view
     }
 
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = .hudWindow
-        nsView.blendingMode = .behindWindow
-        nsView.state = .active
-        nsView.needsLayout = true
+        // Material is constant. AppKit lays out bounds changes itself; a new
+        // percentage must not invalidate the blur's geometry on every frame.
     }
 }
 

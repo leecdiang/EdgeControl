@@ -584,46 +584,53 @@ typedef int32_t (*ECDisplaySetBrightnessFn)(uint32_t display_id, float brightnes
 static const char *kECDisplayServicesPath =
     "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices";
 
-static void *ec_display_services_open(void) {
-    return dlopen(kECDisplayServicesPath, RTLD_LAZY | RTLD_LOCAL);
+typedef struct {
+    void *framework;
+    ECDisplayGetBrightnessFn get;
+    ECDisplaySetBrightnessFn set;
+} ECDisplayServices;
+
+static pthread_mutex_t g_display_services_lock = PTHREAD_MUTEX_INITIALIZER;
+static ECDisplayServices g_display_services = {0};
+
+static ECDisplayServices ec_display_services_resolve(void) {
+    pthread_mutex_lock(&g_display_services_lock);
+    if (g_display_services.framework == NULL) {
+        void *framework = dlopen(kECDisplayServicesPath, RTLD_LAZY | RTLD_LOCAL);
+        if (framework != NULL) {
+            ECDisplayGetBrightnessFn get = (ECDisplayGetBrightnessFn)dlsym(framework, "DisplayServicesGetBrightness");
+            ECDisplaySetBrightnessFn set = (ECDisplaySetBrightnessFn)dlsym(framework, "DisplayServicesSetBrightness");
+            if (get != NULL && set != NULL) {
+                // Retain successful symbols for process lifetime. These are
+                // framework entry points, not display handles: hotplug and wake
+                // still use the caller's display ID and actual OS return code.
+                g_display_services = (ECDisplayServices){framework, get, set};
+            } else {
+                dlclose(framework);
+            }
+        }
+        // Do not cache failure; a later gesture may retry discovery.
+    }
+    ECDisplayServices services = g_display_services;
+    pthread_mutex_unlock(&g_display_services_lock);
+    return services;
 }
 
 bool ec_display_services_is_available(void) {
-    void *framework = ec_display_services_open();
-    if (framework == NULL) {
-        return false;
-    }
-    bool available = dlsym(framework, "DisplayServicesGetBrightness") != NULL &&
-        dlsym(framework, "DisplayServicesSetBrightness") != NULL;
-    dlclose(framework);
-    return available;
+    return ec_display_services_resolve().framework != NULL;
 }
 
 bool ec_display_services_get_brightness(uint32_t display_id, float *brightness) {
     if (brightness == NULL) {
         return false;
     }
-    void *framework = ec_display_services_open();
-    if (framework == NULL) {
-        return false;
-    }
-    ECDisplayGetBrightnessFn get_brightness =
-        (ECDisplayGetBrightnessFn)dlsym(framework, "DisplayServicesGetBrightness");
-    bool succeeded = get_brightness != NULL && get_brightness(display_id, brightness) == 0;
-    dlclose(framework);
-    return succeeded;
+    ECDisplayServices services = ec_display_services_resolve();
+    return services.get != NULL && services.get(display_id, brightness) == 0;
 }
 
 bool ec_display_services_set_brightness(uint32_t display_id, float brightness) {
-    void *framework = ec_display_services_open();
-    if (framework == NULL) {
-        return false;
-    }
-    ECDisplaySetBrightnessFn set_brightness =
-        (ECDisplaySetBrightnessFn)dlsym(framework, "DisplayServicesSetBrightness");
-    bool succeeded = set_brightness != NULL && set_brightness(display_id, brightness) == 0;
-    dlclose(framework);
-    return succeeded;
+    ECDisplayServices services = ec_display_services_resolve();
+    return services.set != NULL && services.set(display_id, brightness) == 0;
 }
 
 // MARK: - DDC/CI VCP 0x10

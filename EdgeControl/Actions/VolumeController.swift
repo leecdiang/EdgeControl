@@ -229,13 +229,9 @@ final class CoreAudioVolumeTransport: AudioVolumeTransport {
     }
 
     func volumeElements(on device: AudioDeviceID, requireSettable: Bool) -> [AudioObjectPropertyElement] {
-        for element in candidateElements(on: device) {
-            var address = propertyAddress(selector: kAudioDevicePropertyVolumeScalar, element: element)
-            if AudioObjectHasProperty(device, &address) && (!requireSettable || isSettable(device: device, address: &address)) {
-                if element == kAudioObjectPropertyElementMain {
-                    return [element]
-                }
-            }
+        var master = propertyAddress(selector: kAudioDevicePropertyVolumeScalar, element: kAudioObjectPropertyElementMain)
+        if AudioObjectHasProperty(device, &master) && (!requireSettable || isSettable(device: device, address: &master)) {
+            return [kAudioObjectPropertyElementMain]
         }
 
         return [1, 2].filter { element in

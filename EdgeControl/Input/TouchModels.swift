@@ -72,4 +72,22 @@ final class TouchFrameMailbox: @unchecked Sendable {
         discontinuity = false
         return result
     }
+
+    /// Called by the single consumer scheduled by submit. Keep ownership while
+    /// yielding: producers may append, but must not start a second drain.
+    /// The boundary is injectable so tests can exercise settings changes and
+    /// overflow at the exact suspension point without relying on task priority.
+    @MainActor
+    func drain(consume: (Delivery) -> Void,
+               betweenBatches: () async -> Void = { await Task.yield() }) async {
+        var processed = 0
+        while let delivery = next() {
+            consume(delivery)
+            processed += 1
+            if processed == 8 {
+                processed = 0
+                await betweenBatches()
+            }
+        }
+    }
 }

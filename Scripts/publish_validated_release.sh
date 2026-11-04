@@ -2,14 +2,14 @@
 # Run from a normal local terminal with the existing Sparkle signing key.
 # No private key is exported, uploaded, or written to a file.
 set -euo pipefail
-[[ $# == 3 ]] || { echo "Usage: $0 successful-ci-run-id /path/to/Sparkle/bin/sign_update expected-commit-sha" >&2; exit 2; }
+[[ $# == 3 || ( $# == 4 && "$4" == --publish-only ) ]] || { echo "Usage: $0 successful-ci-run-id /path/to/Sparkle/bin/sign_update expected-commit-sha [--publish-only]" >&2; exit 2; }
 run_id="$1"
 signer="$2"
 expected_commit="$3"
 [[ "$run_id" =~ ^[0-9]+$ && -x "$signer" && "$expected_commit" =~ ^[0-9a-f]{40}$ ]] || exit 2
 repo="leecdiang/EdgeControl"
-version="1.8.5"
-build="19"
+version="1.8.6"
+build="20"
 tag="v$version"
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 project_root="$(cd "$script_dir/.." && pwd)"
@@ -52,12 +52,13 @@ archive="$release_dir/assets/EdgeControl-$version-macOS.zip"
 # Fail before creating/publishing a release if the original Keychain key is unavailable.
 signature="$("$signer" -p "$archive")"
 public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app/Contents/Info.plist")"
+[[ "$public_key" == "$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' /Applications/EdgeControl.app/Contents/Info.plist)" ]]
 xcrun swift -sdk "$(xcrun --show-sdk-path)" -module-cache-path "$release_dir/module-cache" "$script_dir/verify_update.swift" "$archive" "$public_key" "$signature"
 mkdir "$release_dir/previous"
-gh release download v1.8.4 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
+gh release download v1.8.5 --repo "$repo" --pattern appcast.xml --dir "$release_dir/previous"
 python3 "$script_dir/appcast.py" "$release_dir/previous/appcast.xml" "$release_dir/assets/appcast.xml" \
   --version "$version" --build "$build" --archive "$archive" --signature "$signature" \
-  --description 'Two-edge gesture artwork and a continuous, reversible notch animation that stays visible until finger lift.'
+  --description 'Less repeated input, display and HUD work; safer callback-gap and queued-touch recovery; active gestures survive HUD mode changes.'
 sparkle_root="$(cd "$(dirname "$signer")/.." && pwd)"
 bash "$script_dir/validate_appcast.sh" "$release_dir/assets/appcast.xml" "$build" \
   "$sparkle_root/Sparkle.xcframework/macos-arm64_x86_64"
@@ -79,5 +80,7 @@ gh release download "$tag" --repo "$repo" --dir "$release_dir/downloaded"
 (cd "$release_dir/downloaded" && shasum -a 256 -c "$release_dir/SHA256SUMS")
 gh release edit "$tag" --repo "$repo" --draft=false --latest
 # Installation can be retried independently without recreating the release.
-bash "$script_dir/install_validated_release.sh" "$release_dir"
-echo "Published $tag and installed $version ($build). Evidence: $release_dir"
+if [[ "${4:-}" != --publish-only ]]; then
+    bash "$script_dir/install_validated_release.sh" "$release_dir"
+fi
+echo "Published $tag. Installation is separate with --publish-only. Evidence: $release_dir"
